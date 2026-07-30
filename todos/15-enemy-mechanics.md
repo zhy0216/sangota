@@ -153,7 +153,7 @@ export interface EncounterTable {
    （现有值 212-322），所以立绘导出至少 2.5 倍于那个数。
    另外 `src/ui/spriteBounds.ts` 的 alpha 边界测量会自动处理去背留白，
    新素材只要保证是干净的 cut-out。
-8. 平衡：每加一个敌人就跑 [25 无头模拟](25-headless-sim-and-tests.md)，
+8. 平衡：每加一个敌人就跑 [25 无头模拟](25-headless-sim-and-tests-done.md)，
    目标是普通战 95%+ 胜率、精英 85-95%、Boss 45-70%（参考 README 现有基线）。
 
 ## 验收标准
@@ -178,4 +178,4 @@ export interface EncounterTable {
 - [13 关键词](13-card-keywords.md)——`addCards` 的底层实现
 - [16 意图系统](16-intent-system.md)——新意图类型（召唤、逃跑、未知、睡眠）的显示
 - [09 多幕](09-acts-and-progression.md)——二三幕敌人的归属
-- [25 无头模拟](25-headless-sim-and-tests.md)——每个新机制都要能在无头环境跑通
+- [25 无头模拟](25-headless-sim-and-tests-done.md)——每个新机制都要能在无头环境跑通

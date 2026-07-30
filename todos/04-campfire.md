@@ -96,7 +96,7 @@ export interface RunState {
    `this.scene.start('Room', { node })`，删掉自动 `heal`。
 3. `src/rooms/campfire.ts`：定义 `CAMPFIRE_OPTIONS`，实现每个选项的
    `apply(run)`（rest 调 `heal`，smith 跳二级选牌，dig 调 `addRelic` 等）。
-4. 锻造/弃甲的**选牌二级界面**：复用 [07 牌堆查看器](07-deck-viewer.md) 的网格，
+4. 锻造/弃甲的**选牌二级界面**：复用 [07 牌堆查看器](07-deck-viewer-done.md) 的网格，
    加 `mode: 'pick'`，点一张后出「精进这张？」确认（防误点，原版也有确认）。
    锻造时卡面要**实时预览升级后的数值**——玩家得看到 6→9 才好决策。
 5. 选完执行、播效果（回血：金光 + HP 条爬升 + 数字；锻造：卡片金光炸开），
@@ -118,7 +118,7 @@ export interface RunState {
 ## 依赖
 
 - [03 卡牌升级](03-card-upgrades-done.md)——锻造的实际内容
-- [07 牌堆查看器](07-deck-viewer.md)——选牌 UI
+- [07 牌堆查看器](07-deck-viewer-done.md)——选牌 UI
 - 弱依赖 [01 遗物](01-relics.md)（掘藏/弃甲/举鼎的解锁条件）
 - **产出被复用**：`RoomScene` 壳是 [05 商店](05-shop.md) 和
   [06 事件](06-events.md) 的基础

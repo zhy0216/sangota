@@ -209,4 +209,4 @@ export interface CardViewOptions {
 - [16 意图系统](16-intent-system.md)——意图 tooltip
 - [21 设置](21-settings.md)——共用 `KeyAction` 定义和确认提示开关，
   建议一起做
-- 弱依赖 [07 牌堆查看器](07-deck-viewer.md)（overlay 栈的管理）
+- 弱依赖 [07 牌堆查看器](07-deck-viewer-done.md)（overlay 栈的管理）

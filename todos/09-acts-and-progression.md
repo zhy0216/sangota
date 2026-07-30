@@ -52,7 +52,7 @@ README 明确写了：「One act, one hero. Beating 吕布 ends the map with not
 考虑降到 70 HP 左右，或者把第一幕精英换成新做的敌人。
 README 记的平衡数据（贪心 41% / 威胁感知 71% 打吕布）是拿**第一幕
 末期的牌组**测的，如果吕布挪到第二幕，胜率会显著上升——需要重新跑
-[25 无头模拟](25-headless-sim-and-tests.md)。
+[25 无头模拟](25-headless-sim-and-tests-done.md)。
 
 ## 数据结构
 
@@ -150,5 +150,5 @@ export interface RunState {
 - [15 敌人机制与敌人库](15-enemy-mechanics.md)——第二三幕的内容主体
 - [10 遗物奖励](10-relic-rewards.md)——Boss 宝箱
 - [22 结算界面](22-run-summary.md)——真结局
-- [25 无头模拟](25-headless-sim-and-tests.md)——三幕难度曲线必须靠模拟标定，
+- [25 无头模拟](25-headless-sim-and-tests-done.md)——三幕难度曲线必须靠模拟标定，
   手调三幕的数值不可能对

@@ -121,7 +121,7 @@ export interface RunState {
    - 下方选项按钮竖排，每个下面一行灰字 `hint`
    - 不满足 `requires` 的选项压暗 + 显示 `requiresText`
    - 选完 → 选项区淡出，换成 `outcome.text` + 实际数值 → 「继续」按钮
-4. 选牌类结果（`removeCards` / `upgradeCards`）跳 [07](07-deck-viewer.md) 的 pick 模式。
+4. 选牌类结果（`removeCards` / `upgradeCards`）跳 [07](07-deck-viewer-done.md) 的 pick 模式。
 5. `fight` 结果：`scene.start('Combat', { nodeType: outcome.fight.tier, fromEvent: eventId,
    rewardRelic })`。`CombatScene` 结算时若有 `rewardRelic` 就额外给。
 6. `MapScene.enterRoom`：`case 'event': this.scene.start('Room', { node })`。
@@ -145,4 +145,4 @@ export interface RunState {
 - [01 遗物](01-relics.md) / [02 药水](02-potions.md) / [03 升级](03-card-upgrades-done.md)
   ——`EventOutcome` 的几个字段需要它们存在（可以先做没有这些字段的事件）
 - [14 诅咒](14-curses-and-status-cards.md)——黄金台/醉酒张飞的代价
-- [07 牌堆查看器](07-deck-viewer.md)——选牌类结果
+- [07 牌堆查看器](07-deck-viewer-done.md)——选牌类结果

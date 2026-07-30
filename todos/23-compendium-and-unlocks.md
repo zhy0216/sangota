@@ -154,7 +154,7 @@ export interface CustomRunConfig {
    「有新卷可阅」提示，点进去三张牌横排选一。
 6. **典籍界面** `src/scenes/CompendiumScene.ts`：
    - 三个 tab：牌卷 / 宝卷 / 敌卷
-   - 牌卷：复用 [07 牌堆查看器](07-deck-viewer.md) 的网格，
+   - 牌卷：复用 [07 牌堆查看器](07-deck-viewer-done.md) 的网格，
      加筛选栏（武将 / 类型 / 费用 / 稀有度）和「显示升级态」开关。
      未解锁的显示为剪影 + 「未获」
    - 宝卷：图标网格 + 说明 + 档位
@@ -189,7 +189,7 @@ export interface CustomRunConfig {
 ## 依赖
 
 - [22 结算与统计](22-run-summary.md)——**强依赖**，解锁进度来自局末分数
-- [07 牌堆查看器](07-deck-viewer.md)——牌卷的网格
+- [07 牌堆查看器](07-deck-viewer-done.md)——牌卷的网格
 - [17 多武将](17-multiple-heroes.md)——武将解锁的对象
 - [19 天命](19-ascension.md)——难度进度与解锁并列显示
 - 过滤点分别依赖 05 / 06 / 10 / 11 / 18

@@ -28,7 +28,7 @@
 | [04](04-campfire.md) | 营帐（篝火）选项 | 现在是自动回血，没有决策 |
 | [05](05-shop.md) | 商店 | 金币目前只能囤着，没有出口 |
 | [06](06-events.md) | 奇遇事件 | 地图 21% 的房间是占位 toast |
-| [07](07-deck-viewer.md) | 牌堆查看器 | 不能看牌 = 不能做计算 |
+| [07](07-deck-viewer-done.md) ✅ | 牌堆查看器 | 不能看牌 = 不能做计算 |
 | [08](08-save-resume.md) | 存档与继续 | 刷新即丢档，一局 40 分钟起 |
 
 ## 第二梯队 · 内容与规则深度
@@ -56,7 +56,7 @@
 | [22](22-run-summary.md) | 结算界面与评分统计 |
 | [23](23-compendium-and-unlocks.md) | 图鉴与解锁进度 |
 | [24](24-combat-input.md) | 战斗交互与关键词提示 |
-| [25](25-headless-sim-and-tests.md) | 无头模拟与自动化测试 |
+| [25](25-headless-sim-and-tests-done.md) ✅ | 无头模拟与自动化测试 |
 
 ## 建议施工顺序
 

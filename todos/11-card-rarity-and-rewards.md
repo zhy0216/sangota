@@ -124,7 +124,7 @@ export interface RunState {
 3. `CombatScene.ts:1149-1198` 的结算屏改用 `rollCardReward`，
    卡片数量按 `run.cardRewardCount` 动态布局（1/3/4 张的横排间距不同）。
 4. 新卡内容：13 张，落在 uncommon/rare 为主。写完后**必须**跑
-   [25 无头模拟](25-headless-sim-and-tests.md) 看新卡有没有把 Boss 胜率
+   [25 无头模拟](25-headless-sim-and-tests-done.md) 看新卡有没有把 Boss 胜率
    拉过头（README 记录的基线是贪心 41% / 威胁感知 71%）。
 5. 商店卡牌库存（[05 商店](05-shop.md)）走同一套 `rollCardReward`
    但 `tier: 'monster'` 且加入 `COLORLESS_POOL`，`count: 5`。
@@ -149,4 +149,4 @@ export interface RunState {
 - [01 遗物](01-relics.md)——`cardRewardCount` 的修饰来源
 - [12 状态库](12-status-library.md) / [13 关键词](13-card-keywords.md)
   ——新卡的机制基础。**不做这两个的话，13 张新卡只能是数值变体，没意义**
-- [25 无头模拟](25-headless-sim-and-tests.md)——扩池后的平衡验证
+- [25 无头模拟](25-headless-sim-and-tests-done.md)——扩池后的平衡验证

@@ -186,8 +186,8 @@ export interface CardInstance {
 
 - [12 状态库](12-status-library.md)——`loseHp` 需要那边的 `DamageContext`；
   条件效果大量引用状态
-- [07 牌堆查看器](07-deck-viewer.md)——`pendingChoice` 的选牌 UI 复用它的 pick 模式
-- [25 无头模拟](25-headless-sim-and-tests.md)——`pendingChoice` 会破坏
+- [07 牌堆查看器](07-deck-viewer-done.md)——`pendingChoice` 的选牌 UI 复用它的 pick 模式
+- [25 无头模拟](25-headless-sim-and-tests-done.md)——`pendingChoice` 会破坏
   无头模拟的同步假设，模拟器需要一个自动决策策略来消费它
 - **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards.md)、
   [14 诅咒与状态牌](14-curses-and-status-cards.md)（`unplayable` 是状态牌的基础）、

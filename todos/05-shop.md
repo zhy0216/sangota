@@ -102,7 +102,7 @@ export interface RunState {
    点击时给「资财不足」的轻微抖动而不是无反应。
 4. 购买后：金币数字滚动到新值、商品原地变成「已售」印章、
    卡牌飞向 HUD 牌组图标（复用 `src/ui/vfx.ts` 里现成的飞行/pop 逻辑）。
-5. 弃卡：点按钮 → 牌堆网格（[07](07-deck-viewer.md) 的 `mode:'pick'`）→
+5. 弃卡：点按钮 → 牌堆网格（[07](07-deck-viewer-done.md) 的 `mode:'pick'`）→
    二次确认 → 扣钱、移除、按钮变灰并显示下次价格。
 6. `MapScene.enterRoom`：`case 'shop': this.scene.start('Room', { node })`。
    `MAP.minAdvancedRow = 5`（`src/config.ts`）已经把商店锁在第 6 层以上，
@@ -125,5 +125,5 @@ export interface RunState {
 - [04 营帐](04-campfire.md)——`RoomScene` 壳
 - [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` 实例化（弃卡要定位到具体一张）
 - [01 遗物](01-relics.md) / [02 药水](02-potions.md)——库存的两个品类
-- [07 牌堆查看器](07-deck-viewer.md)——弃卡的选牌 UI
+- [07 牌堆查看器](07-deck-viewer-done.md)——弃卡的选牌 UI
 - [11 稀有度](11-card-rarity-and-rewards.md)——卡牌库存的抽取权重

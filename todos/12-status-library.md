@@ -157,7 +157,7 @@ export interface DamageContext {
    每项补 `decay` / `blockable` / `icon`。
 2. `engine.ts` 重构 `computeAttack`（`engine.ts:280-286`）→ `resolveDamage(ctx)`，
    按上面的原版顺序实现。**这一步必须先有
-   [25 无头模拟](25-headless-sim-and-tests.md) 做回归**，否则改完
+   [25 无头模拟](25-headless-sim-and-tests-done.md) 做回归**，否则改完
    不知道数值有没有漂。现有行为（神力 → 怯战 → 破绽 → floor）必须逐位不变。
 3. `applyDamage`（`engine.ts:297`）里加 `intangible` 钳制、`buffer` 抵消、
    `thorns` 反弹（注意反弹会致死攻击方，要递归处理死亡判定，
@@ -204,7 +204,7 @@ export interface DamageContext {
 
 ## 依赖
 
-- [25 无头模拟](25-headless-sim-and-tests.md)——**强依赖**。这是纯规则重构，
+- [25 无头模拟](25-headless-sim-and-tests-done.md)——**强依赖**。这是纯规则重构，
   没有回归测试会静默改坏数值
 - **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards.md)、
   [13 关键词](13-card-keywords.md)、[15 敌人机制](15-enemy-mechanics.md)

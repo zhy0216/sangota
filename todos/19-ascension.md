@@ -163,7 +163,7 @@ export interface RunState {
    [05 商店](05-shop.md) 的弃卡和 [04 营帐](04-campfire.md) 的弃甲
    都要把它标为不可选。`CardDef` 加 `removable?: false`。
 8. 平衡标定：**每一级都要跑
-   [25 无头模拟](25-headless-sim-and-tests.md)**，目标是天命十重时
+   [25 无头模拟](25-headless-sim-and-tests-done.md)**，目标是天命十重时
    威胁感知 AI 的通关率落在 15-25%。手调是不可能调对的。
 
 ## 验收标准
@@ -184,5 +184,5 @@ export interface RunState {
 - [09 多幕](09-acts-and-progression.md)——`actStartHpLossPercent` 和双 Boss 需要多幕
 - [22 结算界面](22-run-summary.md)——通关记录的写入点
 - [17 多武将](17-multiple-heroes.md)——难度进度是按武将分的
-- [25 无头模拟](25-headless-sim-and-tests.md)——**强依赖**，20 级难度不可能手调
+- [25 无头模拟](25-headless-sim-and-tests-done.md)——**强依赖**，20 级难度不可能手调
 - 各修饰点分别依赖 04 / 05 / 11 / 14 / 16

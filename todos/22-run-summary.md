@@ -174,7 +174,7 @@ export function computeScore(run: RunState, victory: boolean): {
    - 一行「第 N 层 · 殁于 华雄」
    - 分数明细**逐行淡入**（每行 120ms 错开，最后总分放大弹出）——
      这是原版的一个小仪式感，值得照做
-   - 左侧最终牌组（[07 牌堆查看器](07-deck-viewer.md) 的网格，缩小内嵌）
+   - 左侧最终牌组（[07 牌堆查看器](07-deck-viewer-done.md) 的网格，缩小内嵌）
    - 右侧宝物列表
    - 底部：本局用时、总分、「新纪录」标记（若破了 `highScore`）
    - 「重开」/「回标题」两个按钮
@@ -212,7 +212,7 @@ export function computeScore(run: RunState, victory: boolean): {
 ## 依赖
 
 - [09 多幕](09-acts-and-progression.md)——胜利条件的定义（打完第三幕还是终章）
-- [07 牌堆查看器](07-deck-viewer.md)——牌组展示
+- [07 牌堆查看器](07-deck-viewer-done.md)——牌组展示
 - [08 存档](08-save-resume.md)——结算时清档
 - [19 天命](19-ascension.md)——分数加成和通关记录
 - 埋点会碰到 02 / 06 的代码，建议在它们之后做

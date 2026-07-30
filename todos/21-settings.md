@@ -156,7 +156,7 @@ export function onSettingsChange(cb: (s: Settings) => void): () => void;
    （`'auto'` 走现有逻辑，数字则直接用）。改完提示「重载后生效」
    并给一个「立即重载」按钮——有了 [08 存档](08-save-resume.md)
    重载的代价很低。
-7. 设置面板 UI：全屏 overlay（复用 [07 牌堆查看器](07-deck-viewer.md)
+7. 设置面板 UI：全屏 overlay（复用 [07 牌堆查看器](07-deck-viewer-done.md)
    的 overlay 骨架），左侧分组 tab，右侧选项列表。
    滑块和开关用 `src/ui/theme.ts` 的风格自己画。
 8. 入口：所有场景右上角一个齿轮图标 + `Esc` 在没有其他 overlay 时打开
@@ -181,6 +181,6 @@ export function onSettingsChange(cb: (s: Settings) => void): () => void;
 ## 依赖
 
 - [20 音频](20-audio.md)——音量项的实际作用对象
-- [07 牌堆查看器](07-deck-viewer.md)——overlay 骨架
+- [07 牌堆查看器](07-deck-viewer-done.md)——overlay 骨架
 - [24 战斗交互](24-combat-input.md)——按键重绑和它的键位定义共用
   `KeyAction`，两者应一起做

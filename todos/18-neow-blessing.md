@@ -133,7 +133,7 @@ export interface EventOutcome {
    - 选中 → 二次确认（这是不可逆的重要决策，原版也有确认）
    - 执行 → 展示实际结果 → 进地图
 3. 需要选牌的选项（弃芜/精简/锻炼/易牌）跳
-   [07 牌堆查看器](07-deck-viewer.md) 的 pick 模式，作用于 `run.deck`
+   [07 牌堆查看器](07-deck-viewer-done.md) 的 pick 模式，作用于 `run.deck`
    （此时是初始 10 张）。
 4. `transformCards` 实现：移除选中的牌 → 从**同稀有度**池
    （[11](11-card-rarity-and-rewards.md) 的 `CARD_POOL_BY_RARITY`）
@@ -164,7 +164,7 @@ export interface EventOutcome {
 ## 依赖
 
 - [06 事件](06-events.md)——**强依赖**，复用 `EventOutcome` 和 `applyOutcome`
-- [07 牌堆查看器](07-deck-viewer.md)——选牌类选项
+- [07 牌堆查看器](07-deck-viewer-done.md)——选牌类选项
 - [01 遗物](01-relics.md) / [02 药水](02-potions.md) / [03 升级](03-card-upgrades-done.md)
   / [11 稀有度](11-card-rarity-and-rewards.md) / [14 诅咒](14-curses-and-status-cards.md)
   ——各类选项的内容来源

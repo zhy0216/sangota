@@ -138,7 +138,7 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
    （或 TitleScene 的一个模式）：
    - 武将立绘横排（现有 `hero-guanyu` 那种全身图）
    - 选中后右侧显示：HP、初始宝物、机制说明、初始牌组预览（复用
-     [07 牌堆查看器](07-deck-viewer.md) 的网格）
+     [07 牌堆查看器](07-deck-viewer-done.md) 的网格）
    - 未解锁的武将压暗 + 显示解锁条件（见 [23 解锁](23-compendium-and-unlocks.md)）
    - 下方「种子」输入框（见 [23](23-compendium-and-unlocks.md) 里的自定义模式）
 7. `startRun(hero, seed)`（`src/state/run.ts:22`）已经接受 hero 参数，
@@ -166,5 +166,5 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
 - [01 遗物](01-relics.md)——**强依赖**，被动必须先搬进遗物系统
 - [11 稀有度](11-card-rarity-and-rewards.md)——卡池要先按稀有度分组才好按武将分
 - [13 关键词](13-card-keywords.md)——独有资源的 scaling 需要条件/缩放效果
-- [07 牌堆查看器](07-deck-viewer.md)——选将界面的牌组预览
+- [07 牌堆查看器](07-deck-viewer-done.md)——选将界面的牌组预览
 - 弱依赖 [23 解锁](23-compendium-and-unlocks.md)（武将解锁条件）
