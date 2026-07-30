@@ -40,6 +40,7 @@ export const CARDS: Record<string, CardDef> = {
     art: 'card-pikan',
     text: '造成 {D} 点伤害。',
     effects: [{ kind: 'damage', amount: 6 }],
+    upgrade: { effects: [{ kind: 'damage', amount: 9 }] },
   },
   tiebi: {
     id: 'tiebi',
@@ -51,6 +52,7 @@ export const CARDS: Record<string, CardDef> = {
     art: 'card-tiebi',
     text: '获得 {B} 点护甲。',
     effects: [{ kind: 'block', amount: 5 }],
+    upgrade: { effects: [{ kind: 'block', amount: 8 }] },
   },
   tuodao: {
     id: 'tuodao',
@@ -65,6 +67,13 @@ export const CARDS: Record<string, CardDef> = {
       { kind: 'damage', amount: 8 },
       { kind: 'status', status: 'vulnerable', amount: 2, to: 'target' },
     ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n施加 3 层【破绽】。',
+      effects: [
+        { kind: 'damage', amount: 10 },
+        { kind: 'status', status: 'vulnerable', amount: 3, to: 'target' },
+      ],
+    },
   },
 
   // --- Reward pool --------------------------------------------------------
@@ -81,6 +90,13 @@ export const CARDS: Record<string, CardDef> = {
       { kind: 'damage', amount: 7 },
       { kind: 'status', status: 'vulnerable', amount: 1, to: 'target' },
     ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n施加 2 层【破绽】。',
+      effects: [
+        { kind: 'damage', amount: 10 },
+        { kind: 'status', status: 'vulnerable', amount: 2, to: 'target' },
+      ],
+    },
   },
   wanren: {
     id: 'wanren',
@@ -92,6 +108,7 @@ export const CARDS: Record<string, CardDef> = {
     art: 'card-wanren',
     text: '对所有敌人造成 {D} 点伤害。',
     effects: [{ kind: 'damageAll', amount: 8 }],
+    upgrade: { effects: [{ kind: 'damageAll', amount: 12 }] },
   },
   quedi: {
     id: 'quedi',
@@ -106,6 +123,12 @@ export const CARDS: Record<string, CardDef> = {
       { kind: 'block', amount: 8 },
       { kind: 'draw', amount: 1 },
     ],
+    upgrade: {
+      effects: [
+        { kind: 'block', amount: 11 },
+        { kind: 'draw', amount: 1 },
+      ],
+    },
   },
   yiyong: {
     id: 'yiyong',
@@ -117,6 +140,10 @@ export const CARDS: Record<string, CardDef> = {
     art: 'card-yiyong',
     text: '获得 2 层【神力】。',
     effects: [{ kind: 'status', status: 'strength', amount: 2, to: 'self' }],
+    upgrade: {
+      text: '获得 3 层【神力】。',
+      effects: [{ kind: 'status', status: 'strength', amount: 3, to: 'self' }],
+    },
   },
   baima: {
     id: 'baima',
@@ -128,6 +155,7 @@ export const CARDS: Record<string, CardDef> = {
     art: 'card-baima',
     text: '造成 {D} 点伤害。',
     effects: [{ kind: 'damage', amount: 4 }],
+    upgrade: { effects: [{ kind: 'damage', amount: 7 }] },
   },
   jieying: {
     id: 'jieying',
@@ -139,6 +167,7 @@ export const CARDS: Record<string, CardDef> = {
     art: 'card-jieying',
     text: '获得 {B} 点护甲。',
     effects: [{ kind: 'block', amount: 14 }],
+    upgrade: { cost: 1 },
   },
   guanzhen: {
     id: 'guanzhen',
@@ -150,6 +179,10 @@ export const CARDS: Record<string, CardDef> = {
     art: 'card-guanzhen',
     text: '抽 2 张牌。',
     effects: [{ kind: 'draw', amount: 2 }],
+    upgrade: {
+      text: '抽 3 张牌。',
+      effects: [{ kind: 'draw', amount: 3 }],
+    },
   },
   xuzhao: {
     id: 'xuzhao',
@@ -164,6 +197,13 @@ export const CARDS: Record<string, CardDef> = {
       { kind: 'status', status: 'weak', amount: 2, to: 'target' },
       { kind: 'block', amount: 4 },
     ],
+    upgrade: {
+      text: '施加 3 层【怯战】。\n获得 {B} 点护甲。',
+      effects: [
+        { kind: 'status', status: 'weak', amount: 3, to: 'target' },
+        { kind: 'block', amount: 6 },
+      ],
+    },
   },
 };
 
@@ -184,3 +224,30 @@ export const getCard = (id: string): CardDef => {
   if (!def) throw new Error(`Unknown card id: ${id}`);
   return def;
 };
+
+/** Upgraded cards read "劈砍·精" — a mark, not just a colour, so it survives thumbnails. */
+export const UPGRADE_SUFFIX = '·精';
+
+const resolved = new Map<string, CardDef>();
+
+/**
+ * The definition a physical card actually plays by. Every reader of card data
+ * goes through here, so an upgrade is applied in exactly one place.
+ */
+export function resolveCard(defId: string, upgraded = 0): CardDef {
+  const base = getCard(defId);
+  if (upgraded <= 0 || !base.upgrade) return base;
+
+  const key = `${defId}+${upgraded}`;
+  let def = resolved.get(key);
+  if (!def) {
+    def = { ...base, ...base.upgrade, name: base.name + UPGRADE_SUFFIX };
+    delete def.upgrade;
+    resolved.set(key, def);
+  }
+  return def;
+}
+
+/** Whether a physical card still has an upgrade left in it. */
+export const canUpgrade = (defId: string, upgraded: number): boolean =>
+  upgraded < 1 && !!CARDS[defId]?.upgrade;

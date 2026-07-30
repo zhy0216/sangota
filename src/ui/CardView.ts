@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { C } from '../config';
-import { CARD_TYPE_META } from '../combat/cards';
+import { CARD_TYPE_META, resolveCard } from '../combat/cards';
 import { describeCard } from '../combat/engine';
 import type { CardDef, CombatState } from '../combat/types';
 import { bodyStyle, brushStyle } from './theme';
@@ -18,6 +18,7 @@ const ART = { y: -44, w: 136, h: 91 };
 export class CardView extends Phaser.GameObjects.Container {
   readonly uid: string;
   readonly def: CardDef;
+  readonly upgraded: number;
 
   private frame: Phaser.GameObjects.Graphics;
   private costText: Phaser.GameObjects.Text;
@@ -33,20 +34,27 @@ export class CardView extends Phaser.GameObjects.Container {
   private playable = true;
   /** 'display' cards (reward picks, deck viewers) never grey out on energy. */
   private readonly mode: 'hand' | 'display';
+  /** Frame + text colour: gold for type, bright gold once forged. */
+  private readonly accent: number;
 
   constructor(
     scene: Phaser.Scene,
     uid: string,
-    def: CardDef,
+    defId: string,
+    upgraded: number,
     state: CombatState,
     mode: 'hand' | 'display' = 'hand',
   ) {
     super(scene, 0, 0);
     this.uid = uid;
-    this.def = def;
+    this.upgraded = upgraded;
     this.mode = mode;
 
-    const accent = CARD_TYPE_META[def.type].color;
+    const def = resolveCard(defId, upgraded);
+    this.def = def;
+
+    const accent = upgraded > 0 ? C.goldBright : CARD_TYPE_META[def.type].color;
+    this.accent = accent;
 
     const shadow = scene.add.graphics();
     shadow.fillStyle(0x000000, 0.45);
@@ -67,14 +75,17 @@ export class CardView extends Phaser.GameObjects.Container {
     rule.lineStyle(1, accent, 0.65);
     rule.lineBetween(-54, 34, 54, 34);
 
-    const name = scene.add
-      .text(0, 17, def.name, brushStyle(20, C.paper))
-      .setOrigin(0.5)
-      .setLetterSpacing(2);
+    // resolveCard already appended 「·精」, so the mark travels with the name —
+    // a colour shift alone disappears in a thumbnail.
+    const nameStyle = brushStyle(
+      upgraded > 0 ? 18 : 20,
+      upgraded > 0 ? C.goldBright : C.paper,
+    );
+    const name = scene.add.text(0, 17, def.name, nameStyle).setOrigin(0.5).setLetterSpacing(2);
 
     this.descText = scene.add
       .text(0, 42, '', {
-        ...bodyStyle(13, C.paperDim),
+        ...bodyStyle(13, upgraded > 0 ? C.goldBright : C.paperDim),
         align: 'center',
         wordWrap: { width: CARD_W - 22 },
         lineSpacing: 6,
@@ -91,8 +102,9 @@ export class CardView extends Phaser.GameObjects.Container {
       .text(-56, -78, String(def.cost), brushStyle(21, C.goldBright))
       .setOrigin(0.5);
 
+    // The type tag keeps its own colour — it reads type, not upgrade state.
     const typeTag = scene.add
-      .text(56, -78, CARD_TYPE_META[def.type].label, brushStyle(18, accent))
+      .text(56, -78, CARD_TYPE_META[def.type].label, brushStyle(18, CARD_TYPE_META[def.type].color))
       .setOrigin(0.5);
 
     // Greys the whole face out when the card is unaffordable.
@@ -135,7 +147,7 @@ export class CardView extends Phaser.GameObjects.Container {
   }
 
   setSelected(on: boolean): void {
-    this.paintFrame(CARD_TYPE_META[this.def.type].color, on);
+    this.paintFrame(this.accent, on);
   }
 
   get hitZone(): Phaser.GameObjects.Zone {

@@ -1,5 +1,5 @@
 import { Rng } from '../core/rng';
-import { getCard } from './cards';
+import { resolveCard } from './cards';
 import { getEnemy } from './enemies';
 import type {
   CardDef,
@@ -31,7 +31,8 @@ const TICKING: ReadonlySet<StatusId> = new Set<StatusId>(['vulnerable', 'weak'])
 
 export interface StartCombatOptions {
   encounter: Encounter;
-  deck: string[];
+  /** Structurally a `DeckCard[]` — the engine stays clear of run state. */
+  deck: readonly CardInstance[];
   heroName: string;
   hp: number;
   maxHp: number;
@@ -45,11 +46,10 @@ export function startCombat(opts: StartCombatOptions): CombatState {
 
   const cards: Record<string, CardInstance> = {};
   const drawPile: string[] = [];
-  opts.deck.forEach((defId, i) => {
-    const uid = `c${i}`;
-    cards[uid] = { uid, defId };
-    drawPile.push(uid);
-  });
+  for (const card of opts.deck) {
+    cards[card.uid] = { ...card };
+    drawPile.push(card.uid);
+  }
   rng.shuffle(drawPile);
 
   const enemies = opts.encounter.enemies.map((defId, slot) => makeEnemy(defId, slot, rng));
@@ -346,8 +346,10 @@ export function checkEnd(state: CombatState): void {
 export const aliveEnemies = (state: CombatState): EnemyState[] =>
   state.enemies.filter((e) => e.alive);
 
-export const defOf = (state: CombatState, uid: string): CardDef =>
-  getCard(state.cards[uid].defId);
+export const defOf = (state: CombatState, uid: string): CardDef => {
+  const inst = state.cards[uid];
+  return resolveCard(inst.defId, inst.upgraded);
+};
 
 /**
  * The numbers a card will actually produce right now — Strength, Weak and the

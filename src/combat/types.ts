@@ -41,11 +41,18 @@ export interface CardDef {
    */
   text: string;
   effects: Effect[];
+  /**
+   * Fields the upgraded ("·精") version overrides. Absent means the card can
+   * never be upgraded — curses and status cards should leave it out.
+   */
+  upgrade?: Partial<Pick<CardDef, 'cost' | 'target' | 'text' | 'effects'>>;
 }
 
 export interface CardInstance {
   uid: string;
   defId: string;
+  /** Upgrade count. Only 0 and 1 are meaningful today. */
+  upgraded: number;
 }
 
 // --------------------------------------------------------------- combatants

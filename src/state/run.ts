@@ -1,6 +1,15 @@
+import { canUpgrade } from '../combat/cards';
 import { generateMap } from '../map/generateMap';
 import type { GameMap } from '../map/types';
 import { DEFAULT_HERO, type HeroDef } from '../data/heroes';
+
+/** One physical card in the deck. Upgrades ride on the copy, not on the id. */
+export interface DeckCard {
+  /** Stable instance id — lets "upgrade the 3rd 劈砍" and UI selection work. */
+  uid: string;
+  defId: string;
+  upgraded: number;
+}
 
 export interface RunState {
   hero: HeroDef;
@@ -9,8 +18,8 @@ export interface RunState {
   gold: number;
   act: number;
   map: GameMap;
-  /** Card ids, one entry per physical copy. */
-  deck: string[];
+  /** One entry per physical copy. */
+  deck: DeckCard[];
   /** null until the player commits to a starting node on floor 1. */
   currentNodeId: string | null;
   /** Node ids in visit order — used to paint the travelled path. */
@@ -18,8 +27,15 @@ export interface RunState {
 }
 
 let active: RunState | null = null;
+/** Monotonic, not random: a seed alone must reproduce the whole run. */
+let nextUid = 0;
+
+export function newDeckCard(defId: string, upgraded = 0): DeckCard {
+  return { uid: `d${nextUid++}`, defId, upgraded };
+}
 
 export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState {
+  nextUid = 0;
   active = {
     hero,
     hp: hero.maxHp,
@@ -27,7 +43,7 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState 
     gold: hero.startingGold,
     act: 1,
     map: generateMap(seed),
-    deck: [...hero.startingDeck],
+    deck: hero.startingDeck.map((defId) => newDeckCard(defId)),
     currentNodeId: null,
     path: [],
   };
@@ -71,8 +87,22 @@ export function addGold(run: RunState, amount: number): void {
   run.gold = Math.max(0, run.gold + amount);
 }
 
-export function addCard(run: RunState, cardId: string): void {
-  run.deck.push(cardId);
+export function addCard(run: RunState, cardId: string, upgraded = 0): DeckCard {
+  const card = newDeckCard(cardId, upgraded);
+  run.deck.push(card);
+  return card;
+}
+
+/** Cards the blacksmith may offer — already-upgraded copies are excluded. */
+export function upgradableCards(run: RunState): DeckCard[] {
+  return run.deck.filter((c) => canUpgrade(c.defId, c.upgraded));
+}
+
+export function upgradeCard(run: RunState, uid: string): boolean {
+  const card = run.deck.find((c) => c.uid === uid);
+  if (!card || !canUpgrade(card.defId, card.upgraded)) return false;
+  card.upgraded += 1;
+  return true;
 }
 
 /** Carry the surviving HP total back out of a fight. */

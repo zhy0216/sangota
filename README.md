@@ -15,6 +15,7 @@ npm run dev      # http://localhost:5173
 
 ```bash
 npm run typecheck   # tsc --noEmit
+npm test            # vitest run
 npm run build       # typecheck + production bundle
 ```
 
@@ -46,6 +47,16 @@ target, so click the enemy (`Esc` cancels). `E` ends the turn. Winning pays gold
 offers one of three cards.
 
 11 cards, 4 enemies (黄巾力士, 山贼, elite 华雄, boss 吕布) and 6 encounter tables.
+
+**Card upgrades** — every card has a forged version, named with a 「·精」 suffix and
+framed in bright gold. A card definition declares only what changes (`upgrade: { … }`),
+so there is no second copy of the data to keep in sync: 劈砍 6→9 damage, 结营 drops
+from 2 气 to 1, 观阵 draws 3 instead of 2. Upgrades ride on the *physical* card, not on
+the card id — the deck is `DeckCard[]` (`{ uid, defId, upgraded }`) with monotonic uids,
+so forging one of your five 劈砍 leaves the other four alone and a run still replays
+from its seed. `resolveCard(defId, upgraded)` is the single place card data is read.
+
+Nothing hands out upgrades yet — the 营帐 blacksmith is the intended entry point.
 
 The rules live in `combat/engine.ts` as pure functions with no Phaser import, so the
 whole system is testable headlessly — see below.
@@ -164,5 +175,7 @@ shows up immediately once the canvas is pixel-exact.
 - 奇遇 (events) and 商旅 (shops) still show a placeholder toast. 营帐 heals 30% and
   宝藏 pays gold, but neither has a real screen yet.
 - One act, one hero. Beating 吕布 ends the map with nothing after it.
-- No deck viewer, no relics, no card upgrades, no save/resume.
+- No deck viewer, no relics, no save/resume.
+- Card upgrades exist as model + card face + `upgradeCard()`, but no screen grants
+  them yet.
 - No sound at all — every beat of combat feel is currently visual only.

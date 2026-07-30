@@ -1,11 +1,10 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { Rng } from '../core/rng';
-import { REWARD_POOL, STATUS_META, getCard } from '../combat/cards';
+import { REWARD_POOL, STATUS_META } from '../combat/cards';
 import { ENCOUNTERS } from '../combat/enemies';
 import {
   canPlay,
-  defOf,
   endPlayerTurn,
   intentLabel,
   playCard,
@@ -397,7 +396,8 @@ export class CombatScene extends Phaser.Scene {
     let dealt = 0;
     for (const uid of this.state.hand) {
       if (this.cardViews.has(uid)) continue;
-      const view = new CardView(this, uid, defOf(this.state, uid), this.state);
+      const inst = this.state.cards[uid];
+      const view = new CardView(this, uid, inst.defId, inst.upgraded, this.state);
       view.setDepth(DEPTH.hand);
       view.setAlpha(0);
       view.setPosition(DRAW_PILE.x, DRAW_PILE.y);
@@ -1170,9 +1170,8 @@ export class CombatScene extends Phaser.Scene {
 
     const spacing = 210;
     picks.forEach((cardId, i) => {
-      const def = getCard(cardId);
       const x = GAME_WIDTH / 2 + (i - 1) * spacing;
-      const card = new CardView(this, `reward-${i}`, def, this.state, 'display');
+      const card = new CardView(this, `reward-${i}`, cardId, 0, this.state, 'display');
       card.setPosition(x, 400);
       card.setDepth(DEPTH.overlay + 1);
       card.hitZone.on('pointerover', () =>
