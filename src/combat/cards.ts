@@ -9,6 +9,9 @@ import type { CardDef, CardRarity, CardType } from './types';
 export { STATUS_META, STATUS_ORDER } from './statuses';
 export type { StatusDef } from './statuses';
 
+/** Same reason: "is this card one of the bad ones" is a question about a card. */
+export { isCurse, isNegative, isStatus } from './curses';
+
 /** Keyword copy for the strip along the bottom of a card face. */
 export const KEYWORD_LABEL = {
   exhaust: '消耗',
@@ -556,9 +559,11 @@ export const CARDS: Record<string, CardDef> = { ...HERO_CARDS, ...CURSES, ...STA
  * picks inside it, which is the whole mechanism that makes 万人敌 rarer than
  * 白马义从.
  *
- * Keyed by `Exclude<CardRarity, 'basic'>`, so the three starters and every
- * curse and 状态牌 (all `basic`) are *structurally* unable to appear as loot.
- * That is a type error rather than a filter someone has to remember to write.
+ * Keyed by `Exclude<CardRarity, 'basic'>`, so `rollCardReward` cannot ask for a
+ * tier the starters, curses and 状态牌 (all `basic`) live in. The keys are the
+ * only part TypeScript checks, though — the arrays are plain `string[]` — so
+ * the actual guarantee that a curse never reaches the deck is `addCard`
+ * throwing on one.
  */
 export const CARD_POOL_BY_RARITY: Record<Exclude<CardRarity, 'basic'>, string[]> = {
   common: [

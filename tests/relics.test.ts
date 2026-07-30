@@ -4,7 +4,9 @@ import { ENCOUNTERS } from '../src/combat/enemies';
 import {
   BASE_ENERGY,
   HAND_SIZE,
+  addStatus,
   applyDamage,
+  drawCards,
   endPlayerTurn,
   playCard,
   previewValues,
@@ -18,7 +20,7 @@ import {
   type CombatHook,
   type RelicHook,
 } from '../src/combat/relics';
-import type { CombatState } from '../src/combat/types';
+import type { CombatState, StatusId } from '../src/combat/types';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { addGold, addRelic, hasRelic, newDeckCard, startRun } from '../src/state/run';
 
@@ -211,6 +213,58 @@ describe('counter relics', () => {
     applyDamage(state, state.player, 12);
     expect(state.hand).toHaveLength(held + (RELICS.tiemian.value ?? 0));
     expect(state.events.filter((e) => e.t === 'relic' && e.relicId === 'tiemian')).toHaveLength(1);
+  });
+});
+
+/**
+ * 宝物 hand over their printed number. `gainBlock`'s `source` used to default to
+ * `'card'`, so every relic that granted block was quietly run through 身法/力竭
+ * — a relic promising 6 護甲 gave 4 under 力竭 and 9 under 身法 3. No shipped
+ * content applies either status yet, which is exactly why nothing caught it:
+ * these tests put the status on the player by hand.
+ */
+describe('relic block ignores 身法 / 力竭', () => {
+  const SHAPERS: [StatusId, number][] = [
+    ['frail', 1],
+    ['dexterity', 3],
+  ];
+
+  /** Each hook-driven grant, and the thing that makes it pay out. */
+  const PAYOUTS: { id: string; fire: (state: CombatState) => void }[] = [
+    { id: 'xuanwujia', fire: (state) => endPlayerTurn(state) },
+    {
+      id: 'dujunlingqi',
+      fire: (state) => {
+        for (let i = 0; i < 3; i++) playCard(state, state.hand[0], state.enemies[0].id);
+      },
+    },
+    {
+      id: 'xingjuntu',
+      fire: (state) => {
+        state.discardPile.push(...state.drawPile.splice(0));
+        drawCards(state, 1);
+      },
+    },
+  ];
+
+  for (const { id, fire } of PAYOUTS) {
+    for (const [status, amount] of SHAPERS) {
+      it(`${RELICS[id].name} pays its printed number under ${status} ${amount}`, () => {
+        const state = bench([id]);
+        addStatus(state, state.player, status, amount);
+        state.player.block = 0;
+        fire(state);
+        expect(state.player.block).toBe(RELICS[id].value);
+      });
+    }
+  }
+
+  // The two that land before the player can be holding a status at all. They
+  // still have to go in unshaped, which is a property of the call and not of
+  // the fight, so the assertion is that the printed number arrives whole.
+  it('束发金冠 and 先登盾 open the fight with exactly their printed number', () => {
+    expect(bench(['shufajinguan']).player.block).toBe(RELICS.shufajinguan.value);
+    expect(bench(['xiandengdun']).player.block).toBe(RELICS.xiandengdun.value);
   });
 });
 

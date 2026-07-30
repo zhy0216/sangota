@@ -71,8 +71,10 @@ export function rollCardReward(opts: CardRewardOptions): string[] {
   }
 
   // Escalation is per reward, not per card: three commons is one dry reward,
-  // not three, or the bump would outrun the weight table within an act.
-  run.rareBump = rolledRare ? 0 : run.rareBump + 1;
+  // not three, or the bump would outrun the weight table within an act. A
+  // reward that offered nothing at all is not a dry streak either — it was
+  // never a draw.
+  if (picked.length > 0) run.rareBump = rolledRare ? 0 : run.rareBump + 1;
   return picked;
 }
 

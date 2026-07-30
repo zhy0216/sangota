@@ -18,7 +18,7 @@ export type StatusDecay =
   | 'endOfTurn' // 拥有者回合结束 -1（破绽、怯战、力竭、金蝉脱壳）
   | 'tickDown' // 触发后自身 -1（中毒、调息）
   | 'consume' // 触发时消耗（护身符、天佑、龟缩）
-  | 'clearOnTurn'; // 拥有者回合开始清零（断粮、束缚）
+  | 'clearAtTurnEnd'; // 拥有者回合结束时整层清零（断粮、束缚）
 
 export type TickPhase = 'ownerTurnStart' | 'ownerTurnEnd';
 
@@ -37,6 +37,13 @@ export interface StatusDef extends StatusMeta {
   decay: StatusDecay;
   /** Whether 护身符 intercepts this status when it is applied as a debuff. */
   blockable: boolean;
+  /**
+   * Whether the stack count is allowed below zero. 神力 and 身法 are the two
+   * signed quantities in the game — a 削弱 effect on an enemy at 神力 2 must
+   * leave it at -1, not at nothing, or "reduce N" silently under-applies. Every
+   * other status is a count of layers and floors at zero.
+   */
+  signed?: boolean;
   /** Pure numeric hook into the damage pipeline. `n` is the stack count. */
   modify?: { slot: DamageSlot; fn: (n: number, damage: number) => number };
   /** Modifies block *gained*. Applied in `STATUS_ORDER`, so 身法 adds before 力竭 scales. */
@@ -152,6 +159,7 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
     icon: 'status-strength',
     decay: 'none',
     blockable: false,
+    signed: true,
     modify: { slot: 'flat', fn: (n, d) => d + n },
   },
   /**
@@ -167,6 +175,7 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
     icon: 'status-dexterity',
     decay: 'none',
     blockable: false,
+    signed: true,
     blockGain: (n, amount) => amount + n,
   },
   /** Multiplies after 身法 adds, hence floor(8×0.75)=6 rather than floor(5×0.75)+3. */
@@ -238,9 +247,10 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
     },
   },
   /**
-   * 每次 is load-bearing: a 3×4 multi-hit reflects four times. The reflected
-   * damage is not itself an attack, which is what stops two 反刺 holders from
-   * bouncing a hit back and forth forever.
+   * 每次 is load-bearing: a 3×4 multi-hit reflects four times, and a killing
+   * blow reflects too — walking into a 反刺 holder costs the same whether or not
+   * the swing finishes it. The reflected damage is not itself an attack, which
+   * is what stops two 反刺 holders from bouncing a hit back and forth forever.
    */
   thorns: {
     id: 'thorns',
@@ -346,25 +356,30 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
     decay: 'consume',
     blockable: false,
   },
-  /** Cleared at the owner's next turn start, so it only ever costs the turn it was applied on. */
+  /**
+   * Cleared at the owner's turn *end*, not its start. Both of these exist to be
+   * applied by an enemy during the enemy turn and to bite on the player's next
+   * turn — clearing at turn start would delete them before the player ever drew
+   * a card or looked at their hand, i.e. a guaranteed no-op.
+   */
   noDraw: {
     id: 'noDraw',
     label: '断粮',
-    desc: '本回合无法抽牌，下回合开始时清除。',
+    desc: '本回合无法抽牌，回合结束时清除。',
     kind: 'debuff',
     color: C.paperFaint,
     icon: 'status-noDraw',
-    decay: 'clearOnTurn',
+    decay: 'clearAtTurnEnd',
     blockable: true,
   },
   entangled: {
     id: 'entangled',
     label: '束缚',
-    desc: '本回合无法打出【攻】牌，下回合开始时清除。',
+    desc: '本回合无法打出【攻】牌，回合结束时清除。',
     kind: 'debuff',
     color: HUE.entangled,
     icon: 'status-entangled',
-    decay: 'clearOnTurn',
+    decay: 'clearAtTurnEnd',
     blockable: true,
   },
 
@@ -373,32 +388,40 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
    * The stack count *is* the block granted, so triggering clears 龟缩 whole
    * rather than taking one layer off it — otherwise 龟缩 9 would fire nine
    * times. The block lands after the hit resolves, so it guards the next one.
+   *
+   * 受到伤害 and not merely 受到攻击: a hit the owner fully blocked cost it
+   * nothing, and a corpse does not curl up. 反刺 is the one reaction that fires
+   * unconditionally.
    */
   curlUp: {
     id: 'curlUp',
     label: '龟缩',
-    desc: '受到攻击时获得等量护甲，随后消失。',
+    desc: '受到伤害时获得等量护甲，随后消失。',
     kind: 'buff',
     color: HUE.curlUp,
     icon: 'status-curlUp',
     decay: 'consume',
     blockable: false,
-    onAttacked: (state, owner) => {
+    onAttacked: (state, owner, _ctx, hpLost) => {
+      if (hpLost <= 0 || owner.hp <= 0) return;
       const n = owner.statuses.curlUp ?? 0;
       delete owner.statuses.curlUp;
       gainBlock(state, owner, n, 'power');
     },
   },
-  /** Only attacks feed it — chip damage and 反刺 must not, or the fight spirals. */
+  /** Only attacks that drew blood feed it — chip damage and 反刺 must not, or the fight spirals. */
   angry: {
     id: 'angry',
     label: '暴怒',
-    desc: '每次受到攻击后获得等量【神力】。',
+    desc: '每次受到伤害后获得等量【神力】。',
     kind: 'buff',
     color: HUE.angry,
     icon: 'status-angry',
     decay: 'none',
     blockable: false,
-    onAttacked: (state, owner) => addStatus(state, owner, 'strength', owner.statuses.angry ?? 0),
+    onAttacked: (state, owner, _ctx, hpLost) => {
+      if (hpLost <= 0 || owner.hp <= 0) return;
+      addStatus(state, owner, 'strength', owner.statuses.angry ?? 0);
+    },
   },
 };

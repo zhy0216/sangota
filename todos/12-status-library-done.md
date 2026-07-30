@@ -249,3 +249,22 @@ export interface DamageContext {
 **占位美术**：`src/ui/statusIcons.ts` 用 Canvas 程序化画了 18 个 20×20 的
 `status-<id>` 白色线稿图标（按 `RENDER_SCALE` 栅格化，Retina 下不糊），由
 pill 按状态色 tint。这不是最终美术，换成真图只需要替换纹理，键名不变。
+
+### 事后修正（审计）
+
+上面第 6 条写的「`startPlayerTurn` 清 `noDraw`/`entangled`」是错的，照做出来
+的两个状态是**保证无效**的：敌人在自己回合挂上来，玩家回合一开始就被删掉，
+抽牌和 `canPlay` 都还没问过。改成 `decay: 'clearAtTurnEnd'`，在**拥有者回合
+结束**整层清零——原版 Entangled 就是这个语义。
+
+另外三处：
+
+- 神力/身法是**有符号**的（`StatusDef.signed`）。`addStatus` 原先 `next <= 0`
+  一律删除，导致任何「减 N」的削弱效果静默少算，也让 `computeAttack` 里那句
+  「负神力不能反转成治疗」的保护变成死代码。其余状态仍然在 0 触底。
+- 反刺在**致命一击**上照样反弹（原版 `onAttacked` 在扣血之前跑）；龟缩/暴怒
+  反过来要读 `hpLost`，全被护甲挡下的一刀不给它们任何东西。三个反应的差别
+  现在写在各自的行里，`resolveDamage` 只管「这是一次攻击吗」。
+- `gainBlock` 的 `source` 去掉了默认值。有了默认值，四件宝物（束发金冠 / 督军
+  令旗 / 玄武甲 / 行军图）就这么编译成了 `'card'`，被身法/力竭缩放——正是这份
+  文档明令禁止的。现在写错是编译错误。

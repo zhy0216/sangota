@@ -331,12 +331,16 @@ export const isNegative = (def: CardDef): boolean => isCurse(def) || isStatus(de
  * scene on a win, alongside the `combatEnd` relic hook — a corpse pays no
  * debts, and on a loss the run is over anyway.
  *
- * Walks `state.cards`, which is every card the fight ever held: the whole deck
- * plus anything minted into it. A curse that never came off the draw pile still
- * charges.
+ * Walks `run.deck` and not `state.cards`: the charge is the price of *owning*
+ * the card, so a 贪念 that never came off the draw pile still bills, while a
+ * throwaway copy 孟德新书 minted into the hand does not — that copy dies with
+ * the fight and must not do permanent damage to the run.
  */
 export function resolveCombatEndHooks(state: CombatState, run: RunState): void {
-  for (const uid of Object.keys(state.cards)) {
-    defOf(state, uid).hooks?.onCombatEnd?.(state, run);
+  for (const card of run.deck) {
+    // A deck card the fight never saw — the scene always starts one from the
+    // whole deck, so this only guards a caller that did not.
+    if (!state.cards[card.uid]) continue;
+    defOf(state, card.uid).hooks?.onCombatEnd?.(state, run);
   }
 }

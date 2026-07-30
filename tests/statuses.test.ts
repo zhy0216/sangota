@@ -3,6 +3,7 @@ import { ENCOUNTERS } from '../src/combat/enemies';
 import {
   addStatus,
   canPlay,
+  computeAttack,
   drawCards,
   endPlayerTurn,
   gainBlock,
@@ -123,6 +124,49 @@ describe('身法 / 力竭', () => {
   });
 });
 
+/**
+ * 神力 and 身法 are the two signed quantities. Storing them clamped at zero
+ * makes every "reduce N" effect under-apply silently — and it also made the
+ * negative-Strength guard inside `computeAttack` unreachable dead code.
+ */
+describe('signed stacks', () => {
+  it('takes 神力 below zero and subtracts from there', () => {
+    const state = bench(cards('pikan', 5), 'm2');
+    const [a, b] = state.enemies;
+
+    addStatus(state, a, 'strength', 2);
+    addStatus(state, a, 'strength', -3);
+    expect(a.statuses.strength).toBe(-1);
+    expect(computeAttack(6, a, state.player)).toBe(5);
+
+    // On a fresh target it is a plain penalty, not a no-op.
+    addStatus(state, b, 'strength', -2);
+    expect(computeAttack(6, b, state.player)).toBe(4);
+  });
+
+  it('takes 身法 below zero and shrinks earned block', () => {
+    const state = bench(cards('tiebi', 5));
+    addStatus(state, state.player, 'dexterity', -2);
+    playCard(state, state.hand.find((uid) => state.cards[uid].defId === 'tiebi')!);
+    expect(state.player.block).toBe(3);
+  });
+
+  it('never inverts a negative 神力 into a heal', () => {
+    const state = bench(cards('pikan', 5));
+    const enemy = state.enemies[0];
+    addStatus(state, enemy, 'strength', -20);
+    addStatus(state, state.player, 'vulnerable', 1);
+    expect(computeAttack(4, enemy, state.player)).toBe(0);
+  });
+
+  it('still floors every other status at zero', () => {
+    const state = bench(cards('pikan', 5));
+    addStatus(state, state.player, 'vulnerable', 2);
+    addStatus(state, state.player, 'vulnerable', -5);
+    expect(state.player.statuses.vulnerable).toBeUndefined();
+  });
+});
+
 // ------------------------------------------------------------------- 回合触发
 
 describe('中毒', () => {
@@ -213,6 +257,24 @@ describe('反刺', () => {
       blocked: 4,
     });
     expect(hp - enemy.hp).toBe(3);
+  });
+
+  /**
+   * The reaction pass used to be gated on `defender.hp > 0`, which made 反刺
+   * free to walk into whenever the swing was lethal. Killing the holder is
+   * exactly when the spikes should hurt most.
+   */
+  it('still reflects when the blow is the killing one', () => {
+    const state = bench(cards('pikan', 6));
+    const enemy = state.enemies[0];
+    enemy.hp = 3;
+    addStatus(state, enemy, 'thorns', 5);
+    const hp = state.player.hp;
+
+    playCard(state, state.hand[0], enemy.id);
+
+    expect(enemy.alive).toBe(false);
+    expect(hp - state.player.hp).toBe(5);
   });
 
   it('does not bounce between two 反刺 holders', () => {
@@ -372,7 +434,7 @@ describe('天佑', () => {
 });
 
 describe('断粮 / 束缚', () => {
-  it('stops every draw for the turn and clears at the next turn start', () => {
+  it('stops every draw for the turn and clears at the end of it', () => {
     const state = bench(cards('pikan', 20));
     addStatus(state, state.player, 'noDraw', 1);
     const hand = state.hand.length;
@@ -380,9 +442,43 @@ describe('断粮 / 束缚', () => {
     drawCards(state, 3);
     expect(state.hand).toHaveLength(hand);
 
-    startPlayerTurn(state);
+    endPlayerTurn(state);
     expect(state.player.statuses.noDraw).toBeUndefined();
-    expect(state.hand.length).toBeGreaterThan(hand);
+    runEnemyTurn(state);
+    expect(state.hand.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * The whole reason both statuses exist: an enemy applies them on its own
+   * turn and they bite on the player's next one. Clearing at the player's turn
+   * *start* — which is what the first cut did — deletes them before the draw
+   * and before `canPlay` is ever asked, i.e. a guaranteed silent no-op.
+   */
+  it('survives an enemy turn to gate the player turn it was aimed at', () => {
+    const inflict = (status: StatusId): CombatState => {
+      const state = bench(cards('pikan', 20));
+      endPlayerTurn(state);
+      enemyPlays(state, {
+        id: `apply-${status}`,
+        label: status,
+        intent: 'debuff',
+        weight: 1,
+        status: { status, amount: 1, to: 'player' },
+      });
+      return state;
+    };
+
+    const starved = inflict('noDraw');
+    expect(starved.player.statuses.noDraw).toBe(1);
+    expect(starved.hand).toHaveLength(0);
+
+    const bound = inflict('entangled');
+    expect(bound.player.statuses.entangled).toBe(1);
+    expect(canPlay(bound, bound.hand[0])).toBe(false);
+
+    // And it costs exactly that one turn, not the rest of the fight.
+    endPlayerTurn(bound);
+    expect(bound.player.statuses.entangled).toBeUndefined();
   });
 
   it('greys out 攻 cards only', () => {
@@ -424,6 +520,41 @@ describe('龟缩 / 暴怒', () => {
 
     playCard(state, state.hand[0], enemy.id);
     expect(enemy.statuses.strength).toBe(4);
+  });
+
+  /**
+   * Both read the HP the hit actually took. The hook is handed `hpLost` and
+   * `blocked` precisely so a swing that died on a wall of 护甲 counts for
+   * nothing — otherwise a 100-block enemy farms 神力 off attacks that never
+   * touched it.
+   */
+  it('ignores an attack the defender fully blocked', () => {
+    const state = bench(cards('pikan', 6));
+    const enemy = state.enemies[0];
+    enemy.block = 100;
+    addStatus(state, enemy, 'curlUp', 7);
+    addStatus(state, enemy, 'angry', 2);
+    const hp = enemy.hp;
+
+    playCard(state, state.hand[0], enemy.id);
+    // The wall took the whole swing, so neither reaction was owed anything.
+    expect(enemy.hp).toBe(hp);
+    expect(enemy.block).toBeLessThan(100);
+    expect(enemy.statuses.curlUp).toBe(7);
+    expect(enemy.statuses.strength).toBeUndefined();
+  });
+
+  it('does not let a corpse curl up or get angry', () => {
+    const state = bench(cards('pikan', 6));
+    const enemy = state.enemies[0];
+    enemy.hp = 1;
+    addStatus(state, enemy, 'curlUp', 7);
+    addStatus(state, enemy, 'angry', 2);
+
+    playCard(state, state.hand[0], enemy.id);
+    expect(enemy.alive).toBe(false);
+    expect(enemy.block).toBe(0);
+    expect(enemy.statuses.strength).toBeUndefined();
   });
 });
 

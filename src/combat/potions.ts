@@ -101,13 +101,25 @@ export const POTIONS: Record<string, PotionDef> = {
     effects: [{ kind: 'draw', amount: 3 }],
   },
 
-  /** Potion colours quote the status they deal, so the belt reads at a glance. */
+  /**
+   * Potion colours quote the status they deal, so the belt reads at a glance.
+   *
+   * Read through a getter, never eagerly: this module sits inside the cycle
+   * `statuses → engine → potions → statuses`, so whenever `statuses.ts` leads
+   * the module graph the table here is built while `STATUS_META` is still
+   * undefined. A getter defers the read until something actually paints a
+   * bottle, by which time every module in the cycle has finished.
+   * `tests/imports.test.ts` loads each combat module first and would catch a
+   * new eager read.
+   */
   jiejiasan: {
     id: 'jiejiasan',
     name: '解甲散',
     rarity: 'common',
     art: 'potion-jiejiasan',
-    color: STATUS_META.vulnerable.color,
+    get color() {
+      return STATUS_META.vulnerable.color;
+    },
     text: '施加 3 层【破绽】。',
     target: 'enemy',
     usableOutOfCombat: false,
@@ -119,7 +131,9 @@ export const POTIONS: Record<string, PotionDef> = {
     name: '迷魂散',
     rarity: 'common',
     art: 'potion-mihunsan',
-    color: STATUS_META.weak.color,
+    get color() {
+      return STATUS_META.weak.color;
+    },
     text: '施加 3 层【怯战】。',
     target: 'enemy',
     usableOutOfCombat: false,
@@ -153,7 +167,9 @@ export const POTIONS: Record<string, PotionDef> = {
     name: '虎狼之药',
     rarity: 'uncommon',
     art: 'potion-hulangzhiyao',
-    color: STATUS_META.strength.color,
+    get color() {
+      return STATUS_META.strength.color;
+    },
     text: '获得 2 层【神力】。',
     target: 'self',
     usableOutOfCombat: false,

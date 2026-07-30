@@ -150,7 +150,7 @@ export const RELICS: Record<string, RelicDef> = {
     hooks: {
       combatStart: ({ state, value, trigger }) => {
         trigger();
-        gainBlock(state, state.player, value);
+        gainBlock(state, state.player, value, 'relic');
       },
     },
   },
@@ -168,7 +168,7 @@ export const RELICS: Record<string, RelicDef> = {
         if (counter.value < 3) return;
         counter.value = 0;
         trigger();
-        gainBlock(state, state.player, value);
+        gainBlock(state, state.player, value, 'relic');
       },
     },
   },
@@ -238,7 +238,7 @@ export const RELICS: Record<string, RelicDef> = {
       turnEnd: ({ state, value, trigger }) => {
         if (state.player.block > 0) return;
         trigger();
-        gainBlock(state, state.player, value);
+        gainBlock(state, state.player, value, 'relic');
       },
     },
   },
@@ -269,7 +269,7 @@ export const RELICS: Record<string, RelicDef> = {
     hooks: {
       shuffle: ({ state, value, trigger }) => {
         trigger();
-        gainBlock(state, state.player, value);
+        gainBlock(state, state.player, value, 'relic');
       },
     },
   },

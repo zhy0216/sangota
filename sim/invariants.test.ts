@@ -6,10 +6,12 @@ import {
   startCombat,
 } from '../src/combat/engine';
 import type { CombatState } from '../src/combat/types';
+import { CARD_POOL_BY_RARITY } from '../src/combat/cards';
+import { CURSE_POOL, STATUS_POOL } from '../src/combat/curses';
 import { DEFAULT_HERO } from '../src/data/heroes';
-import { startRun } from '../src/state/run';
+import { newDeckCard, startRun, type DeckCard } from '../src/state/run';
 import { POLICIES, type Policy, type PolicyName } from './policy';
-import { findEncounter, simulateCombat } from './runCombat';
+import { answerChoices, findEncounter, simulateCombat } from './runCombat';
 
 /**
  * Cheap fuzz over the whole rules layer: drive real fights and assert the
@@ -21,10 +23,14 @@ const ENCOUNTERS = ['m1', 'm2', 'm3', 'm4', 'e1', 'b1'];
 const POLICY_NAMES: PolicyName[] = ['random', 'greedy', 'threat'];
 const RUNS_PER_COMBO = 20;
 
-function assertInvariants(state: CombatState, deckSize: number, where: string): void {
+function assertInvariants(state: CombatState, where: string): void {
+  // Counted against `state.cards` and not the starting deck: 五百校刀手 and
+  // 孟德新书 mint cards mid-fight, and every one of them must still be findable
+  // in exactly one pile.
+  const known = Object.keys(state.cards).length;
   const piles = [...state.drawPile, ...state.hand, ...state.discardPile, ...state.exhaustPile];
-  expect(piles.length, `${where}: cards leaked or duplicated`).toBe(deckSize);
-  expect(new Set(piles).size, `${where}: a uid is in two piles at once`).toBe(deckSize);
+  expect(piles.length, `${where}: cards leaked or duplicated`).toBe(known);
+  expect(new Set(piles).size, `${where}: a uid is in two piles at once`).toBe(known);
 
   expect(state.energy, where).toBeGreaterThanOrEqual(0);
   expect(state.hand.length, where).toBeLessThanOrEqual(10);
@@ -40,9 +46,15 @@ function assertInvariants(state: CombatState, deckSize: number, where: string): 
   }
 }
 
-/** Mirrors `simulateCombat`'s loop, but checks the world after every step. */
-function fuzzFight(encounterId: string, policy: Policy, seed: string): void {
-  const deck = startRun(DEFAULT_HERO, seed).deck;
+/**
+ * Mirrors `simulateCombat`'s loop, but checks the world after every step. The
+ * two drivers must stay in step: a prompt the fuzz cannot answer would park
+ * `pendingChoice`, make every later `chooseAction` return null and every
+ * `endPlayerTurn` a no-op, and the fight would be reported as "never
+ * terminated" instead of as the rules bug it is.
+ */
+function fuzzFight(encounterId: string, policy: Policy, seed: string, deckOverride?: DeckCard[]): void {
+  const deck = deckOverride ?? startRun(DEFAULT_HERO, seed).deck;
   const state = startCombat({
     encounter: findEncounter(encounterId),
     deck,
@@ -54,7 +66,7 @@ function fuzzFight(encounterId: string, policy: Policy, seed: string): void {
   });
 
   let steps = 0;
-  assertInvariants(state, deck.length, `${seed} start`);
+  assertInvariants(state, `${seed} start`);
 
   while (state.phase === 'player') {
     expect(steps++, `${seed} never terminated`).toBeLessThan(2000);
@@ -65,7 +77,9 @@ function fuzzFight(encounterId: string, policy: Policy, seed: string): void {
       endPlayerTurn(state);
       runEnemyTurn(state);
     }
-    assertInvariants(state, deck.length, `${seed} step ${steps}`);
+    answerChoices(state, policy);
+    expect(state.pendingChoice, `${seed} step ${steps}: unanswered prompt`).toBeNull();
+    assertInvariants(state, `${seed} step ${steps}`);
   }
 
   expect(['won', 'lost']).toContain(state.phase);
@@ -77,6 +91,33 @@ describe(`combat invariants across ${ENCOUNTERS.length * POLICY_NAMES.length * R
       for (const name of POLICY_NAMES) {
         for (let i = 0; i < RUNS_PER_COMBO; i++) {
           fuzzFight(encounterId, POLICIES[name], `fuzz-${encounterId}-${name}-${i}`);
+        }
+      }
+    });
+  }
+});
+
+/**
+ * The starter deck is ten cards of two kinds; phase 2 added 21 rewardable
+ * cards, six curses and five 状态牌, none of which the fuzz above ever draws.
+ * This deck holds one of every one of them, so card minting, 消耗/虚无/保留,
+ * unplayable cards and the play-restricting curses all get walked.
+ */
+const KITCHEN_SINK: DeckCard[] = [
+  ...Object.values(CARD_POOL_BY_RARITY).flat(),
+  ...CURSE_POOL,
+  ...STATUS_POOL,
+].map((defId) => newDeckCard(defId));
+
+describe('combat invariants with every card in the deck', () => {
+  for (const encounterId of ENCOUNTERS) {
+    it(encounterId, () => {
+      for (const name of POLICY_NAMES) {
+        for (let i = 0; i < 5; i++) {
+          const seed = `sink-${encounterId}-${name}-${i}`;
+          // Fresh uids per fight: `startCombat` copies the instances, but two
+          // fights sharing one array would still share upgrade state.
+          fuzzFight(encounterId, POLICIES[name], seed, KITCHEN_SINK.map((c) => ({ ...c })));
         }
       }
     });
@@ -113,5 +154,53 @@ describe('protective bail-outs', () => {
       const result = simulateCombat({ ...base, policy: POLICIES[name] });
       expect(result.aborted, name).toBeNull();
     }
+  });
+
+  /**
+   * `usePotion` only looks an id up in the table — it never asks the belt. A
+   * policy naming a bottle the run does not carry used to drink it for real,
+   * and `belt.indexOf(-1)` then spliced out whichever potion was last, so the
+   * fight got free effects and the carried potions vanished unused. The first
+   * balance table run with potions would have reported wrong numbers.
+   */
+  it('refuses a potion the run is not carrying, and keeps the belt intact', () => {
+    // 壮行酒 targets nobody, so `usePotion` would happily pour one the run
+    // never had — the belt check is the only thing standing between them.
+    const phantom: Policy = {
+      ...POLICIES.greedy,
+      name: 'phantom-potion',
+      choosePotion: () => ({ id: 'zhuangxingjiu' }),
+    };
+    const result = simulateCombat({
+      ...base,
+      policy: phantom,
+      potions: ['tiejiasan', 'junqingmibao'],
+    });
+
+    expect(result.aborted).toBeNull();
+    expect(result.events.filter((e) => e.t === 'potion')).toEqual([]);
+  });
+
+  it('drinks and discards exactly the bottle the policy named', () => {
+    let poured = false;
+    const once: Policy = {
+      ...POLICIES.greedy,
+      name: 'one-pour',
+      choosePotion: (_state, belt) => {
+        if (poured || !belt.includes('junqingmibao')) return null;
+        poured = true;
+        return { id: 'junqingmibao' };
+      },
+    };
+    const result = simulateCombat({
+      ...base,
+      policy: once,
+      potions: ['tiejiasan', 'junqingmibao'],
+    });
+
+    expect(result.aborted).toBeNull();
+    expect(result.events.filter((e) => e.t === 'potion')).toEqual([
+      { t: 'potion', potionId: 'junqingmibao' },
+    ]);
   });
 });

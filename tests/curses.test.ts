@@ -14,6 +14,7 @@ import {
   endPlayerTurn,
   playCard,
   startCombat,
+  usePotion,
 } from '../src/combat/engine';
 import type { CardDef, CombatState } from '../src/combat/types';
 import { DEFAULT_HERO } from '../src/data/heroes';
@@ -127,7 +128,7 @@ describe('状态牌', () => {
 
   it('never reaches run.deck — not through addCard, not through a fight', () => {
     const run = startRun(DEFAULT_HERO, 'seed-mint');
-    expect(() => addCard(run, 'fenying')).toThrow(/never enter the deck/);
+    expect(() => addCard(run, 'fenying')).toThrow(/never a reward/);
 
     const state = fightWith(run, 'mint');
     // Force the generator into hand rather than fishing for it in the shuffle.
@@ -194,6 +195,31 @@ describe('诅咒牌', () => {
     expect(run.gold).toBe(0);
   });
 
+  /**
+   * 孟德新书 mints a copy of every card in hand, curses included. The copy is
+   * a `g*` uid that dies with the fight, so it must not bill the run — a hand
+   * of five curses would otherwise charge six times over.
+   */
+  it('贪念: charges once per copy in the deck, not once per copy in the fight', () => {
+    const run = startRun(DEFAULT_HERO, 'seed-dupe');
+    addCurse(run, 'tannian');
+    run.gold = 200;
+
+    const state = fightWith(run, 'dupe');
+    const uid = Object.keys(state.cards).find((u) => state.cards[u].defId === 'tannian')!;
+    for (const pile of [state.drawPile, state.discardPile, state.hand]) {
+      const at = pile.indexOf(uid);
+      if (at >= 0) pile.splice(at, 1);
+    }
+    state.hand.push(uid);
+
+    expect(usePotion(state, 'mengdexinshu')).toBe(true);
+    expect(uidsOf(state, Object.keys(state.cards), 'tannian')).toHaveLength(2);
+
+    resolveCombatEndHooks(state, run);
+    expect(run.gold).toBe(185);
+  });
+
   it('stays in run.deck after the fight', () => {
     const run = startRun(DEFAULT_HERO, 'seed-keep');
     const curse = addCurse(run, 'jiushang');
@@ -231,11 +257,25 @@ describe('pool hygiene', () => {
     for (const id of Object.values(CARD_POOL_BY_RARITY).flat()) {
       expect(isNegative(CARDS[id]), id).toBe(false);
     }
-    // `basic` is what structurally excludes them now that todos/11 keys the pool
-    // by rarity, so it is the property worth pinning rather than the list above.
+    // `basic` is what keeps `rollCardReward` from ever *asking* for them now
+    // that todos/11 keys the pool by rarity, so it is the property worth
+    // pinning rather than the list above.
     for (const def of [...Object.values(CURSES), ...Object.values(STATUS_CARDS)]) {
       expect(def.rarity, def.id).toBe('basic');
     }
+  });
+
+  /**
+   * The pool arrays are `string[]`: only the *keys* of `CARD_POOL_BY_RARITY`
+   * are typed, so a curse pushed into one of them typechecks. `addCard` is the
+   * door that actually holds, and this is the test that says so.
+   */
+  it('refuses a curse at the reward door even if the pool offers one', () => {
+    const run = startRun(DEFAULT_HERO, 'seed-smuggle-reward');
+    for (const id of CURSE_POOL) {
+      expect(() => addCard(run, id), id).toThrow(/never a reward/);
+    }
+    expect(run.deck.some((c) => isNegative(CARDS[c.defId]))).toBe(false);
   });
 
   it('offers only removable curses to the events that hand them out', () => {

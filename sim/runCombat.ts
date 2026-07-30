@@ -87,26 +87,31 @@ export function simulateCombat(opts: SimOptions): SimResult {
 
     // Before the card, because a potion is free: 壮行酒 that arrives after the
     // turn's last affordable play is 气 the policy never gets to spend.
-    if (belt.length > 0) {
-      const pour = opts.policy.choosePotion?.(state, belt);
-      if (pour && usePotion(state, pour.id, pour.targetId)) {
-        belt.splice(belt.indexOf(pour.id), 1);
+    //
+    // `belt.includes` first: `usePotion` only looks the id up in the table, so
+    // a policy naming a bottle the run does not carry would drink it for real
+    // and then `indexOf(-1)` would splice out whichever potion happened to be
+    // last. A policy asking for what it does not hold is a policy bug, and the
+    // no-progress detector below is what should report it.
+    const pour = belt.length > 0 ? opts.policy.choosePotion?.(state, belt) : null;
+    if (pour && belt.includes(pour.id) && usePotion(state, pour.id, pour.targetId)) {
+      belt.splice(belt.indexOf(pour.id), 1);
+      answerChoices(state, opts.policy);
+    } else {
+      const action = opts.policy.chooseAction(state);
+      if (action) {
+        // A rejected action is a policy bug. Deliberately not papered over by
+        // ending the turn — let the no-progress detector surface it instead.
+        playCard(state, action.uid, action.targetId);
         answerChoices(state, opts.policy);
-        continue;
+      } else {
+        endPlayerTurn(state);
+        runEnemyTurn(state);
       }
     }
 
-    const action = opts.policy.chooseAction(state);
-    if (action) {
-      // A rejected action is a policy bug. Deliberately not papered over by
-      // ending the turn — let the no-progress detector surface it instead.
-      playCard(state, action.uid, action.targetId);
-      answerChoices(state, opts.policy);
-    } else {
-      endPlayerTurn(state);
-      runEnemyTurn(state);
-    }
-
+    // Every path falls through to here: a `continue` past the detector is how a
+    // hung potion loop would go unreported.
     const hash = hashState(state);
     stuck = hash === lastHash ? stuck + 1 : 0;
     lastHash = hash;
@@ -131,13 +136,21 @@ export function simulateCombat(opts: SimOptions): SimResult {
  * engine. The sim has no player, so the policy answers — and if it answers
  * badly, the first `min` options are taken rather than letting the fight hang.
  * One card can queue several prompts, hence the loop.
+ *
+ * Bounded, because the fallback is not guaranteed to be accepted: today
+ * `chooseFromHand` is the only producer and it always offers at least `min`
+ * options, but a future prompt whose options are narrower than its minimum
+ * would spin here forever. Giving up leaves `pendingChoice` set, which the
+ * no-progress detector then reports as a hang rather than hanging CI.
  */
-function answerChoices(state: CombatState, policy: Policy): void {
-  while (state.pendingChoice) {
+const MAX_CHOICES_PER_ACTION = 64;
+
+export function answerChoices(state: CombatState, policy: Policy): void {
+  for (let i = 0; state.pendingChoice && i < MAX_CHOICES_PER_ACTION; i++) {
     const choice = state.pendingChoice;
     const fallback = choice.options.slice(0, choice.min);
     const answer = policy.resolveChoice?.(state, choice) ?? fallback;
-    if (!resolveChoice(state, answer)) resolveChoice(state, fallback);
+    if (!resolveChoice(state, answer) && !resolveChoice(state, fallback)) return;
   }
 }
 

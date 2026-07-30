@@ -63,3 +63,36 @@ describe('headlessness', () => {
     expect(RULES_FILES.length).toBeGreaterThanOrEqual(11);
   });
 });
+
+/**
+ * `CombatScene` cannot be loaded under Node — it imports Phaser — so the one
+ * property of it that costs a run if it breaks is checked as source text, the
+ * same way `cardGrid.test.ts` checks the deck viewer's re-export.
+ *
+ * The bug: leaving the victory screen only starts a 300 ms camera fade, and the
+ * reward row stays live and interactive for every frame of it. `inkButton` and
+ * `hitZone` both bind `on`, not `once`. Clicking two cards banked two cards;
+ * clicking a card and then 「不取」 banked the card and the 歌钵 max-HP payout.
+ */
+describe('the victory screen pays out once', () => {
+  const scene = read('src/scenes/CombatScene.ts');
+
+  it('guards the claim itself', () => {
+    expect(scene).toMatch(
+      /private claimReward\(take: \(\) => void\): void \{\s*if \(this\.claimed\) return;\s*this\.claimed = true;/,
+    );
+  });
+
+  it('leaves the screen only by claiming, so a payout cannot be taken twice', () => {
+    const body = scene.slice(
+      scene.indexOf('private showVictory'),
+      scene.indexOf('private rollPotionDrop'),
+    );
+
+    expect(body).toContain('addCard(this.run, cardId)');
+    expect(body).toContain('this.run.maxHp += skipHp');
+    // Both payouts, and no other way out of the overlay.
+    expect(body.match(/this\.claimReward\(/g)).toHaveLength(2);
+    expect(body).not.toMatch(/this\.leaveToMap\(\)/);
+  });
+});

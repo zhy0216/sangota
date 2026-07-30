@@ -1,0 +1,633 @@
+{
+  "encounter": "b1",
+  "seed": "gold-23",
+  "policy": "random",
+  "deck": "wide",
+  "result": {
+    "won": false,
+    "turns": 7,
+    "hpLeft": 0,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "draw",
+      "uid": "d10"
+    },
+    {
+      "t": "draw",
+      "uid": "d25"
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "draw",
+      "uid": "d26"
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d25"
+    },
+    {
+      "t": "discard",
+      "uid": "d26"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "lubu-0",
+      "label": "破军"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "draw",
+      "uid": "d16"
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "draw",
+      "uid": "d23"
+    },
+    {
+      "t": "draw",
+      "uid": "d15"
+    },
+    {
+      "t": "draw",
+      "uid": "d19"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 8
+    },
+    {
+      "t": "draw",
+      "uid": "d18"
+    },
+    {
+      "t": "discard",
+      "uid": "d23"
+    },
+    {
+      "t": "discard",
+      "uid": "d15"
+    },
+    {
+      "t": "discard",
+      "uid": "d18"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "lubu-0",
+      "label": "戟雨"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 0,
+      "blocked": 9,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 5,
+      "blocked": 4,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d14"
+    },
+    {
+      "t": "draw",
+      "uid": "d13"
+    },
+    {
+      "t": "draw",
+      "uid": "d11"
+    },
+    {
+      "t": "draw",
+      "uid": "d21"
+    },
+    {
+      "t": "draw",
+      "uid": "d27"
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 2
+    },
+    {
+      "t": "exhaust",
+      "uid": "d21"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "discard",
+      "uid": "d14"
+    },
+    {
+      "t": "discard",
+      "uid": "d27"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "lubu-0",
+      "label": "破军"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 5,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "draw",
+      "uid": "d24"
+    },
+    {
+      "t": "draw",
+      "uid": "d22"
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "draw",
+      "uid": "d26"
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "ritual",
+      "amount": 1
+    },
+    {
+      "t": "exhaust",
+      "uid": "d24"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d12"
+    },
+    {
+      "t": "discard",
+      "uid": "d26"
+    },
+    {
+      "t": "discard",
+      "uid": "d20"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "lubu-0",
+      "label": "戟雨"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d16"
+    },
+    {
+      "t": "draw",
+      "uid": "d10"
+    },
+    {
+      "t": "draw",
+      "uid": "d23"
+    },
+    {
+      "t": "draw",
+      "uid": "d14"
+    },
+    {
+      "t": "draw",
+      "uid": "d11"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 12,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "g0"
+    },
+    {
+      "t": "draw",
+      "uid": "g1"
+    },
+    {
+      "t": "draw",
+      "uid": "g2"
+    },
+    {
+      "t": "exhaust",
+      "uid": "d23"
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d16"
+    },
+    {
+      "t": "discard",
+      "uid": "d14"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "lubu-0",
+      "label": "方天画戟"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 16,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d18"
+    },
+    {
+      "t": "draw",
+      "uid": "d13"
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "draw",
+      "uid": "d19"
+    },
+    {
+      "t": "draw",
+      "uid": "d27"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "lubu-0",
+      "status": "weak",
+      "amount": 2
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 4
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 10,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d27"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "lubu-0",
+      "label": "人中吕布"
+    },
+    {
+      "t": "block",
+      "targetId": "lubu-0",
+      "amount": 12
+    },
+    {
+      "t": "status",
+      "targetId": "lubu-0",
+      "status": "strength",
+      "amount": 3
+    },
+    {
+      "t": "draw",
+      "uid": "d25"
+    },
+    {
+      "t": "draw",
+      "uid": "d15"
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "g0"
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 0,
+      "blocked": 12,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 12,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "lubu-0",
+      "status": "vulnerable",
+      "amount": 1
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 19,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 13,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d25"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "lubu-0",
+      "label": "方天画戟"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 14,
+      "blocked": 0,
+      "lethal": true
+    }
+  ]
+}

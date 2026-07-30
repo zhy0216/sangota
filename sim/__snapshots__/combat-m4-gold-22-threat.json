@@ -1,0 +1,403 @@
+{
+  "encounter": "m4",
+  "seed": "gold-22",
+  "policy": "threat",
+  "deck": "wide",
+  "result": {
+    "won": true,
+    "turns": 5,
+    "hpLeft": 51,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "draw",
+      "uid": "d21"
+    },
+    {
+      "t": "draw",
+      "uid": "d19"
+    },
+    {
+      "t": "draw",
+      "uid": "d23"
+    },
+    {
+      "t": "draw",
+      "uid": "d15"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "bandit-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-1",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "bandit-0",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "bandit-0",
+      "status": "vulnerable",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d21"
+    },
+    {
+      "t": "discard",
+      "uid": "d19"
+    },
+    {
+      "t": "discard",
+      "uid": "d23"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "bandit-0",
+      "label": "双斧"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 5,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 5,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "yellowturban-1",
+      "label": "劈斩"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d14"
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "draw",
+      "uid": "d26"
+    },
+    {
+      "t": "draw",
+      "uid": "d22"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "bandit-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "bandit-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "bandit-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "bandit-0"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-1",
+      "amount": 5,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d12"
+    },
+    {
+      "t": "discard",
+      "uid": "d26"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "yellowturban-1",
+      "label": "据守"
+    },
+    {
+      "t": "block",
+      "targetId": "yellowturban-1",
+      "amount": 6
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 5,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d10"
+    },
+    {
+      "t": "draw",
+      "uid": "d18"
+    },
+    {
+      "t": "draw",
+      "uid": "d13"
+    },
+    {
+      "t": "draw",
+      "uid": "d27"
+    },
+    {
+      "t": "draw",
+      "uid": "d11"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-1",
+      "amount": 3,
+      "blocked": 6,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-1",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "discard",
+      "uid": "d18"
+    },
+    {
+      "t": "discard",
+      "uid": "d27"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "yellowturban-1",
+      "label": "劈斩"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 5,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d25"
+    },
+    {
+      "t": "draw",
+      "uid": "d24"
+    },
+    {
+      "t": "draw",
+      "uid": "d16"
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d27"
+    },
+    {
+      "t": "draw",
+      "uid": "d10"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-1",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 8
+    },
+    {
+      "t": "draw",
+      "uid": "d21"
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 2
+    },
+    {
+      "t": "exhaust",
+      "uid": "d21"
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d25"
+    },
+    {
+      "t": "discard",
+      "uid": "d24"
+    },
+    {
+      "t": "discard",
+      "uid": "d27"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "yellowturban-1",
+      "label": "据守"
+    },
+    {
+      "t": "block",
+      "targetId": "yellowturban-1",
+      "amount": 6
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 0,
+      "blocked": 5,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "draw",
+      "uid": "d19"
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "draw",
+      "uid": "d22"
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-1",
+      "amount": 3,
+      "blocked": 6,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-1",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "yellowturban-1"
+    }
+  ]
+}

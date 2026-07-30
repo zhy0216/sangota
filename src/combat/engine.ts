@@ -101,8 +101,9 @@ export function startCombat(opts: StartCombatOptions): CombatState {
     events: [],
   };
 
-  // Starting block is granted rather than assigned, so 身法 and the 护甲 event
-  // reach it like any other block would.
+  // Granted rather than assigned, so the 护甲 event and the `blockGained` hook
+  // see it like any other block. `'relic'` keeps it off the 身法/力竭 scale —
+  // 先登盾 promises a flat 4 and must hand over exactly 4.
   gainBlock(state, state.player, mods.startingBlock, 'relic');
 
   for (const enemy of enemies) pickIntent(state, enemy);
@@ -469,15 +470,18 @@ function applyEffect(state: CombatState, step: QueuedStep): void {
   switch (effect.kind) {
     case 'damage': {
       // Each hit is priced on its own, so 破绽 applies to every one of them.
+      // 反刺 can kill mid-combo, and a corpse does not finish swinging either.
       for (let i = 0; i < (effect.times ?? 1); i++) {
-        if (!step.target?.alive) break;
+        if (!step.target?.alive || state.player.hp <= 0) break;
         dealAttack(state, state.player, step.target, effect.amount + step.bonus);
       }
       break;
     }
     case 'damageAll': {
       for (let i = 0; i < (effect.times ?? 1); i++) {
+        if (state.player.hp <= 0) break;
         for (const enemy of aliveEnemies(state)) {
+          if (state.player.hp <= 0) break;
           dealAttack(state, state.player, enemy, effect.amount + step.bonus);
         }
       }
@@ -785,8 +789,10 @@ export function resolveDamage(state: CombatState, ctx: DamageContext): void {
 
   // Reactions are the defender's answer to being *attacked*: reflected and
   // reactive damage carries `isAttack: false`, which is what bounds the
-  // recursion between two 反刺 holders at one exchange.
-  if (ctx.isAttack && defender.hp > 0) {
+  // recursion between two 反刺 holders at one exchange. A dead defender still
+  // gets its answer — 反刺 is paid by whoever swung, killing blow or not — and
+  // each row decides for itself whether a corpse or a fully blocked hit counts.
+  if (ctx.isAttack) {
     for (const id of STATUS_ORDER) {
       const def = STATUS_META[id];
       if (def.onAttacked && stacks(defender, id) > 0) {
@@ -814,17 +820,25 @@ export function shapeBlock(target: Combatant, amount: number, source: BlockSourc
   for (const id of STATUS_ORDER) {
     const fn = STATUS_META[id].blockGain;
     const n = stacks(target, id);
-    if (fn && n > 0) total = fn(n, total);
+    // `!== 0` and not `> 0`: 身法 is signed, and negative 身法 must subtract.
+    if (fn && n !== 0) total = fn(n, total);
   }
   return total;
 }
 
-/** The one place block is granted, so 身法/力竭 can't be routed around. */
+/**
+ * The one place block is granted, so 身法/力竭 can't be routed around.
+ *
+ * `source` is deliberately required. A default would let a new grant site
+ * compile as `'card'` and be shaped by 身法/力竭 when the spec says a relic or a
+ * power hands out its printed number — which is exactly how four relics ended
+ * up mis-scaled. Getting it wrong should be a type error, not a silent number.
+ */
 export function gainBlock(
   state: CombatState,
   target: Combatant,
   amount: number,
-  source: BlockSource = 'card',
+  source: BlockSource,
 ): void {
   if (amount <= 0) return;
   const total = shapeBlock(target, amount, source);
@@ -872,8 +886,11 @@ export function addStatus(
     return;
   }
 
+  // 神力/身法 are signed: an enemy at 神力 2 hit with -3 must sit at -1, or a
+  // 削弱 effect silently under-applies. Everything else is a layer count and
+  // floors at zero.
   const next = stacks(target, status) + amount;
-  if (next <= 0) delete target.statuses[status];
+  if (next === 0 || (next < 0 && !STATUS_META[status].signed)) delete target.statuses[status];
   else target.statuses[status] = next;
   state.events.push({ t: 'status', targetId: target.id, status, amount });
 }
@@ -893,8 +910,8 @@ export function tickStatuses(state: CombatState, owner: Combatant, phase: TickPh
     // The tick may have removed the status — or killed its owner.
     if (stacks(owner, id) === 0) continue;
 
-    if (def.decay === 'clearOnTurn') {
-      if (phase === 'ownerTurnStart') delete owner.statuses[id];
+    if (def.decay === 'clearAtTurnEnd') {
+      if (phase === 'ownerTurnEnd') delete owner.statuses[id];
     } else if (def.decay === 'endOfTurn') {
       if (phase === 'ownerTurnEnd') consumeLayer(owner, id);
     } else if (def.decay === 'tickDown') {
@@ -907,12 +924,25 @@ export function checkEnd(state: CombatState): void {
   if (state.phase === 'won' || state.phase === 'lost') return;
   if (state.player.hp <= 0) {
     state.phase = 'lost';
+    endCombat(state);
     return;
   }
   if (aliveEnemies(state).length !== 0) return;
   state.phase = 'won';
+  endCombat(state);
   // Only on a win: rewards follow, and nothing a relic does can save a corpse.
   fireHook(state, 'combatEnd');
+}
+
+/**
+ * A finished fight asks no more questions. Without this a card that parked on
+ * 「弃 2 张牌」 and then killed the room leaves the scene showing a mandatory,
+ * non-dismissable grid over a won combat, and the queue behind it would resume
+ * into a terminal phase.
+ */
+function endCombat(state: CombatState): void {
+  state.pendingChoice = null;
+  state.effectQueue.length = 0;
 }
 
 // ----------------------------------------------------------------- helpers
@@ -962,11 +992,16 @@ export function previewValues(
       switch (effect.kind) {
         case 'damage':
         case 'damageAll':
-          out.D = computeAttack(effect.amount + bonus, player, against ?? NEUTRAL);
+          // Clamped like a real hit would be: a 金蝉脱壳 target takes 1, and the
+          // face must say 1 rather than the number the maths produced.
+          out.D = clampIncoming(
+            computeAttack(effect.amount + bonus, player, against ?? NEUTRAL),
+            against ?? NEUTRAL,
+          );
           out.T = (effect.times ?? 1) * repeat;
           break;
         case 'block':
-          out.B += shapeBlock(player, effect.amount, 'card');
+          out.B += shapeBlock(player, effect.amount, 'card') * repeat;
           break;
         case 'conditional':
           // Without a fight to ask, the card reads at its headline branch.
@@ -1006,7 +1041,7 @@ export function intentLabel(state: CombatState, enemy: EnemyState): string {
   const move = enemy.intent;
   if (!move) return '';
   if (move.damage) {
-    const perHit = computeAttack(move.damage, enemy, state.player);
+    const perHit = clampIncoming(computeAttack(move.damage, enemy, state.player), state.player);
     const hits = move.hits ?? 1;
     const dmg = hits > 1 ? `${perHit}×${hits}` : `${perHit}`;
     if (move.block) return `攻 ${dmg} · 守`;

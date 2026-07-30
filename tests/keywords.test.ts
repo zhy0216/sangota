@@ -80,6 +80,21 @@ const PROBES: CardDef[] = [
     ],
   }),
   probe('t-exhaustpick', { effects: [{ kind: 'exhaustCards', amount: 1 }] }),
+  probe('t-kill-then-ask', {
+    type: 'attack',
+    cost: 1,
+    target: 'enemy',
+    effects: [
+      { kind: 'damageAll', amount: 30 },
+      { kind: 'discard', amount: 2 },
+    ],
+  }),
+  probe('t-reckless', {
+    type: 'attack',
+    cost: 1,
+    target: 'enemy',
+    effects: [{ kind: 'damageAll', amount: 1, times: 4 }],
+  }),
   probe('t-mint', {
     effects: [{ kind: 'addCard', defId: 't-unplayable', count: 2, to: 'discard' }],
   }),
@@ -268,6 +283,26 @@ describe('多段攻击', () => {
     expect(state.events.filter((e) => e.t === 'damage')).toHaveLength(1);
     expect(state.enemies[1].hp).toBe(state.enemies[1].maxHp);
   });
+
+  /**
+   * The mirror case: 反刺 can kill the *player* halfway through their own
+   * multi-hit. A corpse does not finish swinging, and every extra hit past the
+   * death would keep firing `enemyKilled` hooks on a fight already lost.
+   */
+  it('stops mid-combo once the player is down', () => {
+    const state = bench([newDeckCard('t-reckless'), ...cards('pikan', 9)]);
+    state.player.hp = 3;
+    for (const enemy of state.enemies) addStatus(state, enemy, 'thorns', 2);
+    state.events.length = 0;
+
+    playCard(state, inHand(state, 't-reckless'), state.enemies[0].id);
+
+    expect(state.player.hp).toBe(0);
+    expect(state.phase).toBe('lost');
+    // Two swings landed and two reflections came back; the remaining six hits
+    // of the 4× 全体 never happened.
+    expect(state.events.filter((e) => e.t === 'damage' && e.targetId !== 'player')).toHaveLength(2);
+  });
 });
 
 describe('条件效果', () => {
@@ -359,6 +394,23 @@ describe('pendingChoice', () => {
     expect(resolveChoice(state, [options[0], options[0]])).toBe(false); // same card twice
     expect(resolveChoice(state, ['not-a-card', options[1]])).toBe(false);
     expect(state.pendingChoice).not.toBeNull();
+  });
+
+  /**
+   * A fight that ends asks no more questions. The scene runs `settleChoices()`
+   * before `checkOutcome()`, so a prompt left standing on a won fight paints a
+   * mandatory, non-dismissable grid over a room the player has already cleared
+   * — and answering it would resume a queue into a terminal phase.
+   */
+  it('is dropped, along with the rest of the queue, when the fight ends', () => {
+    const state = bench([newDeckCard('t-kill-then-ask'), ...cards('pikan', 9)]);
+    for (const enemy of state.enemies) enemy.hp = 1;
+
+    playCard(state, inHand(state, 't-kill-then-ask'), state.enemies[0].id);
+
+    expect(state.phase).toBe('won');
+    expect(state.pendingChoice).toBeNull();
+    expect(state.effectQueue).toHaveLength(0);
   });
 
   it('exhausts the picked card rather than discarding it', () => {

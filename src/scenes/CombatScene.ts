@@ -135,6 +135,13 @@ export class CombatScene extends Phaser.Scene {
   private selectedPotion: number | null = null;
   private busy = false;
   private finished = false;
+  /**
+   * Set the instant a reward is claimed. `leaveToMap` only starts a 300 ms
+   * camera fade, and the victory overlay stays live and interactive for every
+   * one of those frames — without this the player can click a second card, or a
+   * card and then 「不取」, and bank both payouts.
+   */
+  private claimed = false;
 
   /** Built on the first hover — most fights never show a status tooltip. */
   private statusTip: Phaser.GameObjects.Container | null = null;
@@ -1411,7 +1418,9 @@ export class CombatScene extends Phaser.Scene {
     view.statusRow.removeAll(true);
     this.hideStatusTip();
 
-    const entries = STATUS_ORDER.filter((id) => (statuses[id] ?? 0) > 0);
+    // `!== 0`: 神力 and 身法 are signed, and a -2 神力 must show as a chip
+    // reading "-2" rather than quietly vanishing off the row.
+    const entries = STATUS_ORDER.filter((id) => (statuses[id] ?? 0) !== 0);
     const chipW = 32;
     const chipH = 22;
     const gap = 3;
@@ -1616,8 +1625,7 @@ export class CombatScene extends Phaser.Scene {
         this.tweens.add({ targets: card, scale: 1, y: 400, duration: 140 }),
       );
       card.hitZone.on('pointerup', () => {
-        addCard(this.run, cardId);
-        this.leaveToMap();
+        this.claimReward(() => addCard(this.run, cardId));
       });
       layer.add(card);
     });
@@ -1629,11 +1637,12 @@ export class CombatScene extends Phaser.Scene {
       height: 54,
       fontSize: 22,
       onClick: () => {
-        if (skipHp > 0) {
-          this.run.maxHp += skipHp;
-          this.run.hp += skipHp;
-        }
-        this.leaveToMap();
+        this.claimReward(() => {
+          if (skipHp > 0) {
+            this.run.maxHp += skipHp;
+            this.run.hp += skipHp;
+          }
+        });
       },
     });
     skip.setDepth(DEPTH.overlay + 1);
@@ -1808,6 +1817,18 @@ export class CombatScene extends Phaser.Scene {
 
     layer.setAlpha(0);
     this.tweens.add({ targets: layer, alpha: 1, duration: 400 });
+  }
+
+  /**
+   * Takes the one payout the victory screen owes and leaves. Every claim path
+   * goes through here: `inkButton` binds `on` rather than `once`, and the fade
+   * out of the scene takes 300 ms during which every hit zone is still live.
+   */
+  private claimReward(take: () => void): void {
+    if (this.claimed) return;
+    this.claimed = true;
+    take();
+    this.leaveToMap();
   }
 
   private leaveToMap(): void {

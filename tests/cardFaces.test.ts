@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { CARDS, resolveCard } from '../src/combat/cards';
 import { isNegative } from '../src/combat/curses';
 import { ENCOUNTERS } from '../src/combat/enemies';
-import { describeCard, playCard, previewValues, startCombat } from '../src/combat/engine';
+import {
+  describeCard,
+  intentLabel,
+  playCard,
+  previewValues,
+  startCombat,
+} from '../src/combat/engine';
 import type { CardDef, CombatState, Effect, StatusId } from '../src/combat/types';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { newDeckCard } from '../src/state/run';
@@ -190,5 +196,56 @@ describe('describeCard', () => {
 
     expect(previewValues(state, def).D).toBe(9);
     expect(previewValues(state, def, state.enemies[0]).D).toBe(13);
+  });
+
+  /**
+   * 金蝉脱壳 sits in the `clamp` slot, which `computeAttack` deliberately skips
+   * — the clamp belongs to `resolveDamage`, ahead of block. The preview has to
+   * apply it separately or the face reads 攻 12 against a target that will take
+   * exactly 1.
+   */
+  it('folds 金蝉脱壳 into the number, on both sides of the swing', () => {
+    const state = bench('pikan', 0, LOADOUTS[0]);
+    state.attacksThisTurn = 1;
+    const def = resolveCard('pikan', 0);
+    const target = state.enemies[0];
+
+    expect(previewValues(state, def, target).D).toBe(6);
+    target.statuses.intangible = 1;
+    expect(previewValues(state, def, target).D).toBe(1);
+    expect(describeCard(state, def, target)).toContain('1');
+
+    // And the marker over an enemy telegraphing at an intangible player.
+    const marked = bench('pikan', 0, LOADOUTS[0]);
+    const enemy = marked.enemies[0];
+    enemy.intent = { id: 'axe', label: '巨斧', intent: 'attack', damage: 30, weight: 1 };
+    expect(intentLabel(marked, enemy)).toBe('攻 30');
+    marked.player.statuses.intangible = 2;
+    expect(intentLabel(marked, enemy)).toBe('攻 1');
+  });
+
+  /**
+   * `scaleWithEnergy` resolves its body once per 气 spent. The damage arm has
+   * always carried the multiplier through; block did not, so a 势 card whose
+   * `per` held block would promise a third of what it granted.
+   */
+  it('multiplies block by the repeat count under 虎牢关-style scaling', () => {
+    const SCALED: CardDef = {
+      id: 'c-scaled-block',
+      name: '测试',
+      type: 'skill',
+      rarity: 'common',
+      cost: 3,
+      target: 'self',
+      art: 'card-tiebi',
+      text: '获得 {B} 点护甲。',
+      effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'block', amount: 4 }] }],
+    };
+    const state = bench('tiebi', 0, LOADOUTS[0]);
+
+    expect(previewValues(state, SCALED).B).toBe(12);
+    state.player.statuses.dexterity = 2;
+    // 身法 lands per instance, exactly as it will when the effects resolve.
+    expect(previewValues(state, SCALED).B).toBe(18);
   });
 });

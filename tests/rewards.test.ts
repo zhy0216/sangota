@@ -98,6 +98,18 @@ describe('rollCardReward · 验收标准', () => {
     expect(r.rareBump).toBeLessThanOrEqual(1);
   });
 
+  /**
+   * A reward that showed the player nothing was never a draw, so it cannot be
+   * a dry one. 独断 already takes the count to 1; a second such relic would
+   * take it to 0 and the streak would climb on rewards that never happened.
+   */
+  it('does not escalate on a reward that offered nothing', () => {
+    const r = run('empty-reward');
+    r.rareBump = 4;
+    expect(rollCardReward({ tier: 'monster', run: r, rng: new Rng('x'), count: 0 })).toEqual([]);
+    expect(r.rareBump).toBe(4);
+  });
+
   it('never offers the same card twice in one reward', () => {
     const r = run('dupes');
     const rng = new Rng('dupes');

@@ -1,0 +1,429 @@
+{
+  "encounter": "e1",
+  "seed": "gold-24",
+  "policy": "greedy",
+  "deck": "wide",
+  "relics": [
+    "qinglongdao",
+    "xiandengdun",
+    "lianhuanjia",
+    "xuanwujia",
+    "xingjuntu"
+  ],
+  "result": {
+    "won": true,
+    "turns": 5,
+    "hpLeft": 27,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 4
+    },
+    {
+      "t": "draw",
+      "uid": "d21"
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "draw",
+      "uid": "d11"
+    },
+    {
+      "t": "draw",
+      "uid": "d24"
+    },
+    {
+      "t": "draw",
+      "uid": "d25"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 2
+    },
+    {
+      "t": "exhaust",
+      "uid": "d21"
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d24"
+    },
+    {
+      "t": "discard",
+      "uid": "d25"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "huaxiong-0",
+      "label": "巨斧"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 11,
+      "blocked": 4,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d19"
+    },
+    {
+      "t": "draw",
+      "uid": "d26"
+    },
+    {
+      "t": "draw",
+      "uid": "d15"
+    },
+    {
+      "t": "draw",
+      "uid": "d22"
+    },
+    {
+      "t": "draw",
+      "uid": "d16"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "huaxiong-0",
+      "status": "vulnerable",
+      "amount": 1
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "relic",
+      "relicId": "xuanwujia"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 6
+    },
+    {
+      "t": "discard",
+      "uid": "d26"
+    },
+    {
+      "t": "discard",
+      "uid": "d16"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "huaxiong-0",
+      "label": "怒喝"
+    },
+    {
+      "t": "block",
+      "targetId": "huaxiong-0",
+      "amount": 8
+    },
+    {
+      "t": "status",
+      "targetId": "huaxiong-0",
+      "status": "strength",
+      "amount": 3
+    },
+    {
+      "t": "draw",
+      "uid": "d10"
+    },
+    {
+      "t": "draw",
+      "uid": "d13"
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "draw",
+      "uid": "d18"
+    },
+    {
+      "t": "draw",
+      "uid": "d14"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 5,
+      "blocked": 8,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "huaxiong-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 12,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "relic",
+      "relicId": "xuanwujia"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 6
+    },
+    {
+      "t": "relic",
+      "relicId": "lianhuanjia"
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d13"
+    },
+    {
+      "t": "discard",
+      "uid": "d12"
+    },
+    {
+      "t": "discard",
+      "uid": "d18"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "huaxiong-0",
+      "label": "巨斧"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 12,
+      "blocked": 6,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d23"
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "draw",
+      "uid": "d27"
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "relic",
+      "relicId": "xingjuntu"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 2
+    },
+    {
+      "t": "draw",
+      "uid": "d25"
+    },
+    {
+      "t": "draw",
+      "uid": "d22"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 21,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 12,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d23"
+    },
+    {
+      "t": "discard",
+      "uid": "d27"
+    },
+    {
+      "t": "discard",
+      "uid": "d25"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "huaxiong-0",
+      "label": "横扫"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 8,
+      "blocked": 2,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 10,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 10,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d19"
+    },
+    {
+      "t": "draw",
+      "uid": "d10"
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "draw",
+      "uid": "d26"
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "huaxiong-0"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    }
+  ]
+}

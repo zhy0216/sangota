@@ -1,4 +1,4 @@
-import { canUpgrade, getCard } from '../combat/cards';
+import { canUpgrade, getCard, isNegative } from '../combat/cards';
 import { POTION_DROP, getPotion } from '../combat/potions';
 import { RELICS, relicModifiers } from '../combat/relics';
 import { BASE_CARD_REWARD_COUNT } from '../combat/rewards';
@@ -199,23 +199,34 @@ export function usePotionOutOfCombat(run: RunState, slot: number): boolean {
   return true;
 }
 
+/**
+ * The reward channel. A 状态牌 exists for one fight and is minted into
+ * `state.cards`; letting one into the deck would make it permanent, which is
+ * the single thing that separates it from a curse. A 诅咒 is permanent by
+ * definition but is never *won* — it is inflicted, and that has its own door.
+ *
+ * Loud rather than silent, and a runtime check rather than a rarity convention:
+ * `CARD_POOL_BY_RARITY` only types its keys, so a curse pushed into one of its
+ * arrays would otherwise typecheck all the way into the player's deck.
+ */
 export function addCard(run: RunState, cardId: string, upgraded = 0): DeckCard {
-  // A 状态牌 exists for one fight and is minted into `state.cards`; letting one
-  // into the deck would make it permanent, which is the single thing that
-  // separates it from a curse. Loud rather than silent — a caller that wants a
-  // permanent downside means `addCurse`.
-  if (getCard(cardId).type === 'status') {
-    throw new Error(`Status cards never enter the deck: ${cardId}`);
+  const def = getCard(cardId);
+  if (isNegative(def)) {
+    throw new Error(`${def.type} cards are never a reward: ${cardId} — use addCurse`);
   }
-  const card = newDeckCard(cardId, upgraded);
-  run.deck.push(card);
-  return card;
+  return pushCard(run, cardId, upgraded);
 }
 
 /** Events, relics and enemies inflict these; they ride in the deck for good. */
 export function addCurse(run: RunState, defId: string): DeckCard {
   if (getCard(defId).type !== 'curse') throw new Error(`Not a curse: ${defId}`);
-  return addCard(run, defId);
+  return pushCard(run, defId, 0);
+}
+
+function pushCard(run: RunState, cardId: string, upgraded: number): DeckCard {
+  const card = newDeckCard(cardId, upgraded);
+  run.deck.push(card);
+  return card;
 }
 
 /**
