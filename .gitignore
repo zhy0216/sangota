@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Generated art intermediates (finals are copied into public/assets)
+out/
+
+# Local tooling
+.claude/
+.cursor/
+
+# OS
+.DS_Store

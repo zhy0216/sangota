@@ -1,0 +1,186 @@
+import { C } from '../config';
+import type { CardDef, CardType, StatusId, StatusMeta } from './types';
+
+export const STATUS_META: Record<StatusId, StatusMeta> = {
+  vulnerable: {
+    label: '破绽',
+    desc: '受到的攻击伤害提高 50%。每回合结束减 1 层。',
+    kind: 'debuff',
+    color: C.cinnabarBright,
+  },
+  weak: {
+    label: '怯战',
+    desc: '造成的攻击伤害降低 25%。每回合结束减 1 层。',
+    kind: 'debuff',
+    color: 0x8a7bb8,
+  },
+  strength: {
+    label: '神力',
+    desc: '每次攻击额外造成等量伤害。',
+    kind: 'buff',
+    color: C.goldBright,
+  },
+};
+
+export const CARD_TYPE_META: Record<CardType, { label: string; color: number }> = {
+  attack: { label: '攻', color: C.cinnabar },
+  skill: { label: '谋', color: C.jade },
+  power: { label: '势', color: C.gold },
+};
+
+export const CARDS: Record<string, CardDef> = {
+  // --- Guan Yu's starting deck -------------------------------------------
+  pikan: {
+    id: 'pikan',
+    name: '劈砍',
+    type: 'attack',
+    rarity: 'basic',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-pikan',
+    text: '造成 {D} 点伤害。',
+    effects: [{ kind: 'damage', amount: 6 }],
+  },
+  tiebi: {
+    id: 'tiebi',
+    name: '铁壁',
+    type: 'skill',
+    rarity: 'basic',
+    cost: 1,
+    target: 'self',
+    art: 'card-tiebi',
+    text: '获得 {B} 点护甲。',
+    effects: [{ kind: 'block', amount: 5 }],
+  },
+  tuodao: {
+    id: 'tuodao',
+    name: '拖刀计',
+    type: 'attack',
+    rarity: 'basic',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-tuodao',
+    text: '造成 {D} 点伤害。\n施加 2 层【破绽】。',
+    effects: [
+      { kind: 'damage', amount: 8 },
+      { kind: 'status', status: 'vulnerable', amount: 2, to: 'target' },
+    ],
+  },
+
+  // --- Reward pool --------------------------------------------------------
+  wenjiu: {
+    id: 'wenjiu',
+    name: '温酒斩',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-wenjiu',
+    text: '造成 {D} 点伤害。\n施加 1 层【破绽】。',
+    effects: [
+      { kind: 'damage', amount: 7 },
+      { kind: 'status', status: 'vulnerable', amount: 1, to: 'target' },
+    ],
+  },
+  wanren: {
+    id: 'wanren',
+    name: '万人敌',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 2,
+    target: 'all',
+    art: 'card-wanren',
+    text: '对所有敌人造成 {D} 点伤害。',
+    effects: [{ kind: 'damageAll', amount: 8 }],
+  },
+  quedi: {
+    id: 'quedi',
+    name: '却敌',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'self',
+    art: 'card-quedi',
+    text: '获得 {B} 点护甲。\n抽 1 张牌。',
+    effects: [
+      { kind: 'block', amount: 8 },
+      { kind: 'draw', amount: 1 },
+    ],
+  },
+  yiyong: {
+    id: 'yiyong',
+    name: '义勇',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-yiyong',
+    text: '获得 2 层【神力】。',
+    effects: [{ kind: 'status', status: 'strength', amount: 2, to: 'self' }],
+  },
+  baima: {
+    id: 'baima',
+    name: '白马义从',
+    type: 'attack',
+    rarity: 'common',
+    cost: 0,
+    target: 'enemy',
+    art: 'card-baima',
+    text: '造成 {D} 点伤害。',
+    effects: [{ kind: 'damage', amount: 4 }],
+  },
+  jieying: {
+    id: 'jieying',
+    name: '结营',
+    type: 'skill',
+    rarity: 'common',
+    cost: 2,
+    target: 'self',
+    art: 'card-jieying',
+    text: '获得 {B} 点护甲。',
+    effects: [{ kind: 'block', amount: 14 }],
+  },
+  guanzhen: {
+    id: 'guanzhen',
+    name: '观阵',
+    type: 'skill',
+    rarity: 'common',
+    cost: 0,
+    target: 'self',
+    art: 'card-guanzhen',
+    text: '抽 2 张牌。',
+    effects: [{ kind: 'draw', amount: 2 }],
+  },
+  xuzhao: {
+    id: 'xuzhao',
+    name: '虚招',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-xuzhao',
+    text: '施加 2 层【怯战】。\n获得 {B} 点护甲。',
+    effects: [
+      { kind: 'status', status: 'weak', amount: 2, to: 'target' },
+      { kind: 'block', amount: 4 },
+    ],
+  },
+};
+
+/** Cards that can show up as post-combat rewards. */
+export const REWARD_POOL: string[] = [
+  'wenjiu',
+  'wanren',
+  'quedi',
+  'yiyong',
+  'baima',
+  'jieying',
+  'guanzhen',
+  'xuzhao',
+];
+
+export const getCard = (id: string): CardDef => {
+  const def = CARDS[id];
+  if (!def) throw new Error(`Unknown card id: ${id}`);
+  return def;
+};
