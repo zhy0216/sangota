@@ -236,7 +236,8 @@ src/
   map/generateMap.ts   the act generator (walks + room-type rules)
   map/roomMeta.ts      room labels, flavour, icon keys, accent colours
   combat/types.ts      card / enemy / combat-state shapes
-  combat/cards.ts      card definitions + status metadata
+  combat/cards.ts      card definitions (re-exports the status table)
+  combat/statuses.ts   the 18-status table: damage slots, ticks, decay
   combat/enemies.ts    enemy definitions, move tables, encounter tables
   combat/engine.ts     pure combat rules — no Phaser, headlessly testable
   data/heroes.ts       hero definitions + starting decks
@@ -248,6 +249,7 @@ src/
   ui/CardGrid.ts       the deck / pile overlay — view and pick modes
   ui/cardOrder.ts      display ordering shared by every screen that lists cards
   ui/vfx.ts            reusable combat effects (slashes, bursts, banners, pop text)
+  ui/statusIcons.ts    procedural 20×20 status glyphs (placeholder art)
   scenes/              Boot → Title → Map ⇄ Combat
 sim/
   policy.ts            AI drivers: random / greedy / threat

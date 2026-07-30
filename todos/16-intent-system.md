@@ -162,5 +162,5 @@ lethal  ≥ 当前 HP（含护甲折算后仍致死）→ 红色脉动警示
 ## 依赖
 
 - [15 敌人机制](15-enemy-mechanics.md)——新意图类型的来源
-- [12 状态库](12-status-library.md)——tooltip 要描述新状态；
+- [12 状态库](12-status-library-done.md)——tooltip 要描述新状态；
   金蝉脱壳会让「即将致死」判定失效，`tier` 计算要考虑

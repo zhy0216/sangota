@@ -38,8 +38,8 @@
 | [09](09-acts-and-progression.md) | 多幕结构与推进 | 1 幕 / 原版 4 幕 |
 | [10](10-relic-rewards.md) | 精英·宝箱·Boss 遗物奖励 | 奖励只有金币和卡 |
 | [11](11-card-rarity-and-rewards.md) | 卡牌稀有度与奖励规则 | 8 张牌等概率 |
-| [12](12-status-library.md) | 状态效果库扩充 | 3 种 / 原版约 50 种 |
-| [13](13-card-keywords.md) | 卡牌关键词机制 | 消耗/虚无/固有/保留/X 费全缺 |
+| [12](12-status-library-done.md) ✅ | 状态效果库扩充 | 3 种 / 原版约 50 种 |
+| [13](13-card-keywords-done.md) ✅ | 卡牌关键词机制 | 消耗/虚无/固有/保留/X 费全缺 |
 | [14](14-curses-and-status-cards.md) | 诅咒与状态牌 | 完全缺失，负面构筑压力为 0 |
 | [15](15-enemy-mechanics.md) | 敌人机制与敌人库 | 4 个敌人 / 原版约 60 |
 | [16](16-intent-system.md) | 意图显示系统 | 纯文字，无图标无「未知」 |

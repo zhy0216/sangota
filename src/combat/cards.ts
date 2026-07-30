@@ -1,26 +1,21 @@
 import { C } from '../config';
-import type { CardDef, CardType, StatusId, StatusMeta } from './types';
+import type { CardDef, CardType } from './types';
 
-export const STATUS_META: Record<StatusId, StatusMeta> = {
-  vulnerable: {
-    label: '破绽',
-    desc: '受到的攻击伤害提高 50%。每回合结束减 1 层。',
-    kind: 'debuff',
-    color: C.cinnabarBright,
-  },
-  weak: {
-    label: '怯战',
-    desc: '造成的攻击伤害降低 25%。每回合结束减 1 层。',
-    kind: 'debuff',
-    color: 0x8a7bb8,
-  },
-  strength: {
-    label: '神力',
-    desc: '每次攻击额外造成等量伤害。',
-    kind: 'buff',
-    color: C.goldBright,
-  },
-};
+/**
+ * Status rules and copy live in `statuses.ts`; they are re-exported here so the
+ * UI keeps one import path for "everything printed on a card or a pill".
+ */
+export { STATUS_META, STATUS_ORDER } from './statuses';
+export type { StatusDef } from './statuses';
+
+/** Keyword copy for the strip along the bottom of a card face. */
+export const KEYWORD_LABEL = {
+  exhaust: '消耗',
+  ethereal: '虚无',
+  innate: '固有',
+  retain: '保留',
+  unplayable: '不可打出',
+} as const;
 
 export const CARD_TYPE_META: Record<CardType, { label: string; color: number }> = {
   attack: { label: '攻', color: C.cinnabar },
@@ -140,6 +135,9 @@ export const CARDS: Record<string, CardDef> = {
     art: 'card-yiyong',
     text: '获得 2 层【神力】。',
     effects: [{ kind: 'status', status: 'strength', amount: 2, to: 'self' }],
+    // 势 cards leave the fight through the keyword like anything else — the
+    // engine has no `type === 'power'` branch any more.
+    keywords: ['exhaust'],
     upgrade: {
       text: '获得 3 层【神力】。',
       effects: [{ kind: 'status', status: 'strength', amount: 3, to: 'self' }],

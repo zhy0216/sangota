@@ -118,8 +118,8 @@ describe('shuffleForDisplay', () => {
 describe('card faces outside combat', () => {
   it('reads the printed numbers when there is no fight to read', () => {
     // The map has no CombatState, so no Strength, no Vulnerable, and no 青龙偃月.
-    expect(previewValues(undefined, resolveCard('pikan', 0))).toEqual({ D: 6, B: 0 });
-    expect(previewValues(undefined, resolveCard('pikan', 1))).toEqual({ D: 9, B: 0 });
+    expect(previewValues(undefined, resolveCard('pikan', 0))).toEqual({ D: 6, B: 0, T: 1 });
+    expect(previewValues(undefined, resolveCard('pikan', 1))).toEqual({ D: 9, B: 0, T: 1 });
     expect(describeCard(undefined, resolveCard('tiebi', 1))).toBe('获得 8 点护甲。');
   });
 

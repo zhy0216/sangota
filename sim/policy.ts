@@ -5,7 +5,7 @@ import {
   defOf,
   previewValues,
 } from '../src/combat/engine';
-import type { CardDef, CombatState, EnemyState } from '../src/combat/types';
+import type { CardDef, CombatState, EnemyState, PendingChoice } from '../src/combat/types';
 
 /**
  * AI drivers for the headless sim. A policy is a pure decision function over a
@@ -23,24 +23,17 @@ export interface SimAction {
 }
 
 /**
- * Forward declaration of the choice prompt from todos/13. The sim drives combat
- * synchronously, so a card that stops to ask "discard 2 cards" would deadlock
- * unless a policy can answer it — the hook has to exist in the interface before
- * 13 lands, not after.
+ * The prompt a card parks the engine on. Was forward-declared here before
+ * todos/13 landed it; now it is the engine's own type, so a policy answering it
+ * is answering the real thing.
  */
-export interface PendingChoice {
-  kind: string;
-  /** Ids the policy may pick from — card uids today. */
-  options: string[];
-  min: number;
-  max: number;
-}
+export type { PendingChoice } from '../src/combat/types';
 
 export interface Policy {
   name: string;
   /** The card to play and its target, or null to end the turn. */
   chooseAction(state: CombatState): SimAction | null;
-  /** [13] pendingChoice — returns between `choice.min` and `choice.max` ids. */
+  /** [13] pendingChoice — returns between `choice.min` and `choice.max` uids. */
   resolveChoice?(state: CombatState, choice: PendingChoice): string[];
   /** [02] potions. */
   choosePotion?(
@@ -116,6 +109,24 @@ function bestGuard(state: CombatState, options: string[], target: EnemyState): S
   return best;
 }
 
+/**
+ * What a card is worth to a policy right now, used to decide which cards to
+ * give up when something asks for a discard. Crude on purpose: the sim only
+ * needs a stable ordering, not a good one.
+ */
+const cardValue = (state: CombatState, uid: string): number => {
+  const def = defOf(state, uid);
+  const { D, B, T } = previewValues(state, def);
+  return Math.max(D * T, B);
+};
+
+/** The `choice.min` cheapest cards on offer — ties broken by hand order. */
+function shedWorst(state: CombatState, choice: PendingChoice): string[] {
+  return [...choice.options]
+    .sort((a, b) => cardValue(state, a) - cardValue(state, b))
+    .slice(0, choice.min);
+}
+
 const random: Policy = {
   name: 'random',
   chooseAction(state) {
@@ -124,6 +135,10 @@ const random: Policy = {
     if (options.length === 0 || alive.length === 0) return null;
     const uid = state.rng.pick(options);
     return aim(state, uid, state.rng.pick(alive));
+  },
+  resolveChoice(state, choice) {
+    // Through `state.rng`, so a seed replays the policy's coin flips too.
+    return state.rng.shuffle([...choice.options]).slice(0, choice.min);
   },
 };
 
@@ -142,6 +157,7 @@ const greedy: Policy = {
     // anything at all rather than passing with energy in hand.
     return bestGuard(state, options, target) ?? aim(state, options[0], target);
   },
+  resolveChoice: shedWorst,
 };
 
 const threat: Policy = {
@@ -173,6 +189,7 @@ const threat: Policy = {
     // 3. Otherwise behave greedily.
     return greedy.chooseAction(state);
   },
+  resolveChoice: shedWorst,
 };
 
 export const POLICIES: Record<PolicyName, Policy> = { random, greedy, threat };

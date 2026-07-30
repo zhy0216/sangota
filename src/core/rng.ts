@@ -5,9 +5,19 @@
  */
 export class Rng {
   private state: number;
+  private taken = 0;
 
   constructor(seed: number | string) {
     this.state = typeof seed === 'number' ? seed >>> 0 : Rng.hash(seed);
+  }
+
+  /**
+   * How many numbers have been pulled. Debug only — it decides nothing, but a
+   * rules refactor that quietly starts rolling dice somewhere new is otherwise
+   * invisible until a seed stops replaying, so tests watch this instead.
+   */
+  get rolls(): number {
+    return this.taken;
   }
 
   static hash(str: string): number {
@@ -33,6 +43,7 @@ export class Rng {
 
   /** [0, 1) */
   next(): number {
+    this.taken += 1;
     this.state = (this.state + 0x6d2b79f5) >>> 0;
     let t = this.state;
     t = Math.imul(t ^ (t >>> 15), t | 1);

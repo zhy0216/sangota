@@ -22,8 +22,8 @@ so the whole system is testable headlessly」，而且确实如此
 
 现在的问题是：**没有回归网**。而 todos 里排的工作有一半是纯规则重构：
 
-- [12 状态库](12-status-library.md) 要重写 `computeAttack` 的伤害管线
-- [13 关键词](13-card-keywords.md) 要改牌的整个生命周期
+- [12 状态库](12-status-library-done.md) 要重写 `computeAttack` 的伤害管线
+- [13 关键词](13-card-keywords-done.md) 要改牌的整个生命周期
 - [15 敌人机制](15-enemy-mechanics.md) 要改意图选择和 move 执行
 - [19 天命](19-ascension.md) 要在十几个点插入倍率
 - [11 卡池扩容](11-card-rarity-and-rewards.md) 要标定 24 张牌的平衡
@@ -71,7 +71,7 @@ so the whole system is testable headlessly」，而且确实如此
 3. 存成 `__snapshots__/combat-<seed>.json`
 4. 重构后重跑，逐字节对比
 
-伤害管线重构（[12](12-status-library.md)）后如果快照完全一致，
+伤害管线重构（[12](12-status-library-done.md)）后如果快照完全一致，
 就证明没有数值漂移。如果预期会变（比如故意改了数值），
 就有意识地更新快照——关键是**变化必须是显式的**。
 
@@ -192,7 +192,7 @@ export interface TierStats {
    少数 0 血」也可能是「全都 17 血左右」，这两种手感完全不同。
 8. **CI**：加一个 GitHub Actions（或至少一个 `npm run check` 脚本）
    跑 `typecheck` + `test`。平衡模拟单独手动触发。
-9. **[13 关键词](13-card-keywords.md) 的 `pendingChoice` 会破坏模拟的
+9. **[13 关键词](13-card-keywords-done.md) 的 `pendingChoice` 会破坏模拟的
    同步驱动假设**——`Policy.resolveChoice` 必须在做 13 之前就设计好，
    否则模拟器会在「弃 2 张牌」那里卡死。
 
@@ -216,6 +216,6 @@ export interface TierStats {
 **无依赖，应当第一个做。**
 
 被以下条目依赖（它们都是规则重构，没有回归网会静默改坏数值）：
-[11 卡池](11-card-rarity-and-rewards.md)、[12 状态库](12-status-library.md)、
-[13 关键词](13-card-keywords.md)、[15 敌人机制](15-enemy-mechanics.md)、
+[11 卡池](11-card-rarity-and-rewards.md)、[12 状态库](12-status-library-done.md)、
+[13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics.md)、
 [19 天命](19-ascension.md)、[09 多幕](09-acts-and-progression.md)

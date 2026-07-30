@@ -21,7 +21,7 @@
 | 没有拖拽出牌 | 点击→点击的两步操作在快速游戏时手感差 |
 | 没有数字键快捷出牌 | 老玩家的效率手段 |
 | 悬停不放大卡片 | 卡面缩小时规则文本难读 |
-| **没有关键词 tooltip** | 状态只有 3 种时靠记，扩到 18 种后（[12](12-status-library.md)）必须有 |
+| **没有关键词 tooltip** | 状态只有 3 种时靠记，扩到 18 种后（[12](12-status-library-done.md)）必须有 |
 | 没有目标高亮预览 | 选敌时看不出「这一下会打掉多少、会不会杀死」 |
 | 没有 undo 保护 | 点错卡直接结算，没有确认（[21 设置](21-settings.md) 里有这项） |
 | `Esc` 语义单一 | 加了 overlay 后要分优先级 |
@@ -77,7 +77,7 @@
 
 ### 三、关键词 tooltip 系统
 
-这是本条目里**最有价值**的部分，且随 [12 状态库](12-status-library.md)
+这是本条目里**最有价值**的部分，且随 [12 状态库](12-status-library-done.md)
 扩到 18 种状态后变成必需。
 
 需要一个统一的 `KEYWORDS` 注册表 + 一个通用的悬停 tooltip 组件。
@@ -143,8 +143,8 @@ export interface CardViewOptions {
 
 1. `src/ui/keywords.ts`：注册全部关键词。
    状态部分从 `STATUS_META`（`src/combat/cards.ts:4-23`，
-   [12](12-status-library.md) 扩到 18 项后）自动生成，
-   避免两处维护。卡牌关键词从 [13](13-card-keywords.md) 的
+   [12](12-status-library-done.md) 扩到 18 项后）自动生成，
+   避免两处维护。卡牌关键词从 [13](13-card-keywords-done.md) 的
    `CardKeyword` 生成。再手工加通用术语（护甲、气、消耗、抽牌堆）。
 2. `src/ui/Tooltip.ts`：场景级管理器。要点：
    - 同一时刻只显示一个（防止多个 tooltip 叠在一起）
@@ -204,8 +204,8 @@ export interface CardViewOptions {
 
 ## 依赖
 
-- [12 状态库](12-status-library.md)——18 种状态的说明是 tooltip 的主要内容
-- [13 关键词](13-card-keywords.md)——卡牌关键词的说明
+- [12 状态库](12-status-library-done.md)——18 种状态的说明是 tooltip 的主要内容
+- [13 关键词](13-card-keywords-done.md)——卡牌关键词的说明
 - [16 意图系统](16-intent-system.md)——意图 tooltip
 - [21 设置](21-settings.md)——共用 `KeyAction` 定义和确认提示开关，
   建议一起做

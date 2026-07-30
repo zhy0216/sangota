@@ -58,7 +58,7 @@ export const REWARD_POOL: string[] = [
 | uncommon | 8 | 有机制（条件触发、消耗、多段） |
 | rare | 3 | 构筑核心（如「五关六将」：本场每杀死一个敌人永久 +2 神力） |
 
-新卡建议靠 [13 关键词](13-card-keywords.md) 和 [12 状态库](12-status-library.md)
+新卡建议靠 [13 关键词](13-card-keywords-done.md) 和 [12 状态库](12-status-library-done.md)
 先落地，否则新卡只能是「数值不同的劈砍」。
 
 ### 权重与递增
@@ -147,6 +147,6 @@ export interface RunState {
 ## 依赖
 
 - [01 遗物](01-relics-done.md)——`cardRewardCount` 的修饰来源
-- [12 状态库](12-status-library.md) / [13 关键词](13-card-keywords.md)
+- [12 状态库](12-status-library-done.md) / [13 关键词](13-card-keywords-done.md)
   ——新卡的机制基础。**不做这两个的话，13 张新卡只能是数值变体，没意义**
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——扩池后的平衡验证

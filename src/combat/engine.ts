@@ -2,15 +2,20 @@ import { Rng } from '../core/rng';
 import { resolveCard } from './cards';
 import { getEnemy } from './enemies';
 import { fireHook, relicDamageBonus, relicEvent, relicModifiers } from './relics';
+import { STATUS_META, STATUS_ORDER, type BlockSource, type TickPhase } from './statuses';
 import type {
   CardDef,
   CardInstance,
+  CardKeyword,
   Combatant,
   CombatState,
   Effect,
+  EffectCondition,
   EnemyMove,
   EnemyState,
   Encounter,
+  PendingChoice,
+  QueuedStep,
   StatusId,
 } from './types';
 
@@ -28,10 +33,11 @@ export const HAND_SIZE = 5;
 export const MAX_HAND = 10;
 export const BASE_ENERGY = 3;
 
-const VULNERABLE_MULT = 1.5;
-const WEAK_MULT = 0.75;
-/** Debuffs tick down at the end of their owner's turn; buffs persist. */
-const TICKING: ReadonlySet<StatusId> = new Set<StatusId>(['vulnerable', 'weak']);
+/** A card printed with this cost spends every point of 气 the player has. */
+export const X_COST = -1;
+
+/** 身法/力竭 shape block a fighter *earns* by acting; 重甲 and 宝物 grant flat. */
+const SHAPED_BLOCK: readonly BlockSource[] = ['card', 'enemyMove'];
 
 export interface StartCombatOptions {
   encounter: Encounter;
@@ -72,26 +78,47 @@ export function startCombat(opts: StartCombatOptions): CombatState {
       name: opts.heroName,
       hp: opts.hp,
       maxHp: opts.maxHp,
-      block: mods.startingBlock,
+      block: 0,
       statuses: {},
     },
     enemies,
     cards,
-    drawPile,
+    drawPile: liftInnate(cards, drawPile),
     hand: [],
     discardPile: [],
     exhaustPile: [],
     attacksThisTurn: 0,
+    effectQueue: [],
+    pendingChoice: null,
+    nextUid: 0,
     relics: [...opts.relics],
     relicCounters: {},
     rng,
     events: [],
   };
 
+  // Starting block is granted rather than assigned, so 身法 and the 护甲 event
+  // reach it like any other block would.
+  gainBlock(state, state.player, mods.startingBlock, 'relic');
+
   for (const enemy of enemies) pickIntent(state, enemy);
   fireHook(state, 'combatStart');
   startPlayerTurn(state);
   return state;
+}
+
+/**
+ * 固有 cards are moved to the top of the shuffled pile — `drawPile` is drawn
+ * from its end — so they are always in the opening hand. Order is otherwise
+ * untouched, which keeps a deck with no innate card bit-identical.
+ */
+function liftInnate(cards: Record<string, CardInstance>, drawPile: string[]): string[] {
+  const innate = (uid: string): boolean => {
+    const inst = cards[uid];
+    return hasKeyword(resolveCard(inst.defId, inst.upgraded), 'innate');
+  };
+  if (!drawPile.some(innate)) return drawPile;
+  return [...drawPile.filter((uid) => !innate(uid)), ...drawPile.filter(innate)];
 }
 
 function makeEnemy(defId: string, slot: number, rng: Rng): EnemyState {
@@ -137,16 +164,32 @@ export function pickIntent(state: CombatState, enemy: EnemyState): void {
 
 export function startPlayerTurn(state: CombatState): void {
   // Turn 1 keeps whatever combatStart relics granted; later turns wipe as usual.
-  if (state.turn > 0) state.player.block = 0;
+  if (state.turn > 0) clearBlock(state.player);
   state.turn += 1;
   state.phase = 'player';
   state.energy = state.maxEnergy;
   state.attacksThisTurn = 0;
+  // 中毒 bites after the block wipe and before the draw, so a stack can never
+  // be soaked by armour that is about to be thrown away anyway.
+  tickStatuses(state, state.player, 'ownerTurnStart');
+  if (state.player.hp <= 0) {
+    state.phase = 'lost';
+    return;
+  }
   fireHook(state, 'turnStart');
   drawCards(state, state.handSize);
 }
 
+/** Turn-start wipe. 深沟高垒 keeps the wall standing. */
+function clearBlock(target: Combatant): void {
+  if (stacks(target, 'barricade') > 0) return;
+  target.block = 0;
+}
+
 export function drawCards(state: CombatState, count: number): void {
+  // 断粮 stops every draw for the turn, card and relic alike.
+  if (stacks(state.player, 'noDraw') > 0) return;
+
   for (let i = 0; i < count; i++) {
     if (state.hand.length >= MAX_HAND) return;
     if (state.drawPile.length === 0) {
@@ -165,13 +208,27 @@ export function drawCards(state: CombatState, count: number): void {
 
 export function endPlayerTurn(state: CombatState): void {
   if (state.phase !== 'player') return;
+  // A card is still asking the player a question; the turn cannot end on it.
+  if (state.pendingChoice) return;
+
   fireHook(state, 'turnEnd');
+
+  // 虚无 burns, 保留 stays, everything else goes to the discard pile.
+  const kept: string[] = [];
   for (const uid of state.hand) {
-    state.discardPile.push(uid);
-    state.events.push({ t: 'discard', uid });
+    const def = defOf(state, uid);
+    if (hasKeyword(def, 'ethereal')) {
+      exhaustCard(state, uid);
+    } else if (hasKeyword(def, 'retain')) {
+      kept.push(uid);
+    } else {
+      state.discardPile.push(uid);
+      state.events.push({ t: 'discard', uid });
+    }
   }
-  state.hand = [];
-  tickStatuses(state.player);
+  state.hand = kept;
+
+  tickStatuses(state, state.player, 'ownerTurnEnd');
   state.phase = 'enemy';
 }
 
@@ -181,7 +238,9 @@ export function runEnemyTurn(state: CombatState): void {
 
   for (const enemy of state.enemies) {
     if (!enemy.alive) continue;
-    enemy.block = 0;
+    clearBlock(enemy);
+    tickStatuses(state, enemy, 'ownerTurnStart');
+    if (!enemy.alive) continue;
     const move = enemy.intent;
     if (!move) continue;
     state.events.push({ t: 'enemyMove', enemyId: enemy.id, label: move.label });
@@ -194,7 +253,7 @@ export function runEnemyTurn(state: CombatState): void {
 
   for (const enemy of state.enemies) {
     if (!enemy.alive) continue;
-    tickStatuses(enemy);
+    tickStatuses(state, enemy, 'ownerTurnEnd');
     pickIntent(state, enemy);
   }
 
@@ -204,12 +263,14 @@ export function runEnemyTurn(state: CombatState): void {
 }
 
 function executeMove(state: CombatState, enemy: EnemyState, move: EnemyMove): void {
-  if (move.block) gainBlock(state, enemy, move.block);
+  if (move.block) gainBlock(state, enemy, move.block, 'enemyMove');
   if (move.damage) {
     const hits = move.hits ?? 1;
     for (let i = 0; i < hits; i++) {
       dealAttack(state, enemy, state.player, move.damage);
       if (state.player.hp <= 0) return;
+      // 反刺 can kill the attacker mid-combo; a corpse does not finish swinging.
+      if (!enemy.alive) return;
     }
   }
   if (move.status) {
@@ -220,11 +281,20 @@ function executeMove(state: CombatState, enemy: EnemyState, move: EnemyMove): vo
 
 // ------------------------------------------------------------- playing cards
 
+export const hasKeyword = (def: CardDef, keyword: CardKeyword): boolean =>
+  !!def.keywords?.includes(keyword);
+
 export function canPlay(state: CombatState, uid: string): boolean {
   if (state.phase !== 'player') return false;
+  // Everything is frozen while a card waits on the player's pick.
+  if (state.pendingChoice) return false;
   if (!state.hand.includes(uid)) return false;
+
   const def = defOf(state, uid);
-  return state.energy >= def.cost;
+  if (hasKeyword(def, 'unplayable')) return false;
+  if (def.type === 'attack' && stacks(state.player, 'entangled') > 0) return false;
+  // An X-cost card is affordable at any 气, including none.
+  return def.cost === X_COST || state.energy >= def.cost;
 }
 
 export function playCard(state: CombatState, uid: string, targetId?: string): boolean {
@@ -237,17 +307,23 @@ export function playCard(state: CombatState, uid: string, targetId?: string): bo
     if (!target) return false;
   }
 
-  state.energy -= def.cost;
+  const spent = def.cost === X_COST ? state.energy : def.cost;
+  state.energy -= spent;
   state.hand.splice(state.hand.indexOf(uid), 1);
 
   // Announced before the effects resolve, so the flourish leads the damage.
   const bonus = relicDamageBonus(state, def);
   for (const relic of bonus.sources) state.events.push(relicEvent(relic));
 
-  for (const effect of def.effects) applyEffect(state, effect, target, bonus.amount);
+  enqueue(state, def.effects, { target, bonus: bonus.amount, energy: spent });
+  pumpEffects(state);
 
-  // Powers stay out of the deck for the rest of the fight.
-  if (def.type === 'power') state.exhaustPile.push(uid);
+  /*
+   * The card leaves play now even if its own effects are still parked on a
+   * `pendingChoice`: the choice picks out of the hand, and a card that is
+   * simultaneously resolving and choosable would be able to exhaust itself.
+   */
+  if (hasKeyword(def, 'exhaust')) exhaustCard(state, uid);
   else state.discardPile.push(uid);
 
   if (def.type === 'attack') state.attacksThisTurn += 1;
@@ -258,44 +334,274 @@ export function playCard(state: CombatState, uid: string, targetId?: string): bo
   return true;
 }
 
-function applyEffect(
+/** Sends a card to the 消耗堆 from wherever it was. */
+export function exhaustCard(state: CombatState, uid: string): void {
+  state.exhaustPile.push(uid);
+  state.events.push({ t: 'exhaust', uid });
+}
+
+// ---------------------------------------------------------------- effects
+
+type StepContext = Omit<QueuedStep, 'effect'>;
+
+function enqueue(
   state: CombatState,
-  effect: Effect,
-  target: EnemyState | undefined,
-  bonus: number,
+  effects: readonly Effect[],
+  ctx: StepContext,
+  front = false,
 ): void {
+  const steps = effects.map((effect) => ({ effect, ...ctx }));
+  if (front) state.effectQueue.unshift(...steps);
+  else state.effectQueue.push(...steps);
+}
+
+/**
+ * Drains the queue. Stops dead on a `pendingChoice` and leaves the remaining
+ * steps parked, which is what keeps "弃 2 张牌，然后抽 2 张" resolving in order
+ * across the interruption.
+ */
+export function pumpEffects(state: CombatState): void {
+  while (!state.pendingChoice && state.effectQueue.length > 0) {
+    applyEffect(state, state.effectQueue.shift()!);
+  }
+}
+
+function applyEffect(state: CombatState, step: QueuedStep): void {
+  const effect = step.effect;
+  const ctx: StepContext = { target: step.target, bonus: step.bonus, energy: step.energy };
+
   switch (effect.kind) {
-    case 'damage':
-      if (target?.alive) dealAttack(state, state.player, target, effect.amount + bonus);
-      break;
-    case 'damageAll':
-      for (const enemy of aliveEnemies(state)) {
-        dealAttack(state, state.player, enemy, effect.amount + bonus);
+    case 'damage': {
+      // Each hit is priced on its own, so 破绽 applies to every one of them.
+      for (let i = 0; i < (effect.times ?? 1); i++) {
+        if (!step.target?.alive) break;
+        dealAttack(state, state.player, step.target, effect.amount + step.bonus);
       }
       break;
+    }
+    case 'damageAll': {
+      for (let i = 0; i < (effect.times ?? 1); i++) {
+        for (const enemy of aliveEnemies(state)) {
+          dealAttack(state, state.player, enemy, effect.amount + step.bonus);
+        }
+      }
+      break;
+    }
     case 'block':
-      gainBlock(state, state.player, effect.amount);
+      gainBlock(state, state.player, effect.amount, 'card');
       break;
     case 'status': {
-      const who = effect.to === 'self' ? state.player : target;
+      if (effect.to === 'allEnemies') {
+        for (const enemy of aliveEnemies(state)) {
+          addStatus(state, enemy, effect.status, effect.amount);
+        }
+        break;
+      }
+      const who = effect.to === 'self' ? state.player : step.target;
       if (who) addStatus(state, who, effect.status, effect.amount);
       break;
     }
     case 'draw':
       drawCards(state, effect.amount);
       break;
+    case 'loseHp':
+      resolveDamage(state, {
+        attacker: null,
+        defender: state.player,
+        base: effect.amount,
+        isAttack: false,
+        pierceBlock: true,
+      });
+      break;
+    case 'heal':
+      healCombatant(state, state.player, effect.amount);
+      break;
+    case 'energy':
+      state.energy = Math.max(0, state.energy + effect.amount);
+      break;
+    case 'discard':
+      chooseFromHand(state, 'discard', effect.amount, effect.random ?? false);
+      break;
+    case 'exhaustCards':
+      chooseFromHand(state, 'exhaust', effect.amount, false);
+      break;
+    case 'addCard':
+      for (let i = 0; i < effect.count; i++) {
+        placeCard(state, mintCard(state, effect.defId, effect.upgraded ?? 0), effect.to);
+      }
+      break;
+    case 'shuffleDiscardIn':
+      if (state.discardPile.length === 0) break;
+      state.drawPile = state.rng.shuffle([...state.drawPile, ...state.discardPile]);
+      state.discardPile = [];
+      state.events.push({ t: 'shuffle' });
+      fireHook(state, 'shuffle');
+      break;
+    case 'conditional': {
+      const branch = conditionMet(state, effect.when, step.target)
+        ? effect.then
+        : (effect.otherwise ?? []);
+      // Front of the queue: a conditional's body belongs to the card's own turn
+      // of the resolution, ahead of whatever the card queued after it.
+      enqueue(state, branch, ctx, true);
+      break;
+    }
+    case 'scaleWithEnergy': {
+      const repeated: Effect[] = [];
+      for (let i = 0; i < step.energy; i++) repeated.push(...effect.per);
+      enqueue(state, repeated, ctx, true);
+      break;
+    }
   }
+}
+
+function conditionMet(
+  state: CombatState,
+  cond: EffectCondition,
+  target: Combatant | undefined,
+): boolean {
+  switch (cond.c) {
+    case 'targetHasStatus':
+      return target ? stacks(target, cond.status) >= (cond.min ?? 1) : false;
+    case 'selfHasStatus':
+      return stacks(state.player, cond.status) >= (cond.min ?? 1);
+    case 'handEmpty':
+      return state.hand.length === 0;
+    case 'attackPlayedThisTurn':
+      return state.attacksThisTurn > 0;
+    case 'hpBelow':
+      // Integer maths: no float compare decides whether a card fires.
+      return state.player.hp * 100 < state.player.maxHp * cond.percent;
+    case 'enemyCountAtLeast':
+      return aliveEnemies(state).length >= cond.n;
+  }
+}
+
+/** Engine-minted card. `nextUid` and never `rng`, so a seed replays the uids. */
+function mintCard(state: CombatState, defId: string, upgraded: number): string {
+  const uid = `g${state.nextUid++}`;
+  state.cards[uid] = { uid, defId, upgraded };
+  return uid;
+}
+
+function placeCard(state: CombatState, uid: string, to: 'hand' | 'draw' | 'discard'): void {
+  if (to === 'discard') {
+    state.discardPile.push(uid);
+    return;
+  }
+  if (to === 'draw') {
+    // Anywhere in the pile, so a generated card cannot be played around.
+    state.drawPile.splice(state.rng.int(state.drawPile.length + 1), 0, uid);
+    return;
+  }
+  // A full hand has nowhere to put it; the card is still minted, just discarded.
+  if (state.hand.length >= MAX_HAND) {
+    state.discardPile.push(uid);
+    return;
+  }
+  state.hand.push(uid);
+  state.events.push({ t: 'draw', uid });
+}
+
+/**
+ * Random picks resolve here and now; a player pick parks the rest of the queue
+ * on `state.pendingChoice`. Either way the count is capped by the hand, so
+ * "弃 2 张" with one card left asks for one.
+ */
+function chooseFromHand(
+  state: CombatState,
+  kind: 'discard' | 'exhaust',
+  amount: number,
+  random: boolean,
+): void {
+  const count = Math.min(amount, state.hand.length);
+  if (count <= 0) return;
+
+  if (random) {
+    for (let i = 0; i < count; i++) {
+      applyChoice(state, kind, state.hand[state.rng.int(state.hand.length)]);
+    }
+    return;
+  }
+  state.pendingChoice = { kind, options: [...state.hand], min: count, max: count };
+}
+
+function applyChoice(state: CombatState, kind: PendingChoice['kind'], uid: string): void {
+  const at = state.hand.indexOf(uid);
+  if (at < 0) return;
+  state.hand.splice(at, 1);
+  if (kind === 'exhaust') {
+    exhaustCard(state, uid);
+  } else if (kind === 'putOnDraw') {
+    state.drawPile.push(uid);
+  } else {
+    state.discardPile.push(uid);
+    state.events.push({ t: 'discard', uid });
+  }
+}
+
+/**
+ * Answers the parked question and resumes the queue. Rejects an answer that
+ * does not fit the prompt rather than half-applying it, so a buggy UI or policy
+ * cannot desync the piles.
+ */
+export function resolveChoice(state: CombatState, uids: readonly string[]): boolean {
+  const choice = state.pendingChoice;
+  if (!choice) return false;
+
+  const picked = [...new Set(uids)].filter((uid) => choice.options.includes(uid));
+  if (picked.length !== uids.length) return false;
+  if (picked.length < choice.min || picked.length > choice.max) return false;
+
+  state.pendingChoice = null;
+  for (const uid of picked) applyChoice(state, choice.kind, uid);
+  pumpEffects(state);
+  checkEnd(state);
+  return true;
 }
 
 // -------------------------------------------------------------- damage maths
 
-/** Strength adds flat, Weak scales the attacker down, Vulnerable scales the defender up. */
+/** Everything one blow needs to know. `attacker: null` means poison or an event. */
+export interface DamageContext {
+  attacker: Combatant | null;
+  defender: Combatant;
+  base: number;
+  /** Attacks alone read 神力/怯战/破绽 and provoke 反刺. */
+  isAttack: boolean;
+  /** 中毒 and 自伤 go straight to the body. */
+  pierceBlock: boolean;
+}
+
+/**
+ * Strength adds flat, Weak scales the attacker down, Vulnerable scales the
+ * defender up — in `STATUS_ORDER`, with a floor after *each* multiply. Folding
+ * the two multiplies into one would make a base-5 hit under both read 5 where
+ * the original gives 4.
+ */
 export function computeAttack(base: number, attacker: Combatant, defender: Combatant): number {
-  let damage = base + (attacker.statuses.strength ?? 0);
-  if (damage < 0) damage = 0;
-  if (attacker.statuses.weak) damage = Math.floor(damage * WEAK_MULT);
-  if (defender.statuses.vulnerable) damage = Math.floor(damage * VULNERABLE_MULT);
+  let damage = base;
+  for (const id of STATUS_ORDER) {
+    const mod = STATUS_META[id].modify;
+    if (!mod || mod.slot === 'clamp') continue;
+    const owner = mod.slot === 'defenderMult' ? defender : attacker;
+    const n = stacks(owner, id);
+    if (n === 0) continue;
+    damage = mod.fn(n, damage);
+    // Negative Strength must not invert into a heal once a multiplier lands.
+    if (damage < 0) damage = 0;
+  }
   return Math.max(0, damage);
+}
+
+/** 金蝉脱壳's clamp — applied to every incoming hit, attack or not. */
+function clampIncoming(damage: number, defender: Combatant): number {
+  for (const id of STATUS_ORDER) {
+    const mod = STATUS_META[id].modify;
+    if (mod?.slot !== 'clamp') continue;
+    if (stacks(defender, id) > 0) damage = mod.fn(stacks(defender, id), damage);
+  }
+  return damage;
 }
 
 function dealAttack(
@@ -304,21 +610,45 @@ function dealAttack(
   defender: Combatant,
   base: number,
 ): void {
-  applyDamage(state, defender, computeAttack(base, attacker, defender));
+  resolveDamage(state, { attacker, defender, base, isAttack: true, pierceBlock: false });
 }
 
-/** Block soaks first; only the remainder is HP loss, and only that can kill. */
-export function applyDamage(state: CombatState, target: Combatant, damage: number): void {
-  const blocked = Math.min(target.block, damage);
-  target.block -= blocked;
-  const hpLoss = damage - blocked;
-  target.hp = Math.max(0, target.hp - hpLoss);
+/**
+ * The one damage pipeline, in the original's order:
+ *
+ *   基础 → 神力 → 怯战 → 破绽 → 金蝉脱壳 → 护甲 → 天佑 → 体力 → 反刺
+ *
+ * The clamp sits *before* block on purpose: 金蝉脱壳 plus five block against a
+ * thirty-damage swing must cost one point of block and no HP.
+ */
+export function resolveDamage(state: CombatState, ctx: DamageContext): void {
+  const defender = ctx.defender;
 
-  const lethal = target.hp === 0;
-  state.events.push({ t: 'damage', targetId: target.id, amount: hpLoss, blocked, lethal });
+  let damage =
+    ctx.isAttack && ctx.attacker
+      ? computeAttack(ctx.base, ctx.attacker, defender)
+      : Math.max(0, ctx.base);
+  damage = clampIncoming(damage, defender);
 
-  if (lethal && target.id !== state.player.id) {
-    const enemy = state.enemies.find((e) => e.id === target.id);
+  let blocked = 0;
+  if (!ctx.pierceBlock) {
+    blocked = Math.min(defender.block, damage);
+    defender.block -= blocked;
+  }
+
+  let hpLoss = damage - blocked;
+  if (hpLoss > 0 && stacks(defender, 'buffer') > 0) {
+    consumeLayer(defender, 'buffer');
+    state.events.push({ t: 'statusBlocked', targetId: defender.id, status: 'buffer' });
+    hpLoss = 0;
+  }
+
+  defender.hp = Math.max(0, defender.hp - hpLoss);
+  const lethal = defender.hp === 0;
+  state.events.push({ t: 'damage', targetId: defender.id, amount: hpLoss, blocked, lethal });
+
+  if (lethal && defender.id !== state.player.id) {
+    const enemy = state.enemies.find((e) => e.id === defender.id);
     if (enemy && enemy.alive) {
       enemy.alive = false;
       enemy.intent = null;
@@ -327,15 +657,57 @@ export function applyDamage(state: CombatState, target: Combatant, damage: numbe
     }
   }
 
-  if (target.id === state.player.id && hpLoss > 0) fireHook(state, 'damageTaken', hpLoss);
+  if (defender.id === state.player.id && hpLoss > 0) fireHook(state, 'damageTaken', hpLoss);
+
+  // Reactions are the defender's answer to being *attacked*: reflected and
+  // reactive damage carries `isAttack: false`, which is what bounds the
+  // recursion between two 反刺 holders at one exchange.
+  if (ctx.isAttack && defender.hp > 0) {
+    for (const id of STATUS_ORDER) {
+      const def = STATUS_META[id];
+      if (def.onAttacked && stacks(defender, id) > 0) {
+        def.onAttacked(state, defender, ctx, hpLoss, blocked);
+      }
+    }
+  }
 }
 
-/** The one place block is granted, so `blockGained` can't be routed around. */
-export function gainBlock(state: CombatState, target: Combatant, amount: number): void {
+/** Block soaks first; only the remainder is HP loss, and only that can kill. */
+export function applyDamage(state: CombatState, target: Combatant, damage: number): void {
+  resolveDamage(state, {
+    attacker: null,
+    defender: target,
+    base: damage,
+    isAttack: false,
+    pierceBlock: false,
+  });
+}
+
+/** What `amount` block from `source` is actually worth to `target` right now. */
+export function shapeBlock(target: Combatant, amount: number, source: BlockSource): number {
+  if (!SHAPED_BLOCK.includes(source)) return amount;
+  let total = amount;
+  for (const id of STATUS_ORDER) {
+    const fn = STATUS_META[id].blockGain;
+    const n = stacks(target, id);
+    if (fn && n > 0) total = fn(n, total);
+  }
+  return total;
+}
+
+/** The one place block is granted, so 身法/力竭 can't be routed around. */
+export function gainBlock(
+  state: CombatState,
+  target: Combatant,
+  amount: number,
+  source: BlockSource = 'card',
+): void {
   if (amount <= 0) return;
-  target.block += amount;
-  state.events.push({ t: 'block', targetId: target.id, amount });
-  if (target.id === state.player.id) fireHook(state, 'blockGained', amount);
+  const total = shapeBlock(target, amount, source);
+  if (total <= 0) return;
+  target.block += total;
+  state.events.push({ t: 'block', targetId: target.id, amount: total });
+  if (target.id === state.player.id) fireHook(state, 'blockGained', total);
 }
 
 /** Combat healing. The run carries the survivor's HP back out afterwards. */
@@ -346,22 +718,64 @@ export function healCombatant(state: CombatState, target: Combatant, amount: num
   state.events.push({ t: 'heal', targetId: target.id, amount: healed });
 }
 
+// ------------------------------------------------------------------ statuses
+
+export const stacks = (who: Combatant, status: StatusId): number => who.statuses[status] ?? 0;
+
+function consumeLayer(target: Combatant, status: StatusId): void {
+  const next = stacks(target, status) - 1;
+  if (next <= 0) delete target.statuses[status];
+  else target.statuses[status] = next;
+}
+
+/**
+ * The single entrance for statuses, which is what lets 护身符 ward one off:
+ * a debuff — or anything applied as a negative, e.g. -2 神力 — burns a layer
+ * and never lands at all.
+ */
 export function addStatus(
   state: CombatState,
   target: Combatant,
   status: StatusId,
   amount: number,
 ): void {
-  target.statuses[status] = (target.statuses[status] ?? 0) + amount;
+  if (amount === 0) return;
+
+  const hostile = STATUS_META[status].blockable || amount < 0;
+  if (hostile && stacks(target, 'artifact') > 0) {
+    consumeLayer(target, 'artifact');
+    state.events.push({ t: 'statusBlocked', targetId: target.id, status });
+    return;
+  }
+
+  const next = stacks(target, status) + amount;
+  if (next <= 0) delete target.statuses[status];
+  else target.statuses[status] = next;
   state.events.push({ t: 'status', targetId: target.id, status, amount });
 }
 
-function tickStatuses(target: Combatant): void {
-  for (const key of Object.keys(target.statuses) as StatusId[]) {
-    if (!TICKING.has(key)) continue;
-    const next = (target.statuses[key] ?? 0) - 1;
-    if (next <= 0) delete target.statuses[key];
-    else target.statuses[key] = next;
+/**
+ * Turn boundary for one combatant: fire whatever ticks in this phase, then
+ * decay. Only ever called for a combatant at its *own* boundary, which is why
+ * `endOfTurn` needs no "every side's turn" variant.
+ */
+export function tickStatuses(state: CombatState, owner: Combatant, phase: TickPhase): void {
+  for (const id of STATUS_ORDER) {
+    const def = STATUS_META[id];
+    const n = stacks(owner, id);
+    if (n === 0) continue;
+
+    if (def.tick?.phase === phase) def.tick.run(state, owner, n);
+    // The tick may have removed the status — or killed its owner.
+    if (stacks(owner, id) === 0) continue;
+
+    if (def.decay === 'clearOnTurn') {
+      if (phase === 'ownerTurnStart') delete owner.statuses[id];
+    } else if (def.decay === 'endOfTurn') {
+      if (phase === 'ownerTurnEnd') consumeLayer(owner, id);
+    } else if (def.decay === 'tickDown') {
+      if (def.tick?.phase === phase) consumeLayer(owner, id);
+    }
   }
 }
 
@@ -390,10 +804,19 @@ export const defOf = (state: CombatState, uid: string): CardDef => {
 /** Status-free stand-in, so a face can be read with no combat in progress. */
 const NEUTRAL: Combatant = { id: '_', name: '', hp: 1, maxHp: 1, block: 0, statuses: {} };
 
+export interface PreviewValues {
+  /** Damage of one hit of the last damage effect. */
+  D: number;
+  /** Total block the card grants, 身法/力竭 folded in. */
+  B: number;
+  /** How many times that damage lands. */
+  T: number;
+}
+
 /**
- * The numbers a card will actually produce right now — Strength, Weak and any
- * relic bonus folded in — so the card face never lies about its damage.
- * Target-specific Vulnerable is applied only when `against` is supplied.
+ * The numbers a card will actually produce right now — Strength, Weak, 身法 and
+ * any relic bonus folded in — so the card face never lies. Target-specific
+ * Vulnerable is applied only when `against` is supplied.
  *
  * `state` is optional because the deck viewer also runs on the map, where no
  * combat exists; without one the card reads at its printed values.
@@ -402,19 +825,39 @@ export function previewValues(
   state: CombatState | undefined,
   def: CardDef,
   against?: Combatant,
-): { D: number; B: number } {
+): PreviewValues {
   const bonus = relicDamageBonus(state, def).amount;
+  const player = state?.player ?? NEUTRAL;
+  const out: PreviewValues = { D: 0, B: 0, T: 1 };
 
-  let damage = 0;
-  let block = 0;
-  for (const effect of def.effects) {
-    if (effect.kind === 'damage' || effect.kind === 'damageAll') {
-      damage = computeAttack(effect.amount + bonus, state?.player ?? NEUTRAL, against ?? NEUTRAL);
-    } else if (effect.kind === 'block') {
-      block += effect.amount;
+  const walk = (effects: readonly Effect[], repeat: number): void => {
+    for (const effect of effects) {
+      switch (effect.kind) {
+        case 'damage':
+        case 'damageAll':
+          out.D = computeAttack(effect.amount + bonus, player, against ?? NEUTRAL);
+          out.T = (effect.times ?? 1) * repeat;
+          break;
+        case 'block':
+          out.B += shapeBlock(player, effect.amount, 'card');
+          break;
+        case 'conditional':
+          // Without a fight to ask, the card reads at its headline branch.
+          walk(
+            !state || conditionMet(state, effect.when, against) ? effect.then : (effect.otherwise ?? []),
+            repeat,
+          );
+          break;
+        case 'scaleWithEnergy':
+          walk(effect.per, repeat * (def.cost === X_COST ? (state?.energy ?? 0) : def.cost));
+          break;
+        default:
+          break;
+      }
     }
-  }
-  return { D: damage, B: block };
+  };
+  walk(def.effects, 1);
+  return out;
 }
 
 export function describeCard(
@@ -422,8 +865,11 @@ export function describeCard(
   def: CardDef,
   against?: Combatant,
 ): string {
-  const { D, B } = previewValues(state, def, against);
-  return def.text.replace(/\{D\}/g, String(D)).replace(/\{B\}/g, String(B));
+  const { D, B, T } = previewValues(state, def, against);
+  return def.text
+    .replace(/\{D\}/g, String(D))
+    .replace(/\{B\}/g, String(B))
+    .replace(/\{T\}/g, String(T));
 }
 
 /** Compact intent label for the marker above an enemy, e.g. "攻 5×2". */

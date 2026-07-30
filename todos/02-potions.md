@@ -81,7 +81,7 @@ export interface RunState {
 ## 实现步骤
 
 1. `src/combat/potions.ts`：写 `POTIONS` 表 + `POTION_POOL_BY_RARITY`。
-   效果直接复用 `Effect`（`src/combat/types.ts:21-26`）——如果 [13 关键词](13-card-keywords.md)
+   效果直接复用 `Effect`（`src/combat/types.ts:21-26`）——如果 [13 关键词](13-card-keywords-done.md)
    已经扩过 `Effect`，这里能白嫖大部分效果。
 2. `engine.ts` 新增 `usePotion(state, potionId, targetId?)`：
    - 不检查也不扣 `state.energy`
@@ -117,4 +117,4 @@ export interface RunState {
 ## 依赖
 
 - [01 遗物](01-relics-done.md)——槽位修饰、掉率修饰的遗物挂在那套 `modifiers` 上
-- 建议在 [13 卡牌关键词](13-card-keywords.md) 之后做，`Effect` 扩完了药水能直接复用
+- 建议在 [13 卡牌关键词](13-card-keywords-done.md) 之后做，`Effect` 扩完了药水能直接复用

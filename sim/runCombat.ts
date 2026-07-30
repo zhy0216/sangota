@@ -1,5 +1,11 @@
 import { ENCOUNTERS } from '../src/combat/enemies';
-import { endPlayerTurn, playCard, runEnemyTurn, startCombat } from '../src/combat/engine';
+import {
+  endPlayerTurn,
+  playCard,
+  resolveChoice,
+  runEnemyTurn,
+  startCombat,
+} from '../src/combat/engine';
 import type { CombatEvent, CombatState, Encounter } from '../src/combat/types';
 import type { HeroDef } from '../src/data/heroes';
 import type { DeckCard } from '../src/state/run';
@@ -76,6 +82,7 @@ export function simulateCombat(opts: SimOptions): SimResult {
       // A rejected action is a policy bug. Deliberately not papered over by
       // ending the turn — let the no-progress detector surface it instead.
       playCard(state, action.uid, action.targetId);
+      answerChoices(state, opts.policy);
     } else {
       endPlayerTurn(state);
       runEnemyTurn(state);
@@ -98,6 +105,21 @@ export function simulateCombat(opts: SimOptions): SimResult {
     events: state.events,
     aborted,
   };
+}
+
+/**
+ * A card that stops to ask "which two cards do you discard?" freezes the
+ * engine. The sim has no player, so the policy answers — and if it answers
+ * badly, the first `min` options are taken rather than letting the fight hang.
+ * One card can queue several prompts, hence the loop.
+ */
+function answerChoices(state: CombatState, policy: Policy): void {
+  while (state.pendingChoice) {
+    const choice = state.pendingChoice;
+    const fallback = choice.options.slice(0, choice.min);
+    const answer = policy.resolveChoice?.(state, choice) ?? fallback;
+    if (!resolveChoice(state, answer)) resolveChoice(state, fallback);
+  }
 }
 
 /**

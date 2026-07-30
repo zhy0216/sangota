@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { useDesignSpace } from '../ui/designSpace';
+import { makeStatusIcons } from '../ui/statusIcons';
 import { bodyStyle, brushStyle } from '../ui/theme';
 
 const ICON_KEYS = ['monster', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'] as const;
@@ -43,6 +44,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     this.makeGlowTexture();
+    makeStatusIcons(this);
     this.scene.start('Title');
   }
 

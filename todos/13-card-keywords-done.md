@@ -138,7 +138,7 @@ export interface CardInstance {
      并把消耗量传给 `scaleWithEnergy`
 3. `applyEffect`（`engine.ts:247`）逐个实现新 `kind`。注意几点：
    - `loseHp` 走 `applyDamage` 的 `pierceBlock` 路径（见
-     [12 状态库](12-status-library.md) 的 `DamageContext`），且不吃神力/破绽
+     [12 状态库](12-status-library-done.md) 的 `DamageContext`），且不吃神力/破绽
    - `addCard` 要在 `state.cards` 注册新实例，uid 用递增计数器
      （`state.nextUid`），**不能用随机数**（要可复现）
    - `discard` / `exhaustCards` 非随机版需要**玩家交互**，引擎不能同步完成 →
@@ -184,7 +184,7 @@ export interface CardInstance {
 
 ## 依赖
 
-- [12 状态库](12-status-library.md)——`loseHp` 需要那边的 `DamageContext`；
+- [12 状态库](12-status-library-done.md)——`loseHp` 需要那边的 `DamageContext`；
   条件效果大量引用状态
 - [07 牌堆查看器](07-deck-viewer-done.md)——`pendingChoice` 的选牌 UI 复用它的 pick 模式
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——`pendingChoice` 会破坏
@@ -192,3 +192,30 @@ export interface CardInstance {
 - **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards.md)、
   [14 诅咒与状态牌](14-curses-and-status-cards.md)（`unplayable` 是状态牌的基础）、
   [02 药水](02-potions.md)
+
+## 实现记录
+
+和 [12 状态库](12-status-library-done.md) 一起落地，见那边的记录。
+
+- `CardKeyword` 五个全部生效：`exhaust`（「势」牌的类型特判已删除，
+  义勇 显式带 `keywords: ['exhaust']`）、`ethereal`、`innate`（洗牌后提到
+  牌堆顶，`liftInnate`）、`retain`、`unplayable`。
+- `Effect` 扩到 15 种。`cost: -1`（`X_COST`）配 `scaleWithEnergy` 就是 X 费。
+  `addCard.upgraded` 是 `number` 不是 `boolean`（跟 `CardInstance.upgraded`
+  对齐）；`PendingChoice` 的字段是 `{ kind, options, min, max }` 而不是初稿的
+  `{ count, from, optional }`——`sim/policy.ts` 早就按前者做了前向声明，
+  照着它做，模拟器不用改接口就能答题。
+- `pendingChoice`：效果走 `state.effectQueue`，遇到要玩家选牌就地停住，
+  `resolveChoice` 接上继续跑——引擎依然是同步纯函数。
+  战斗场景用 [07](07-deck-viewer-done.md) 的 pick 模式弹选牌界面；
+  `sim/policy.ts` 三个策略都实现了 `resolveChoice`，`sim/runCombat.ts`
+  兜底取前 `min` 张，无头模拟不会死锁。
+- 生成的牌用 `state.nextUid` 计数（`g0`、`g1`……），不碰 rng，同 seed 逐字节
+  可复现；它们只活在 `state.cards` 里，进不了 `run.deck`。
+
+**故意没做**（各自有独立的爆炸半径，留给后续 todo）：
+
+- `CardInstance.bonusDamage / bonusBlock / costOverride` 这类卡实例状态。
+  要让卡面不说谎就得改 `previewValues(state, def, against)` 的签名，而它
+  被六个文件调用。
+- `doubleNextAttack`：需要 `playCard` 里的重放机制。

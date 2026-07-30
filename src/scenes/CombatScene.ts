@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { Rng } from '../core/rng';
-import { REWARD_POOL, STATUS_META } from '../combat/cards';
+import { REWARD_POOL, STATUS_META, STATUS_ORDER } from '../combat/cards';
 import { ENCOUNTERS } from '../combat/enemies';
 import {
   canPlay,
   endPlayerTurn,
   intentLabel,
   playCard,
+  resolveChoice,
   runEnemyTurn,
   startCombat,
 } from '../combat/engine';
@@ -19,7 +20,7 @@ import { CARD_W, CardView } from '../ui/CardView';
 import { RelicBar } from '../ui/RelicBar';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
-import { bodyStyle, brushStyle, inkButton } from '../ui/theme';
+import { bodyStyle, brushStyle, inkButton, paintInkPanel } from '../ui/theme';
 import {
   burst,
   dust,
@@ -106,6 +107,11 @@ export class CombatScene extends Phaser.Scene {
   private selectedUid: string | null = null;
   private busy = false;
   private finished = false;
+
+  /** Built on the first hover — most fights never show a status tooltip. */
+  private statusTip: Phaser.GameObjects.Container | null = null;
+  private statusTipBg: Phaser.GameObjects.Graphics | null = null;
+  private statusTipText: Phaser.GameObjects.Text | null = null;
 
   private energyText!: Phaser.GameObjects.Text;
   private energyMaxText!: Phaser.GameObjects.Text;
@@ -746,10 +752,46 @@ export class CombatScene extends Phaser.Scene {
     }
 
     await this.playEvents();
+    await this.settleChoices();
     this.syncHand();
     this.refresh();
     this.busy = false;
     this.checkOutcome();
+  }
+
+  /**
+   * A card that stopped to ask something holds the whole fight: the grid is
+   * opened with no way out, and the engine refuses every other action until it
+   * is answered. One card can ask more than once, hence the loop.
+   */
+  private async settleChoices(): Promise<void> {
+    while (this.state.pendingChoice) {
+      const choice = this.state.pendingChoice;
+      const title = choice.kind === 'exhaust' ? '消 耗' : choice.kind === 'putOnDraw' ? '置 顶' : '弃 牌';
+
+      await new Promise<void>((resolve) => {
+        openCardGrid(this, {
+          title,
+          subtitle: `选 ${choice.min} 张`,
+          entries: choice.options.map((uid) => {
+            const inst = this.state.cards[uid];
+            return { uid, defId: inst.defId, upgraded: inst.upgraded };
+          }),
+          mode: 'pick',
+          pickCount: choice.min,
+          state: this.state,
+          // No `onClose`: the pick is mandatory, which is what the engine's
+          // frozen state already assumes.
+          onPick: (uids) => {
+            resolveChoice(this.state, uids);
+            resolve();
+          },
+        });
+      });
+
+      this.syncHand();
+      await this.playEvents();
+    }
   }
 
   /** Step an actor toward its foe and let it drift back on its own. */
@@ -914,6 +956,30 @@ export class CombatScene extends Phaser.Scene {
         await this.wait(160);
         break;
       }
+
+      case 'statusBlocked': {
+        const view = this.viewOf(ev.targetId);
+        if (view) {
+          const at = this.torso(view);
+          shieldFlare(this, at.x, at.y, view.height * 0.3);
+          popText(this, at.x, at.y - 30, `抵消【${STATUS_META[ev.status].label}】`, {
+            color: STATUS_META.artifact.color,
+            size: 24,
+          });
+        }
+        this.refreshBars();
+        await this.wait(160);
+        break;
+      }
+
+      case 'exhaust':
+        popText(this, EXHAUST_PILE.x, EXHAUST_PILE.y - 26, '消耗', {
+          color: C.paperFaint,
+          size: 19,
+          drift: 34,
+        });
+        await this.wait(120);
+        break;
 
       case 'death':
         await this.playDeath(ev.targetId);
@@ -1206,27 +1272,85 @@ export class CombatScene extends Phaser.Scene {
     view.blockText.setText(String(block));
   }
 
+  /**
+   * Icon chips, not text pills: eighteen statuses at 62px a piece would run off
+   * both sides of the screen. Ordered by `STATUS_ORDER` so the row never
+   * reshuffles itself as statuses come and go, and every chip carries its rules
+   * text on hover — an icon nobody can read is worse than a word.
+   */
   private paintStatuses(view: ActorView, statuses: Partial<Record<StatusId, number>>): void {
     view.statusRow.removeAll(true);
-    const entries = (Object.keys(statuses) as StatusId[]).filter((k) => (statuses[k] ?? 0) > 0);
-    const pillW = 62;
-    const total = entries.length * (pillW + 6) - 6;
+    this.hideStatusTip();
+
+    const entries = STATUS_ORDER.filter((id) => (statuses[id] ?? 0) > 0);
+    const chipW = 32;
+    const chipH = 22;
+    const gap = 3;
+    const total = entries.length * (chipW + gap) - gap;
 
     entries.forEach((id, i) => {
       const meta = STATUS_META[id];
-      const x = -total / 2 + i * (pillW + 6) + pillW / 2;
-      const pill = this.add.container(x, 0);
+      const count = statuses[id] ?? 0;
+      const x = -total / 2 + i * (chipW + gap) + chipW / 2;
+
+      const chip = this.add.container(x, 0);
       const bg = this.add.graphics();
       bg.fillStyle(C.inkDeep, 0.94);
-      bg.fillRoundedRect(-pillW / 2, -11, pillW, 22, 3);
+      bg.fillRoundedRect(-chipW / 2, -chipH / 2, chipW, chipH, 3);
       bg.lineStyle(1, meta.color, 0.85);
-      bg.strokeRoundedRect(-pillW / 2, -11, pillW, 22, 3);
+      bg.strokeRoundedRect(-chipW / 2, -chipH / 2, chipW, chipH, 3);
+
+      const icon = this.add
+        .image(-8, 0, meta.icon ?? '')
+        .setDisplaySize(16, 16)
+        .setTint(meta.color);
       const label = this.add
-        .text(0, 0, `${meta.label} ${statuses[id]}`, bodyStyle(12, meta.color))
-        .setOrigin(0.5);
-      pill.add([bg, label]);
-      view.statusRow.add(pill);
+        .text(chipW / 2 - 4, 1, String(count), bodyStyle(12, C.paper))
+        .setOrigin(1, 0.5);
+
+      const hit = this.add.zone(0, 0, chipW, chipH).setInteractive();
+      hit.on('pointerover', () =>
+        this.showStatusTip(view.container.x + x, view.container.y + view.statusRow.y, id, count),
+      );
+      hit.on('pointerout', () => this.hideStatusTip());
+
+      chip.add([bg, icon, label, hit]);
+      view.statusRow.add(chip);
     });
+  }
+
+  /** Rules text for the hovered chip, floated above it. */
+  private showStatusTip(x: number, y: number, id: StatusId, count: number): void {
+    const meta = STATUS_META[id];
+    if (!this.statusTip) {
+      const bg = this.add.graphics();
+      const text = this.add.text(0, 0, '', {
+        ...bodyStyle(13, C.paper),
+        wordWrap: { width: 240 },
+        lineSpacing: 4,
+      });
+      this.statusTip = this.add
+        .container(0, 0, [bg, text])
+        .setDepth(DEPTH.float)
+        .setVisible(false);
+      this.statusTipBg = bg;
+      this.statusTipText = text;
+    }
+
+    const text = this.statusTipText!;
+    text.setText(`【${meta.label}】${count}\n${meta.desc}`);
+    const w = text.width + 24;
+    const h = text.height + 20;
+    text.setPosition(-w / 2 + 12, -h + 10);
+    paintInkPanel(this.statusTipBg!, -w / 2, -h, w, h, { border: meta.color });
+
+    // Clamped so a chip at the screen edge doesn't push its tip off-canvas.
+    this.statusTip!.setPosition(Phaser.Math.Clamp(x, w / 2 + 8, GAME_WIDTH - w / 2 - 8), y - 16);
+    this.statusTip!.setVisible(true);
+  }
+
+  private hideStatusTip(): void {
+    this.statusTip?.setVisible(false);
   }
 
   private paintIntent(view: EnemyView): void {

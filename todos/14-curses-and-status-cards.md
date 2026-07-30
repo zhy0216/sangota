@@ -140,7 +140,7 @@ export const CURSE_POOL: string[];
      `resolveCombatEndHooks(state, run)`
 4. `addCurse(run, defId)`：往 `run.deck` push 一张 `DeckCard`。
    事件（[06](06-events.md)）和遗物调它。
-5. 状态牌生成走 [13 关键词](13-card-keywords.md) 的
+5. 状态牌生成走 [13 关键词](13-card-keywords-done.md) 的
    `{ kind: 'addCard', defId: 'fenying', count: 2, to: 'discard' }`。
 6. **敌人生成状态牌**：`EnemyMove` 需要能塞牌。见
    [15 敌人机制](15-enemy-mechanics.md)——`EnemyMove` 加
@@ -168,7 +168,7 @@ export const CURSE_POOL: string[];
 
 ## 依赖
 
-- [13 卡牌关键词](13-card-keywords.md)——`unplayable` / `ethereal` / `exhaust`
+- [13 卡牌关键词](13-card-keywords-done.md)——`unplayable` / `ethereal` / `exhaust`
   是这些牌的基础，`addCard` 是生成手段
 - [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` 实例化
 - [11 稀有度](11-card-rarity-and-rewards.md)——确保不进奖励池

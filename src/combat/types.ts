@@ -2,13 +2,34 @@ import type { Rng } from '../core/rng';
 
 // ---------------------------------------------------------------- statuses
 
-export type StatusId = 'vulnerable' | 'weak' | 'strength';
+export type StatusId =
+  | 'vulnerable'
+  | 'weak'
+  | 'strength'
+  | 'dexterity'
+  | 'frail'
+  | 'poison'
+  | 'regen'
+  | 'metallicize'
+  | 'thorns'
+  | 'artifact'
+  | 'barricade'
+  | 'intangible'
+  | 'buffer'
+  | 'ritual'
+  | 'noDraw'
+  | 'entangled'
+  | 'curlUp'
+  | 'angry';
 
+/** Presentation only. The rules of a status live in `StatusDef` (statuses.ts). */
 export interface StatusMeta {
   label: string;
   desc: string;
   kind: 'buff' | 'debuff';
   color: number;
+  /** 20×20 icon texture key. Text pills do not survive 18 statuses. */
+  icon?: string;
 }
 
 // ------------------------------------------------------------------- cards
@@ -18,18 +39,52 @@ export type CardRarity = 'basic' | 'common' | 'uncommon' | 'rare';
 /** Who the player picks when playing the card. */
 export type TargetMode = 'enemy' | 'self' | 'all';
 
+/**
+ * Keywords change a card's *life cycle*; effects change what it does. Powers
+ * are 'exhaust' cards like any other — there is no type special case, or the
+ * game would carry two parallel sets of rules for leaving play.
+ */
+export type CardKeyword = 'exhaust' | 'ethereal' | 'innate' | 'retain' | 'unplayable';
+
+export type EffectCondition =
+  | { c: 'targetHasStatus'; status: StatusId; min?: number }
+  | { c: 'selfHasStatus'; status: StatusId; min?: number }
+  | { c: 'handEmpty' }
+  | { c: 'attackPlayedThisTurn' }
+  | { c: 'hpBelow'; percent: number }
+  | { c: 'enemyCountAtLeast'; n: number };
+
 export type Effect =
-  | { kind: 'damage'; amount: number }
-  | { kind: 'damageAll'; amount: number }
+  | { kind: 'damage'; amount: number; times?: number }
+  | { kind: 'damageAll'; amount: number; times?: number }
   | { kind: 'block'; amount: number }
-  | { kind: 'status'; status: StatusId; amount: number; to: 'target' | 'self' }
-  | { kind: 'draw'; amount: number };
+  | { kind: 'status'; status: StatusId; amount: number; to: 'target' | 'self' | 'allEnemies' }
+  | { kind: 'draw'; amount: number }
+  /** Self-damage: ignores block and is not an attack, so no Strength, no Vulnerable. */
+  | { kind: 'loseHp'; amount: number }
+  | { kind: 'heal'; amount: number }
+  | { kind: 'energy'; amount: number }
+  /** Non-random discards stop the engine on `pendingChoice` until the player picks. */
+  | { kind: 'discard'; amount: number; random?: boolean }
+  | { kind: 'exhaustCards'; amount: number }
+  | {
+      kind: 'addCard';
+      defId: string;
+      count: number;
+      to: 'hand' | 'draw' | 'discard';
+      upgraded?: number;
+    }
+  | { kind: 'shuffleDiscardIn' }
+  | { kind: 'conditional'; when: EffectCondition; then: Effect[]; otherwise?: Effect[] }
+  /** X-cost: repeats `per` once for every 气 the card actually consumed. */
+  | { kind: 'scaleWithEnergy'; per: Effect[] };
 
 export interface CardDef {
   id: string;
   name: string;
   type: CardType;
   rarity: CardRarity;
+  /** `X_COST` (-1) means "spend everything", and `scaleWithEnergy` reads it back. */
   cost: number;
   target: TargetMode;
   /** Texture key for the card's illustration. */
@@ -41,11 +96,12 @@ export interface CardDef {
    */
   text: string;
   effects: Effect[];
+  keywords?: readonly CardKeyword[];
   /**
    * Fields the upgraded ("·精") version overrides. Absent means the card can
    * never be upgraded — curses and status cards should leave it out.
    */
-  upgrade?: Partial<Pick<CardDef, 'cost' | 'target' | 'text' | 'effects'>>;
+  upgrade?: Partial<Pick<CardDef, 'cost' | 'target' | 'text' | 'effects' | 'keywords'>>;
 }
 
 export interface CardInstance {
@@ -116,15 +172,45 @@ export type CombatEvent =
   | { t: 'heal'; targetId: string; amount: number }
   | { t: 'block'; targetId: string; amount: number }
   | { t: 'status'; targetId: string; status: StatusId; amount: number }
+  /** 护身符 warded a debuff off, or 天佑 ate a wound. One event for both. */
+  | { t: 'statusBlocked'; targetId: string; status: StatusId }
   | { t: 'death'; targetId: string }
   | { t: 'draw'; uid: string }
   | { t: 'discard'; uid: string }
+  | { t: 'exhaust'; uid: string }
   | { t: 'shuffle' }
   | { t: 'enemyMove'; enemyId: string; label: string }
   /** A relic fired: flash its icon in the bar. */
   | { t: 'relic'; relicId: string }
   /** A relic with a `banner` fired: the full-screen flourish. */
   | { t: 'passive'; label: string };
+
+/**
+ * A card effect waiting its turn, carrying the context of the card that queued
+ * it. Effects go through a queue rather than a plain loop because one of them
+ * (「弃 2 张牌」) has to stop and wait for the player — see `pendingChoice`.
+ */
+export interface QueuedStep {
+  effect: Effect;
+  target: EnemyState | undefined;
+  /** Relic damage bonus in force for the card that queued this step. */
+  bonus: number;
+  /** 气 the card actually spent, which is what `scaleWithEnergy` multiplies by. */
+  energy: number;
+}
+
+/**
+ * The engine is synchronous, so "choose 2 cards to exhaust" cannot block. It
+ * parks the rest of `effectQueue` here instead; the scene (or a sim policy)
+ * answers with `resolveChoice` and the queue resumes.
+ */
+export interface PendingChoice {
+  kind: 'discard' | 'exhaust' | 'putOnDraw';
+  /** Card uids the answer may be drawn from. */
+  options: string[];
+  min: number;
+  max: number;
+}
 
 export interface CombatState {
   turn: number;
@@ -142,6 +228,12 @@ export interface CombatState {
   exhaustPile: string[];
   /** Neutral bookkeeping relics ask about, e.g. "is this the first attack?". */
   attacksThisTurn: number;
+  /** Effects still to resolve. Non-empty only while a card is mid-resolution. */
+  effectQueue: QueuedStep[];
+  /** Non-null freezes the fight until `resolveChoice` answers it. */
+  pendingChoice: PendingChoice | null;
+  /** Monotonic id source for engine-minted cards. Never `rng` — uids must replay. */
+  nextUid: number;
   /** Relic ids in effect, in pickup order — hooks fire in this order. */
   relics: string[];
   /** Per-relic counters for this fight only; run-long ones live on RunState. */

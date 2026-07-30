@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { C } from '../config';
-import { CARD_TYPE_META, resolveCard } from '../combat/cards';
-import { describeCard } from '../combat/engine';
+import { CARD_TYPE_META, KEYWORD_LABEL, resolveCard } from '../combat/cards';
+import { X_COST, canPlay, describeCard } from '../combat/engine';
 import type { CardDef, CombatState } from '../combat/types';
 import { bodyStyle, brushStyle } from './theme';
 
@@ -92,6 +92,19 @@ export class CardView extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5, 0);
 
+    // Keywords ride along the bottom edge in small grey type, the way the
+    // original prints them — they change the card's life cycle, not its numbers,
+    // so they must not compete with the rules text above.
+    const keywords = scene.add
+      .text(
+        0,
+        CARD_H / 2 - 13,
+        (def.keywords ?? []).map((k) => KEYWORD_LABEL[k]).join(' · '),
+        bodyStyle(11, C.paperFaint),
+      )
+      .setOrigin(0.5)
+      .setLetterSpacing(1);
+
     // Cost orb
     const orb = scene.add.graphics();
     orb.fillStyle(C.inkDeep, 1);
@@ -99,7 +112,7 @@ export class CardView extends Phaser.GameObjects.Container {
     orb.lineStyle(2, C.goldBright, 0.95);
     orb.strokeCircle(-56, -78, 17);
     this.costText = scene.add
-      .text(-56, -78, String(def.cost), brushStyle(21, C.goldBright))
+      .text(-56, -78, def.cost === X_COST ? 'X' : String(def.cost), brushStyle(21, C.goldBright))
       .setOrigin(0.5);
 
     // The type tag keeps its own colour — it reads type, not upgrade state.
@@ -115,7 +128,7 @@ export class CardView extends Phaser.GameObjects.Container {
 
     this.hit = scene.add.zone(0, 0, CARD_W, CARD_H).setInteractive({ useHandCursor: true });
 
-    this.add([shadow, this.frame, art, artFade, rule, name, this.descText, orb, this.costText, typeTag, this.dimmer, this.hit]);
+    this.add([shadow, this.frame, art, artFade, rule, name, this.descText, keywords, orb, this.costText, typeTag, this.dimmer, this.hit]);
     this.setSize(CARD_W, CARD_H);
     scene.add.existing(this);
 
@@ -133,12 +146,12 @@ export class CardView extends Phaser.GameObjects.Container {
     g.strokeRoundedRect(-CARD_W / 2 + 4, -CARD_H / 2 + 4, CARD_W - 8, CARD_H - 8, 5);
   }
 
-  /** Re-read the combat state: affordability and the live damage/block numbers. */
+  /** Re-read the combat state: playability and the live damage/block numbers. */
   refresh(state: CombatState | undefined): void {
     this.descText.setText(describeCard(state, this.def));
-    this.playable =
-      this.mode === 'display' ||
-      (!!state && state.phase === 'player' && state.energy >= this.def.cost);
+    // The engine's own gate, so 束缚 / 不可打出 / X 费 grey the face by exactly
+    // the rule that will refuse the click.
+    this.playable = this.mode === 'display' || (!!state && canPlay(state, this.uid));
     this.dimmer.setVisible(!this.playable);
     this.costText.setColor(this.playable ? '#f0d67a' : '#8a7f66');
   }

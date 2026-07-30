@@ -63,15 +63,23 @@ Enrage（每受一张技能牌 +力量）、Time Warp、Invincible（每回合�
 ```
 基础伤害
  → + Strength
- → × Weak（攻击方）
- → × Vulnerable（防御方）
- → 向下取整
- → 扣护甲
+ → × Weak（攻击方）→ 向下取整
+ → × Vulnerable（防御方）→ 向下取整
  → Intangible 钳到 1
+ → 扣护甲
  → Buffer 抵消
  → 扣生命
  → Thorns 反弹
 ```
+
+两处**修正**（初稿写错了，实现以此处为准）：
+
+1. **Intangible 在扣护甲之前**。原版是先钳到 1 再进护甲，所以「金蝉脱壳 +
+   5 护甲」挨一记 30 伤只掉 1 点护甲、0 点体力；放在护甲之后会让这堵墙被
+   整个吃掉。
+2. **两次乘法各自向下取整**，不能合并成一次。基础 5 同时吃怯战和破绽是
+   `floor(floor(5×0.75)×1.5) = 4`，合并取整会得到 5。
+   `tests/engine.test.ts` 已经把这个数钉死了。
 
 ## 设计方案
 
@@ -118,8 +126,7 @@ export type StatusId =
 /** 衰减方式。 */
 export type StatusDecay =
   | 'none'        // 永久（神力、重甲、反刺）
-  | 'endOfTurn'   // 拥有者回合结束 -1（破绽、怯战、力竭）
-  | 'endOfTurnAll'// 每回合结束 -1 且到 0 就消失（金蝉脱壳）
+  | 'endOfTurn'   // 拥有者回合结束 -1（破绽、怯战、力竭、金蝉脱壳）
   | 'tickDown'    // 触发后自身 -1（中毒、调息）
   | 'consume'     // 触发时消耗一层（护身符、天佑、龟缩）
   | 'clearOnTurn';// 我方回合开始清零（断粮、束缚）
@@ -136,6 +143,12 @@ export interface StatusMeta {
   icon?: string;
 }
 ```
+
+**修正**：初稿的 `endOfTurnAll` 没有调用点。`tickStatuses` 只会在某一方
+**自己**的回合边界上被调用，所以金蝉脱壳用 `endOfTurn` 就够了——这也正是
+原版的行为（N 层 = 我方 N 个回合）。规则本身（`modify` / `tick` /
+`onAttacked`）最终落在 `src/combat/statuses.ts` 的 `StatusDef` 上，
+`StatusMeta` 只留展示字段。
 
 ```ts
 // src/combat/engine.ts —— 伤害管线
@@ -179,10 +192,16 @@ export interface DamageContext {
    - `endPlayerTurn`（`engine.ts:152`）：调息回血、重甲加甲、蓄势加神力
    - `runEnemyTurn`（`engine.ts:164`）：敌人同样要走这三套，且
      `enemy.block = 0`（`engine.ts:169`）要尊重 `barricade`
-7. 护甲获取要走 `gainBlock(state, target, amount)`，内部叠
-   `dexterity` 加、`frail` 乘 0.75。现在护甲是三处直接 `+=`
-   （`engine.ts:192`、`engine.ts:263`）——**必须统一**，否则身法/力竭只在
-   一部分地方生效。
+7. 护甲获取要走 `gainBlock(state, target, amount, source)`，内部叠
+   `dexterity` 加、`frail` 乘 0.75。
+
+   **修正**：`gainBlock` 已经是唯一的 `block +=` 入口（`engine.ts:334`），
+   不存在「三处直接 `+=`」。真正的缺口是另外三个：
+   - `gainBlock` 内部没有身法/力竭；
+   - `startCombat` 的字面量里 `block: mods.startingBlock`（`engine.ts:75`）
+     绕过了它；
+   - `engine.ts:140`（`state.player.block = 0`）和 `engine.ts:184`
+     （`enemy.block = 0`）两处清零要变成尊重深沟高垒的 `clearBlock`。
 8. `entangled` / `noDraw`：`canPlay`（`engine.ts:210`）加攻击牌检查，
    `drawCards`（`engine.ts:136`）开头 early-return。
 9. 状态图标：18 种文字方块在敌人头上会挤爆。做 20×20 的图标
@@ -207,5 +226,26 @@ export interface DamageContext {
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——**强依赖**。这是纯规则重构，
   没有回归测试会静默改坏数值
 - **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards.md)、
-  [13 关键词](13-card-keywords.md)、[15 敌人机制](15-enemy-mechanics.md)
+  [13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics.md)
   全都建立在状态库上
+
+## 实现记录
+
+和 [13 关键词](13-card-keywords-done.md) 一起落地——两者不可分：13 的
+`loseHp` 要 12 的 `DamageContext`，12 的 `tick` 要 13 扩过的效果集合。
+
+- `src/combat/statuses.ts`（新）——18 条 `StatusDef`、`STATUS_ORDER`。
+  类型是 `Record<StatusId, StatusDef>`：第 19 个状态在补上这一行之前
+  编译不过。`cards.ts` 原样 re-export `STATUS_META`，UI 的 import 路径没动。
+- `engine.ts` 的 `computeAttack` / `resolveDamage` / `gainBlock` /
+  `addStatus` / `tickStatuses` 全部改成遍历 `STATUS_ORDER` 读槽位，
+  没有一个分支认得任何一个状态 id。
+- **数值零漂移**：todos/25 的 20 份 golden 快照逐字节不变。
+- `BlockSource`：身法/力竭只作用于「行动挣来的」护甲（`card` /
+  `enemyMove`），重甲和宝物给的是原值——和原版一致。
+- 反弹/中毒/自伤走 `isAttack: false`，这是两个反刺互相弹射不会无限递归的
+  唯一原因。
+
+**占位美术**：`src/ui/statusIcons.ts` 用 Canvas 程序化画了 18 个 20×20 的
+`status-<id>` 白色线稿图标（按 `RENDER_SCALE` 栅格化，Retina 下不糊），由
+pill 按状态色 tint。这不是最终美术，换成真图只需要替换纹理，键名不变。
