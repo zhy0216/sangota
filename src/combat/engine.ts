@@ -1,6 +1,7 @@
 import { Rng } from '../core/rng';
 import { resolveCard } from './cards';
 import { getEnemy } from './enemies';
+import { REVIVE_HP, getPotion, type PotionSpecial } from './potions';
 import { fireHook, relicDamageBonus, relicEvent, relicModifiers } from './relics';
 import { STATUS_META, STATUS_ORDER, type BlockSource, type TickPhase } from './statuses';
 import type {
@@ -92,6 +93,7 @@ export function startCombat(opts: StartCombatOptions): CombatState {
     cardsPlayedThisTurn: 0,
     effectQueue: [],
     pendingChoice: null,
+    pendingRevive: 0,
     nextUid: 0,
     relics: [...opts.relics],
     relicCounters: {},
@@ -379,6 +381,59 @@ export function playCard(state: CombatState, uid: string, targetId?: string): bo
 export function exhaustCard(state: CombatState, uid: string): void {
   state.exhaustPile.push(uid);
   state.events.push({ t: 'exhaust', uid });
+}
+
+// ------------------------------------------------------------------ potions
+
+/**
+ * 丹药 cost no 气, no card and no play limit — but they resolve through the
+ * same `applyEffect` queue everything else does, so 火油罐 takes 破绽 and 神力
+ * exactly the way an attack card would. That shared path is the entire reason
+ * `PotionDef.effects` is the card `Effect` union rather than a second system.
+ */
+export function usePotion(state: CombatState, potionId: string, targetId?: string): boolean {
+  if (state.phase !== 'player') return false;
+  // Everything is frozen while a card waits on the player's pick.
+  if (state.pendingChoice) return false;
+
+  const def = getPotion(potionId);
+  let target: EnemyState | undefined;
+  if (def.target === 'enemy') {
+    target = state.enemies.find((e) => e.id === targetId && e.alive);
+    if (!target) return false;
+  }
+
+  state.events.push({ t: 'potion', potionId });
+  if (def.special) applyPotionSpecial(state, def.special);
+  // `bonus: 0` deliberately: the relic damage bonus is keyed on 「打出【攻】牌」
+  // and a 丹药 is no card, so drinking one must never spend that turn's passive.
+  enqueue(state, def.effects, { target, bonus: 0, energy: 0 });
+  pumpEffects(state);
+  checkEnd(state);
+  return true;
+}
+
+/** The three behaviours no `Effect` expresses. Nothing else branches on an id. */
+function applyPotionSpecial(state: CombatState, special: PotionSpecial): void {
+  switch (special) {
+    case 'cleanseDebuffs':
+      for (const id of STATUS_ORDER) {
+        if (STATUS_META[id].kind !== 'debuff' || stacks(state.player, id) === 0) continue;
+        delete state.player.statuses[id];
+        state.events.push({ t: 'statusBlocked', targetId: state.player.id, status: id });
+      }
+      break;
+    case 'reviveOnce':
+      state.pendingRevive = REVIVE_HP;
+      break;
+    case 'duplicateHand':
+      // Snapshot the hand first, or the copies start copying themselves.
+      for (const uid of [...state.hand]) {
+        const inst = state.cards[uid];
+        placeCard(state, mintCard(state, inst.defId, inst.upgraded), 'hand');
+      }
+      break;
+  }
 }
 
 // ---------------------------------------------------------------- effects
@@ -685,8 +740,21 @@ export function resolveDamage(state: CombatState, ctx: DamageContext): void {
   }
 
   defender.hp = Math.max(0, defender.hp - hpLoss);
-  const lethal = defender.hp === 0;
+
+  // 回天丹 refunds exactly one death, and only the player's. Consumed here
+  // rather than in `checkEnd` so nothing downstream — 反刺, the enemy's next
+  // hit of a combo, `phase` — ever observes a corpse that is coming back.
+  const revive =
+    defender.hp === 0 && defender.id === state.player.id && state.pendingRevive > 0
+      ? Math.min(state.pendingRevive, defender.maxHp)
+      : 0;
+  const lethal = defender.hp === 0 && revive === 0;
   state.events.push({ t: 'damage', targetId: defender.id, amount: hpLoss, blocked, lethal });
+  if (revive > 0) {
+    state.pendingRevive = 0;
+    defender.hp = revive;
+    state.events.push({ t: 'heal', targetId: defender.id, amount: revive });
+  }
 
   if (lethal && defender.id !== state.player.id) {
     const enemy = state.enemies.find((e) => e.id === defender.id);

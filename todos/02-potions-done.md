@@ -118,3 +118,47 @@ export interface RunState {
 
 - [01 遗物](01-relics-done.md)——槽位修饰、掉率修饰的遗物挂在那套 `modifiers` 上
 - 建议在 [13 卡牌关键词](13-card-keywords-done.md) 之后做，`Effect` 扩完了药水能直接复用
+
+---
+
+## 实现记录
+
+落地为 `src/combat/potions.ts`（17 瓶 + `POTION_POOL_BY_RARITY` + 掉率漂移）、
+`src/ui/PotionBelt.ts`（两个 HUD 共用的瓶槽栏），引擎侧新增 `usePotion`。
+
+规格外的几个决定：
+
+- **`usePotion` 复用 `applyEffect` 队列**，`PotionDef.effects` 直接是卡牌的
+  `Effect` 联合类型。这是整个设计的支点：火油罐打带破绽的吕布是 30 而不是 20，
+  因为丹药根本不存在第二套伤害管线。测试里专门有一条盯着这个数。
+- **只有三种行为走 `special`**（`reviveOnce` / `cleanseDebuffs` /
+  `duplicateHand`），引擎不认任何其它瓶子的 id。
+- **`bonus: 0`**：丹药不是牌，所以不吃「打出【攻】牌」那条遗物加成，
+  也不计入 `cardsPlayedThisTurn` / `attacksThisTurn`。
+- **回天丹在 `resolveDamage` 里消费**，不在 `checkEnd`。这样反刺、敌人连击的
+  后续几段、`phase` 都不会观察到一具「马上要复活」的尸体，`lethal` 事件也不会
+  发出去——否则场景会先播死亡动画再播复活。
+- **掉落用独立的 `:potion` 随机流**，和金币/选卡的 `:reward` 流分开；且命中与
+  否都照样 `rollPotion` 一次，这样改掉率不会重排后续每一场的瓶子。
+- **只有普通战会漂移 `potionChance`**。精英必掉、Boss 不掉，如果它们也退还
+  「干旱补偿」，玩家就能把精英战存成普通战的旱情。
+- **`addPotion` 满了返回 false 而不是丢弃**，替换/放弃弹窗由 `CombatScene` 出。
+- **地图侧不复用 `usePotion`**：`usePotionOutOfCombat` 只认 `heal`，其余一律
+  拒绝而不是静默浪费。目前 `usableOutOfCombat` 也确实只标了续命汤，
+  测试里有一条守着「可带出战斗的瓶子只能是纯回血」。
+- **`sim/runCombat.ts` 接了 `potions?`**，把 `policy.choosePotion` 这个
+  todos/02 预留的钩子接通；默认空，所以 20 个 golden 快照和平衡表都不受影响。
+
+## 占位素材（规则 7）
+
+`PotionBelt` 的葫芦瓶是程序绘制的，形状固定、只按 `PotionDef.color` 换色。
+纹理键就是 `PotionDef.art`（`potion-<id>`），真素材放进去即可接管，无需改代码。
+
+## 仍未做
+
+- **商店卖药 / 事件给药**：分属 [05](05-shop.md) / [06](06-events.md)，
+  `addPotion` 和满槽弹窗都已经是共用原语。
+- **宝箱附赠丹药**：[10 遗物奖励](10-relic-rewards.md) 的步骤。
+- **Boss 战前提醒「药水没用完」**：需要营帐屏，属 [04](04-campfire.md)。
+- **改掉率的遗物**：`modifiers.potionSlots` 通路已由 药囊 验证，掉率修饰
+  目前没有挂点。

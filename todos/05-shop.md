@@ -124,6 +124,6 @@ export interface RunState {
 
 - [04 营帐](04-campfire.md)——`RoomScene` 壳
 - [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` 实例化（弃卡要定位到具体一张）
-- [01 遗物](01-relics-done.md) / [02 药水](02-potions.md)——库存的两个品类
+- [01 遗物](01-relics-done.md) / [02 药水](02-potions-done.md)——库存的两个品类
 - [07 牌堆查看器](07-deck-viewer-done.md)——弃卡的选牌 UI
 - [11 稀有度](11-card-rarity-and-rewards.md)——卡牌库存的抽取权重

@@ -10,10 +10,13 @@ import {
   currentFloor,
   getRun,
   heal,
+  removePotion,
   travelTo,
+  usePotionOutOfCombat,
   type RunState,
 } from '../state/run';
 import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
+import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, circleMask, goldRing, gradientStrip, inkPanel } from '../ui/theme';
@@ -62,6 +65,7 @@ export class MapScene extends Phaser.Scene {
   private deckText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
   private relicBar!: RelicBar;
+  private potionBelt!: PotionBelt;
 
   private tooltip!: Phaser.GameObjects.Container;
   private tooltipTitle!: Phaser.GameObjects.Text;
@@ -544,6 +548,36 @@ export class MapScene extends Phaser.Scene {
       tooltipDepth: DEPTH.tooltip,
     });
     this.relicBar.setRelics(this.run.relics);
+
+    // --- Potions ----------------------------------------------------------
+    // Bottom-left, inside the footer fade: the top bar is already three blocks
+    // wide plus a relic bar that wraps into a second row, and the belt must not
+    // be what gets pushed out when the run gets long.
+    fixed(
+      this.add.text(44, 606, '丹药', bodyStyle(13, C.paperFaint)).setOrigin(0, 0.5).setLetterSpacing(3),
+    );
+    this.potionBelt = new PotionBelt(this, {
+      x: 58,
+      y: 640,
+      size: 30,
+      depth: DEPTH.hud,
+      fixed: true,
+      tooltipDepth: DEPTH.tooltip,
+      // 火油罐 has nothing to burn out here; only the map-usable ones light up.
+      usable: (def) => def.usableOutOfCombat,
+      // No toast for either: the HP bar moving and the slot emptying are the
+      // feedback, and a floating label here would scroll away with the map.
+      onUse: (slot) => {
+        if (!usePotionOutOfCombat(this.run, slot)) return;
+        this.potionBelt.setPotions(this.run.potions);
+        this.refreshHud();
+      },
+      onDiscard: (slot) => {
+        removePotion(this.run, slot);
+        this.potionBelt.setPotions(this.run.potions);
+      },
+    });
+    this.potionBelt.setPotions(this.run.potions);
 
     // --- Act / floor ------------------------------------------------------
     fixed(

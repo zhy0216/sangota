@@ -160,7 +160,7 @@ export function computeScore(run: RunState, victory: boolean): {
      无伤判定（用「本场 `damageTaken` 增量是否为 0」）
    - `addGold`（`run.ts:70`）：正数累计 `goldEarned`，负数累计 `goldSpent`
    - `playCard`（`engine.ts:217`）：`cardsPlayed`
-   - `usePotion`（[02 药水](02-potions.md)）：`potionsUsed`
+   - `usePotion`（[02 药水](02-potions-done.md)）：`potionsUsed`
    - 引擎里的统计要**通过 `CombatEvent` 回传**，不要让引擎直接写
      `RunState`（会破坏它的纯函数性质，也会破坏无头模拟）
 2. **死亡流程**：`CombatScene.ts:1140` 的 `lost` 分支改成

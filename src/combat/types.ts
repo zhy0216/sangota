@@ -202,7 +202,7 @@ export type CombatEvent =
   | { t: 'heal'; targetId: string; amount: number }
   | { t: 'block'; targetId: string; amount: number }
   | { t: 'status'; targetId: string; status: StatusId; amount: number }
-  /** 护身符 warded a debuff off, or 天佑 ate a wound. One event for both. */
+  /** A status was cancelled: 护身符 warded it off, 天佑 ate a wound, 清心散 cleansed. */
   | { t: 'statusBlocked'; targetId: string; status: StatusId }
   | { t: 'death'; targetId: string }
   | { t: 'draw'; uid: string }
@@ -212,6 +212,8 @@ export type CombatEvent =
   | { t: 'enemyMove'; enemyId: string; label: string }
   /** A relic fired: flash its icon in the bar. */
   | { t: 'relic'; relicId: string }
+  /** A 丹药 was drunk: empty its slot and flourish. */
+  | { t: 'potion'; potionId: string }
   /** A relic with a `banner` fired: the full-screen flourish. */
   | { t: 'passive'; label: string };
 
@@ -264,6 +266,8 @@ export interface CombatState {
   effectQueue: QueuedStep[];
   /** Non-null freezes the fight until `resolveChoice` answers it. */
   pendingChoice: PendingChoice | null;
+  /** 回天丹: HP to come back on instead of dying, once. 0 means no refund held. */
+  pendingRevive: number;
   /** Monotonic id source for engine-minted cards. Never `rng` — uids must replay. */
   nextUid: number;
   /** Relic ids in effect, in pickup order — hooks fire in this order. */

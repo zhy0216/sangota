@@ -5,6 +5,7 @@ import {
   resolveChoice,
   runEnemyTurn,
   startCombat,
+  usePotion,
 } from '../src/combat/engine';
 import type { CombatEvent, CombatState, Encounter } from '../src/combat/types';
 import type { HeroDef } from '../src/data/heroes';
@@ -31,6 +32,12 @@ export interface SimOptions {
   policy: Policy;
   /** Defaults to the hero's starter relic, i.e. what a real run always carries. */
   relics?: string[];
+  /**
+   * [02] 丹药 carried into the fight. Empty by default, which is what keeps the
+   * golden snapshots and the balance tables measuring the deck alone — a belt
+   * is a run resource, so a tier's win rate with one is a different question.
+   */
+  potions?: string[];
   /** [19] ascension — not read by the engine yet. */
   ascension?: number;
   maxTurns?: number;
@@ -70,11 +77,23 @@ export function simulateCombat(opts: SimOptions): SimResult {
   let aborted: SimResult['aborted'] = null;
   let lastHash = '';
   let stuck = 0;
+  const belt = [...(opts.potions ?? [])];
 
   while (state.phase === 'player') {
     if (state.turn > maxTurns) {
       aborted = 'turnLimit';
       break;
+    }
+
+    // Before the card, because a potion is free: 壮行酒 that arrives after the
+    // turn's last affordable play is 气 the policy never gets to spend.
+    if (belt.length > 0) {
+      const pour = opts.policy.choosePotion?.(state, belt);
+      if (pour && usePotion(state, pour.id, pour.targetId)) {
+        belt.splice(belt.indexOf(pour.id), 1);
+        answerChoices(state, opts.policy);
+        continue;
+      }
     }
 
     const action = opts.policy.chooseAction(state);

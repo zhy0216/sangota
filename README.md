@@ -99,6 +99,29 @@ structurally out of the reward pool. `removeCard(run, uid)` is the removal primi
 商店弃卡 / 营帐弃甲 / 五丈原 will all share — a curse the player cannot shed is
 punishment, not a decision.
 
+**丹药 (potions)** — the run's only emergency resource: free to drink, no 气, no play
+limit, gone after. 17 of them across three rarities — 火油罐 (20 damage), 壮行酒 (+2 气
+this turn), 清心散 (strip every debuff), 孟德新书 (copy the hand), 回天丹 (refund one
+death for 25 体力).
+
+`PotionDef.effects` is the **card** `Effect` union, and `usePotion` routes it through the
+same `applyEffect` queue a card uses. That is the whole design: 火油罐 into a 破绽'd 吕布
+deals 30, not 20, because nothing about potions is a second damage path. Only three
+behaviours the union genuinely cannot express get a `special` — `reviveOnce`,
+`cleanseDebuffs`, `duplicateHand` — and the engine branches on nothing else.
+
+Three slots, widened by relics through `modifiers.potionSlots` (药囊 grants +2, and the
+belt grows the moment it is picked up without disturbing what is already in it). Drops
+are seeded off the node like gold and card rewards: monster fights start at 40% and the
+chance drifts ±10 so a dry streak self-corrects, elites always pay, bosses never do —
+they pay in relics. A full belt asks which bottle to give up rather than silently binning
+the new one.
+
+The belt sits in both HUDs. In combat a targeted potion enters the same aiming mode a
+card does, so there is one targeting interaction to learn; on the map only
+`usableOutOfCombat` bottles light up, and 续命汤 is the only kind that qualifies today.
+Right-click discards, twice, with the tooltip asking in between.
+
 **Deck viewer** — `ui/CardGrid.ts` is one overlay serving every pile: the whole 牌组 from
 either the combat HUD or the map HUD, plus the draw / discard / exhaust piles from the
 counters in the combat corners (exhaust only appears once something has been exhausted).
@@ -312,7 +335,9 @@ shows up immediately once the canvas is pixel-exact.
   宝藏 pays gold, but neither has a real screen yet.
 - One act, one hero. Beating 吕布 ends the map with nothing after it.
 - No save/resume.
-- Relics exist and fire, but only the hero's starter one is ever granted.
+- Relics exist and fire, but only the hero's starter one is ever granted — 药囊, the
+  relic that proves the potion-slot modifier works, is among the ones nothing hands out.
+- Potions drop from fights, but shops and events cannot sell or give them yet.
 - Card upgrades exist as model + card face + `upgradeCard()`, but no screen grants
   them yet.
 - No sound at all — every beat of combat feel is currently visual only.

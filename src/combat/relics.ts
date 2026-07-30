@@ -84,6 +84,8 @@ export interface RelicModifiers {
   handSize?: number;
   startingBlock?: number;
   goldMultiplier?: number;
+  /** Extra 丹药 slots. Read by the run, not the engine — a fight has no belt. */
+  potionSlots?: number;
 }
 
 /** Everything a pure damage query may look at. Must not be mutated. */
@@ -346,6 +348,16 @@ export const RELICS: Record<string, RelicDef> = {
     modifiers: { energy: 1, handSize: -1 },
   },
 
+  yaonang: {
+    id: 'yaonang',
+    name: '药囊',
+    tier: 'common',
+    art: 'relic-yaonang',
+    text: '丹药槽位 +{N}。',
+    value: 2,
+    modifiers: { potionSlots: 2 },
+  },
+
   jubaopen: {
     id: 'jubaopen',
     name: '聚宝盆',
@@ -392,6 +404,7 @@ export interface ResolvedModifiers {
   handSize: number;
   startingBlock: number;
   goldMultiplier: number;
+  potionSlots: number;
 }
 
 /** Summed static modifiers for a set of relics. Gold multipliers compound. */
@@ -402,6 +415,7 @@ export function relicModifiers(ids: readonly string[]): ResolvedModifiers {
     handSize: 0,
     startingBlock: 0,
     goldMultiplier: 1,
+    potionSlots: 0,
   };
   for (const id of ids) {
     const mods = RELICS[id]?.modifiers;
@@ -411,6 +425,7 @@ export function relicModifiers(ids: readonly string[]): ResolvedModifiers {
     total.handSize += mods.handSize ?? 0;
     total.startingBlock += mods.startingBlock ?? 0;
     total.goldMultiplier *= mods.goldMultiplier ?? 1;
+    total.potionSlots += mods.potionSlots ?? 0;
   }
   return total;
 }

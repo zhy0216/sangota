@@ -104,7 +104,7 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
    - 复用 [04](04-campfire.md) 的 `RoomScene`，画一个箱子（尺寸随
      `ChestSize` 变），点击 → 开箱动画（金光 + 尘埃，`src/ui/vfx.ts` 已有素材）
      → 逐项展示遗物/金币/丹药
-   - 丹药槽满时给替换/放弃弹窗（同 [02](02-potions.md)）
+   - 丹药槽满时给替换/放弃弹窗（同 [02](02-potions-done.md)）
 3. **精英战结算**：`CombatScene` 结算屏在金币行下面插一行遗物展示。
    `nodeType === 'elite'` 时调 `rollRelic(rng, run, 'elite')`。
    遗物图标从中心放大出现 + 名字 + 说明，然后才展开选卡区。
@@ -140,7 +140,7 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
 ## 依赖
 
 - [01 遗物](01-relics-done.md)——遗物系统本体
-- [02 药水](02-potions.md)——宝箱附赠
+- [02 药水](02-potions-done.md)——宝箱附赠
 - [04 营帐](04-campfire.md)——`RoomScene` 壳
 - [11 稀有度](11-card-rarity-and-rewards.md)——精英选卡加权
 - [09 多幕](09-acts-and-progression.md)——Boss 宝箱和宝钥的意义

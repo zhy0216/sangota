@@ -12,12 +12,29 @@ import {
   resolveChoice,
   runEnemyTurn,
   startCombat,
+  usePotion,
 } from '../combat/engine';
+import {
+  POTION_DROP,
+  getPotion,
+  nextPotionChance,
+  rollPotion,
+  type PotionDef,
+} from '../combat/potions';
 import { relicByBanner } from '../combat/relics';
 import type { CombatEvent, CombatState, EnemyState, Encounter, StatusId } from '../combat/types';
-import { addCard, addGold, applyCombatResult, getRun, type RunState } from '../state/run';
+import {
+  addCard,
+  addGold,
+  addPotion,
+  applyCombatResult,
+  getRun,
+  removePotion,
+  type RunState,
+} from '../state/run';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_W, CardView } from '../ui/CardView';
+import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
@@ -52,6 +69,13 @@ const DEPTH = {
   float: 120,
   overlay: 200,
 } as const;
+
+/**
+ * The left gutter is the only column with nothing in it: the hand spreads from
+ * x≈260 and the hero plate starts at x≈170, so the belt stacks downward here
+ * rather than across the bottom edge where it would sit under the cards.
+ */
+const POTION_BELT = { x: 40, y: 190 };
 
 const DRAW_PILE = { x: 62, y: 682 };
 const DISCARD_PILE = { x: GAME_WIDTH - 62, y: 682 };
@@ -106,6 +130,8 @@ export class CombatScene extends Phaser.Scene {
   private playerView!: ActorView;
 
   private selectedUid: string | null = null;
+  /** A 丹药 waiting for an enemy click, by belt slot. Mutually exclusive with a card. */
+  private selectedPotion: number | null = null;
   private busy = false;
   private finished = false;
 
@@ -117,6 +143,7 @@ export class CombatScene extends Phaser.Scene {
   private energyText!: Phaser.GameObjects.Text;
   private energyMaxText!: Phaser.GameObjects.Text;
   private relicBar!: RelicBar;
+  private potionBelt!: PotionBelt;
   private turnText!: Phaser.GameObjects.Text;
   private drawPile!: PileCounter;
   private discardPile!: PileCounter;
@@ -138,6 +165,7 @@ export class CombatScene extends Phaser.Scene {
     this.cardViews.clear();
     this.enemyViews.clear();
     this.selectedUid = null;
+    this.selectedPotion = null;
     this.busy = false;
     this.finished = false;
     this.currentAttacker = null;
@@ -390,6 +418,23 @@ export class CombatScene extends Phaser.Scene {
       tooltipDepth: DEPTH.float,
     });
     this.relicBar.setRelics(this.run.relics);
+
+    fixed(
+      this.add
+        .text(POTION_BELT.x, POTION_BELT.y - 40, '丹药', bodyStyle(13, C.paperFaint))
+        .setOrigin(0.5)
+        .setLetterSpacing(2),
+    );
+    this.potionBelt = new PotionBelt(this, {
+      x: POTION_BELT.x,
+      y: POTION_BELT.y,
+      depth: DEPTH.hud,
+      vertical: true,
+      tooltipDepth: DEPTH.float,
+      onUse: (slot, def) => this.onPotionClick(slot, def),
+      onDiscard: (slot) => this.discardPotion(slot),
+    });
+    this.potionBelt.setPotions(this.run.potions);
 
     // Piles. All four views read the same engine arrays the rules run on, so a
     // count on screen can never disagree with what is actually in the pile.
@@ -650,6 +695,62 @@ export class CombatScene extends Phaser.Scene {
     void this.play(view.uid);
   }
 
+  // ------------------------------------------------------------------ 丹药
+
+  /**
+   * A potion that needs a target enters the same aiming mode a card does, so
+   * there is one targeting interaction to learn rather than two.
+   */
+  private onPotionClick(slot: number, def: PotionDef): void {
+    if (this.busy || this.finished || this.state.phase !== 'player') return;
+
+    if (def.target === 'enemy') {
+      if (this.selectedPotion === slot) this.clearSelection();
+      else {
+        this.clearSelection();
+        this.selectedPotion = slot;
+      }
+      return;
+    }
+    void this.drinkPotion(slot);
+  }
+
+  private async drinkPotion(slot: number, targetId?: string): Promise<void> {
+    const id = this.run.potions[slot];
+    if (!id || this.busy || this.finished) return;
+
+    this.busy = true;
+    // The engine refuses first; only then does the belt lose the bottle, so a
+    // rejected pour can never cost the player a potion.
+    if (!usePotion(this.state, id, targetId)) {
+      this.busy = false;
+      return;
+    }
+    removePotion(this.run, slot);
+    this.potionBelt.setPotions(this.run.potions);
+
+    await this.playEvents();
+    await this.settleChoices();
+    this.syncHand();
+    this.refresh();
+    this.busy = false;
+    this.checkOutcome();
+  }
+
+  private discardPotion(slot: number): void {
+    if (this.busy || this.finished) return;
+    const id = removePotion(this.run, slot);
+    if (!id) return;
+    this.clearSelection();
+    this.potionBelt.setPotions(this.run.potions);
+    const at = this.potionBelt.slotAt(slot);
+    popText(this, at.x + 40, at.y, `弃「${getPotion(id).name}」`, {
+      color: C.paperFaint,
+      size: 19,
+      depth: DEPTH.float,
+    });
+  }
+
   private select(view: CardView): void {
     this.clearSelection();
     this.selectedUid = view.uid;
@@ -666,6 +767,10 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private clearSelection(): void {
+    if (this.selectedPotion !== null) {
+      this.selectedPotion = null;
+      this.arrow.clear();
+    }
     if (!this.selectedUid) return;
     const view = this.cardViews.get(this.selectedUid);
     this.selectedUid = null;
@@ -688,14 +793,23 @@ export class CombatScene extends Phaser.Scene {
 
   private onEnemyOver(view: EnemyView, over: boolean): void {
     if (this.finished || !view.enemy.alive) return;
-    // Only light up while a card is actually waiting for a target.
-    if (over && this.selectedUid) view.sprite.setTint(0xffcfae);
+    // Only light up while a card or potion is actually waiting for a target.
+    if (over && (this.selectedUid || this.selectedPotion !== null)) view.sprite.setTint(0xffcfae);
     else view.sprite.clearTint();
   }
 
   private onEnemyClick(view: EnemyView): void {
-    if (this.busy || this.finished || !this.selectedUid) return;
-    if (!view.enemy.alive) return;
+    if (this.busy || this.finished || !view.enemy.alive) return;
+
+    if (this.selectedPotion !== null) {
+      const slot = this.selectedPotion;
+      this.selectedPotion = null;
+      this.arrow.clear();
+      void this.drinkPotion(slot, view.enemy.id);
+      return;
+    }
+
+    if (!this.selectedUid) return;
     const uid = this.selectedUid;
     this.selectedUid = null;
     this.arrow.clear();
@@ -1018,6 +1132,19 @@ export class CombatScene extends Phaser.Scene {
         this.relicBar.flash(ev.relicId);
         await this.wait(120);
         break;
+
+      case 'potion': {
+        const def = getPotion(ev.potionId);
+        const at = this.torso(this.playerView);
+        burst(this, at.x, at.y, { color: def.color, count: 16, speed: 220, scale: 0.16 });
+        popText(this, PLAYER_X, BASELINE_Y - this.playerView.height - 24, `【${def.name}】`, {
+          color: def.color,
+          size: 26,
+          drift: 40,
+        });
+        await this.wait(180);
+        break;
+      }
 
       case 'heal': {
         const view = this.viewOf(ev.targetId);
@@ -1390,17 +1517,24 @@ export class CombatScene extends Phaser.Scene {
   }
 
   override update(): void {
-    // Targeting line from the raised card to the pointer.
+    // Targeting line from the raised card — or the raised flask — to the pointer.
     this.arrow.clear();
-    if (!this.selectedUid || this.finished) return;
-    const view = this.cardViews.get(this.selectedUid);
-    if (!view) return;
+    if (this.finished) return;
+
+    let from: { x: number; y: number } | null = null;
+    if (this.selectedPotion !== null) {
+      from = this.potionBelt.slotAt(this.selectedPotion);
+    } else if (this.selectedUid) {
+      const view = this.cardViews.get(this.selectedUid);
+      if (view) from = { x: view.x, y: view.y - 100 };
+    }
+    if (!from) return;
 
     const p = this.input.activePointer;
     const px = toDesign(p.x);
     const py = toDesign(p.y);
-    const sx = view.x;
-    const sy = view.y - 100;
+    const sx = from.x;
+    const sy = from.y;
 
     const steps = 22;
     for (let i = 0; i < steps; i++) {
@@ -1438,6 +1572,9 @@ export class CombatScene extends Phaser.Scene {
     addGold(this.run, gold);
 
     const picks = rng.shuffle([...REWARD_POOL]).slice(0, 3);
+    // Its own stream, so adding or removing a potion drop can never shift the
+    // gold roll or the card picks for a seed that already existed.
+    const drop = this.rollPotionDrop();
 
     const layer = this.add.container(0, 0).setDepth(DEPTH.overlay);
     layer.add(
@@ -1451,8 +1588,13 @@ export class CombatScene extends Phaser.Scene {
         .text(GAME_WIDTH / 2, 140, `获得资财 ${gold}　·　体力 ${this.run.hp} / ${this.run.maxHp}`, bodyStyle(17, C.paperDim))
         .setOrigin(0.5),
     );
+    // A drop pushes the card row's caption down; with no drop the screen keeps
+    // the layout it had before potions existed.
+    if (drop) this.buildPotionDrop(layer, drop, 196);
     layer.add(
-      this.add.text(GAME_WIDTH / 2, 184, '择一牌收入行囊', bodyStyle(15, C.paperFaint)).setOrigin(0.5),
+      this.add
+        .text(GAME_WIDTH / 2, drop ? 246 : 184, '择一牌收入行囊', bodyStyle(15, C.paperFaint))
+        .setOrigin(0.5),
     );
 
     const spacing = 210;
@@ -1485,6 +1627,139 @@ export class CombatScene extends Phaser.Scene {
 
     layer.setAlpha(0);
     this.tweens.add({ targets: layer, alpha: 1, duration: 320 });
+  }
+
+  // ------------------------------------------------------------- 丹药 drops
+
+  /**
+   * Whether this fight pays out a 丹药, and which. Elites always pay and bosses
+   * never do (they pay in relics), so only a monster fight moves `potionChance`
+   * — a guaranteed drop that also refunded the dry-streak bonus would let the
+   * player bank elite kills into a monster-fight drought.
+   *
+   * Seeded off the node like the gold and card rolls, so the same route through
+   * the same map always drops the same bottle.
+   */
+  private rollPotionDrop(): string | null {
+    const rng = new Rng(`${this.run.map.seed}:${this.run.currentNodeId}:potion`);
+    const chance =
+      this.nodeType === 'elite'
+        ? POTION_DROP.elite
+        : this.nodeType === 'boss'
+          ? POTION_DROP.boss
+          : this.run.potionChance;
+
+    const dropped = rng.int(100) < chance;
+    if (this.nodeType === 'monster') {
+      this.run.potionChance = nextPotionChance(this.run.potionChance, dropped);
+    }
+    // The id is rolled either way, so a miss and a hit consume the same amount
+    // of the stream and one relic that changes the drop rate cannot reshuffle
+    // which potion every later fight offers.
+    const id = rollPotion(rng);
+    return dropped ? id : null;
+  }
+
+  /**
+   * The drop row. With room on the belt the potion is already in it and this is
+   * a receipt; with a full belt nothing has been taken yet and the flask is the
+   * button that opens the swap prompt.
+   */
+  private buildPotionDrop(
+    layer: Phaser.GameObjects.Container,
+    potionId: string,
+    y: number,
+  ): void {
+    const def = getPotion(potionId);
+    const taken = addPotion(this.run, potionId);
+
+    const label = this.add
+      .text(GAME_WIDTH / 2 + 26, y, '', bodyStyle(16, C.paperDim))
+      .setOrigin(0, 0.5);
+    layer.add(label);
+
+    const belt = new PotionBelt(this, {
+      x: GAME_WIDTH / 2 - 10,
+      y,
+      depth: DEPTH.overlay + 1,
+      tooltipDepth: DEPTH.overlay + 2,
+      onUse: () => {
+        if (this.run.potions.includes(potionId)) return;
+        this.askPotionSwap(potionId, () => {
+          belt.hideTip();
+          settle();
+        });
+      },
+    });
+    belt.setPotions([potionId]);
+
+    const settle = (): void => {
+      const held = this.run.potions.includes(potionId);
+      label
+        .setText(held ? `得【${def.name}】` : '行囊已满 · 点击此瓶取舍')
+        .setColor(css(held ? C.gold : C.cinnabarBright));
+      // Centre the flask-plus-caption pair as one unit.
+      const width = 36 + label.width;
+      belt.moveTo(GAME_WIDTH / 2 - width / 2 + 18, y);
+      label.setX(GAME_WIDTH / 2 - width / 2 + 42);
+    };
+    settle();
+    if (taken) this.potionBelt.setPotions(this.run.potions);
+  }
+
+  /** Replace one of the bottles already on the belt, or leave the new one. */
+  private askPotionSwap(potionId: string, done: () => void): void {
+    const def = getPotion(potionId);
+    const layer = this.add.container(0, 0).setDepth(DEPTH.overlay + 3);
+    layer.add(
+      this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 0.9),
+    );
+    layer.add(
+      this.add
+        .text(GAME_WIDTH / 2, 250, `行囊已满，弃一瓶以纳【${def.name}】`, brushStyle(28, C.paper))
+        .setOrigin(0.5)
+        .setLetterSpacing(3),
+    );
+    layer.add(
+      this.add
+        .text(GAME_WIDTH / 2, 296, '点击要舍弃的丹药', bodyStyle(15, C.paperFaint))
+        .setOrigin(0.5),
+    );
+
+    // Centred on the belt's own width, so 3 slots and 5 slots both look placed.
+    const size = 44;
+    const gap = size + 12;
+    // Declared, not assigned to a const, so `onUse` below can reach it — the
+    // belt and its dismissal are mutually recursive.
+    function close(): void {
+      belt.destroy();
+      layer.destroy(true);
+      done();
+    }
+
+    const belt = new PotionBelt(this, {
+      x: GAME_WIDTH / 2 - ((this.run.potions.length - 1) * gap) / 2,
+      y: 380,
+      size,
+      depth: DEPTH.overlay + 4,
+      tooltipDepth: DEPTH.overlay + 5,
+      onUse: (slot) => {
+        removePotion(this.run, slot);
+        addPotion(this.run, potionId);
+        this.potionBelt.setPotions(this.run.potions);
+        close();
+      },
+    });
+    belt.setPotions(this.run.potions);
+
+    const keep = inkButton(this, GAME_WIDTH / 2, 486, '放弃新瓶', {
+      width: 190,
+      height: 54,
+      fontSize: 21,
+      onClick: close,
+    });
+    keep.setDepth(DEPTH.overlay + 4);
+    layer.add(keep);
   }
 
   private showDefeat(): void {
