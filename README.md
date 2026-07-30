@@ -61,6 +61,36 @@ from its seed. `resolveCard(defId, upgraded)` is the single place card data is r
 
 Nothing hands out upgrades yet — the 营帐 blacksmith is the intended entry point.
 
+**Deck viewer** — `ui/CardGrid.ts` is one overlay serving every pile: the whole 牌组 from
+either the combat HUD or the map HUD, plus the draw / discard / exhaust piles from the
+counters in the combat corners (exhaust only appears once something has been exhausted).
+Counts are live and pop when they change; hovering a thumbnail blows it up to full size
+with its rules text. The panel is cut to its contents and only scrolls once the cards
+overflow it.
+
+The draw pile is displayed **shuffled**, freshly on every open. Slay the Spire lets you
+know *what* is left but never *when* it comes, and that asymmetry is load-bearing for the
+deck-thinning decisions — so the display order is drawn from real entropy rather than the
+run's seed, and the pile itself is never touched.
+
+The grid also has a `pick` mode returning the chosen `uid`s, which is what the campfire,
+shop, events, Neow blessing and run summary will all use to point at one physical card.
+`sortForDisplay` is exported so every one of those screens orders cards identically:
+攻 → 谋 → 势, then cost, then id — cost read off the *resolved* def, so 结营·精 files with
+the 1-cost cards the way its face reads.
+
+Two things worth knowing here:
+
+- Phaser sorts input hits by camera render-list index, and container children have no
+  index — so a full-screen backdrop cannot be relied on to sort above the enemies. The
+  overlay instead walks the display list and disables input on everything already there,
+  restoring it on close. Scene-level pointer/wheel/key handlers fire regardless of what
+  is under the pointer, so `MapScene` and `CombatScene` bail out of theirs on
+  `isCardGridOpen(scene)`.
+- `previewValues` / `describeCard` take `CombatState | undefined`: the map has no fight
+  to read, and the alternative — a dummy state at each call site — is a card face that
+  lies as soon as the dummy drifts.
+
 The rules live in `combat/engine.ts` as pure functions with no Phaser import, so the
 whole system is testable headlessly — see [Testing](#testing).
 
@@ -101,6 +131,10 @@ equals the HP that comes off. A card face that lies is the worst bug this genre 
 
 `tests/integrity.test.ts` also greps the rules layer for `Math.random` and for Phaser
 imports, so determinism and headlessness can't be lost by accident.
+
+`tests/cardGrid.test.ts` pins the display ordering every card screen shares, and the
+draw pile's scrambled display: same contents, a different order on essentially every
+opening (60 openings, >50 distinct orders, at most one matching the real pile order).
 
 **Layer 2 · golden snapshots** (`sim/__snapshots__/`) — 20 fixed fights across every
 encounter table, with the complete `CombatEvent` stream committed byte-for-byte. These
@@ -193,6 +227,8 @@ src/
   ui/designSpace.ts    camera setup for HiDPI rendering in design units
   ui/spriteBounds.ts   alpha-bounds measurement for grounding cut-out actors
   ui/CardView.ts       one card face
+  ui/CardGrid.ts       the deck / pile overlay — view and pick modes
+  ui/cardOrder.ts      display ordering shared by every screen that lists cards
   ui/vfx.ts            reusable combat effects (slashes, bursts, banners, pop text)
   scenes/              Boot → Title → Map ⇄ Combat
 sim/
@@ -235,7 +271,7 @@ shows up immediately once the canvas is pixel-exact.
 - 奇遇 (events) and 商旅 (shops) still show a placeholder toast. 营帐 heals 30% and
   宝藏 pays gold, but neither has a real screen yet.
 - One act, one hero. Beating 吕布 ends the map with nothing after it.
-- No deck viewer, no relics, no save/resume.
+- No relics, no save/resume.
 - Card upgrades exist as model + card face + `upgradeCard()`, but no screen grants
   them yet.
 - No sound at all — every beat of combat feel is currently visual only.

@@ -352,24 +352,29 @@ export const defOf = (state: CombatState, uid: string): CardDef => {
   return resolveCard(inst.defId, inst.upgraded);
 };
 
+/** Status-free stand-in, so a face can be read with no combat in progress. */
+const NEUTRAL: Combatant = { id: '_', name: '', hp: 1, maxHp: 1, block: 0, statuses: {} };
+
 /**
  * The numbers a card will actually produce right now — Strength, Weak and the
  * pending passive folded in — so the card face never lies about its damage.
  * Target-specific Vulnerable is applied only when `against` is supplied.
+ *
+ * `state` is optional because the deck viewer also runs on the map, where no
+ * combat exists; without one the card reads at its printed values.
  */
 export function previewValues(
-  state: CombatState,
+  state: CombatState | undefined,
   def: CardDef,
   against?: Combatant,
 ): { D: number; B: number } {
-  const bonus = def.type === 'attack' && !state.firstAttackUsed ? PASSIVE_ATTACK_BONUS : 0;
-  const dummy: Combatant = { id: '_', name: '', hp: 1, maxHp: 1, block: 0, statuses: {} };
+  const bonus = state && def.type === 'attack' && !state.firstAttackUsed ? PASSIVE_ATTACK_BONUS : 0;
 
   let damage = 0;
   let block = 0;
   for (const effect of def.effects) {
     if (effect.kind === 'damage' || effect.kind === 'damageAll') {
-      damage = computeAttack(effect.amount + bonus, state.player, against ?? dummy);
+      damage = computeAttack(effect.amount + bonus, state?.player ?? NEUTRAL, against ?? NEUTRAL);
     } else if (effect.kind === 'block') {
       block += effect.amount;
     }
@@ -377,7 +382,11 @@ export function previewValues(
   return { D: damage, B: block };
 }
 
-export function describeCard(state: CombatState, def: CardDef, against?: Combatant): string {
+export function describeCard(
+  state: CombatState | undefined,
+  def: CardDef,
+  against?: Combatant,
+): string {
   const { D, B } = previewValues(state, def, against);
   return def.text.replace(/\{D\}/g, String(D)).replace(/\{B\}/g, String(B));
 }

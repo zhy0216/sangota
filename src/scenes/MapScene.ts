@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { C, GAME_HEIGHT, GAME_WIDTH, MAP } from '../config';
+import { C, GAME_HEIGHT, GAME_WIDTH, MAP, css } from '../config';
 import { Rng } from '../core/rng';
 import { ROOM_META } from '../map/roomMeta';
 import type { MapNode } from '../map/types';
@@ -12,6 +12,7 @@ import {
   travelTo,
   type RunState,
 } from '../state/run';
+import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, circleMask, goldRing, gradientStrip, inkPanel } from '../ui/theme';
 
@@ -494,9 +495,37 @@ export class MapScene extends Phaser.Scene {
     this.goldText = this.add.text(514, 42, '', brushStyle(24, C.gold));
     fixed(this.goldText);
 
+    // --- Deck (click to leaf through it) ---------------------------------
     fixed(this.add.text(626, 22, '牌组', bodyStyle(13, C.paperFaint)).setLetterSpacing(3));
     this.deckText = this.add.text(626, 42, '', brushStyle(24, C.paperDim));
     fixed(this.deckText);
+
+    const deckFrame = this.add.graphics();
+    const paintDeck = (hover: boolean): void => {
+      deckFrame.clear();
+      deckFrame.lineStyle(1, hover ? C.goldBright : C.gold, hover ? 0.9 : 0.3);
+      deckFrame.strokeRoundedRect(614, 14, 104, 62, 3);
+    };
+    paintDeck(false);
+    fixed(deckFrame);
+
+    const deckHit = this.add
+      .zone(614, 14, 104, 62)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+    fixed(deckHit);
+    deckHit.on('pointerover', () => {
+      paintDeck(true);
+      this.deckText.setColor(css(C.goldBright));
+    });
+    deckHit.on('pointerout', () => {
+      paintDeck(false);
+      this.deckText.setColor(css(C.paperDim));
+    });
+    deckHit.on('pointerup', () => {
+      if (this.dragDistance > 8) return;
+      this.openDeck();
+    });
 
     // --- Act / floor ------------------------------------------------------
     fixed(
@@ -516,7 +545,7 @@ export class MapScene extends Phaser.Scene {
       this.add.text(
         GAME_WIDTH / 2,
         GAME_HEIGHT - 20,
-        '滚轮 / 拖拽 查看地图   ·   空格 回到当前位置   ·   点击头像 查看武将',
+        '滚轮 / 拖拽 查看地图   ·   空格 回到当前位置   ·   点击头像 查看武将   ·   点击牌组 查看卡牌',
         bodyStyle(12, 0x6b6355),
       ).setOrigin(0.5),
     );
@@ -545,6 +574,16 @@ export class MapScene extends Phaser.Scene {
     this.hintText.setText(
       run.currentNodeId === null ? '选择一处起点，踏上征途' : '选择前进的路线',
     );
+  }
+
+  /** No `CombatState` out here, so the faces read at their printed values. */
+  private openDeck(): void {
+    openCardGrid(this, {
+      title: '牌 组',
+      subtitle: `共 ${this.run.deck.length} 张`,
+      entries: this.run.deck.map((card) => ({ ...card })),
+      mode: 'view',
+    });
   }
 
   // ---------------------------------------------------------------- tooltip
@@ -704,18 +743,22 @@ export class MapScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const maxScroll = Math.max(0, this.run.map.height - GAME_HEIGHT);
 
+    // Every one of these stands down while a card grid is up: it freezes the
+    // display list, but scene-level pointer, wheel and key events fire anyway.
     this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+      if (isCardGridOpen(this)) return;
       cam.scrollY = Phaser.Math.Clamp(cam.scrollY + dy * 0.7, 0, maxScroll);
       this.hideTooltip();
     });
 
     this.input.on('pointerdown', () => {
+      if (isCardGridOpen(this)) return;
       this.dragging = true;
       this.dragDistance = 0;
     });
 
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.dragging || !pointer.isDown) return;
+      if (!this.dragging || !pointer.isDown || isCardGridOpen(this)) return;
       // Pointer deltas are canvas pixels; scrollY is design units.
       const dy = toDesign(pointer.y - pointer.prevPosition.y);
       if (Math.abs(dy) < 0.01) return;
@@ -732,8 +775,12 @@ export class MapScene extends Phaser.Scene {
       });
     });
 
-    this.input.keyboard?.on('keydown-SPACE', () => this.recenter());
-    this.input.keyboard?.on('keydown-ESC', () => this.toggleDrawer(false));
+    this.input.keyboard?.on('keydown-SPACE', () => {
+      if (!isCardGridOpen(this)) this.recenter();
+    });
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (!isCardGridOpen(this)) this.toggleDrawer(false);
+    });
   }
 
   private recenter(): void {

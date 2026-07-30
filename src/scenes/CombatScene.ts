@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
+import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { Rng } from '../core/rng';
 import { REWARD_POOL, STATUS_META } from '../combat/cards';
 import { ENCOUNTERS } from '../combat/enemies';
@@ -13,6 +13,7 @@ import {
 } from '../combat/engine';
 import type { CombatEvent, CombatState, EnemyState, Encounter, StatusId } from '../combat/types';
 import { addCard, addGold, applyCombatResult, getRun, type RunState } from '../state/run';
+import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_W, CardView } from '../ui/CardView';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
@@ -49,6 +50,14 @@ const DEPTH = {
 
 const DRAW_PILE = { x: 62, y: 682 };
 const DISCARD_PILE = { x: GAME_WIDTH - 62, y: 682 };
+const EXHAUST_PILE = { x: GAME_WIDTH - 176, y: 682 };
+
+/** A corner pile: an ink card-stack glyph, a count, and a grid behind it. */
+interface PileCounter {
+  container: Phaser.GameObjects.Container;
+  text: Phaser.GameObjects.Text;
+  value: number;
+}
 
 interface ActorView {
   container: Phaser.GameObjects.Container;
@@ -97,8 +106,10 @@ export class CombatScene extends Phaser.Scene {
 
   private energyText!: Phaser.GameObjects.Text;
   private turnText!: Phaser.GameObjects.Text;
-  private drawText!: Phaser.GameObjects.Text;
-  private discardText!: Phaser.GameObjects.Text;
+  private drawPile!: PileCounter;
+  private discardPile!: PileCounter;
+  private exhaustPile!: PileCounter;
+  private deckCount!: Phaser.GameObjects.Text;
   private endTurnBtn!: Phaser.GameObjects.Container;
   private arrow!: Phaser.GameObjects.Graphics;
   private energyOrb!: Phaser.GameObjects.Container;
@@ -147,12 +158,18 @@ export class CombatScene extends Phaser.Scene {
 
     this.arrow = this.add.graphics().setDepth(DEPTH.dragArrow);
 
+    // A card grid owns the input while it is up: Game Objects under it are
+    // frozen, but scene-level pointer and key handlers still fire.
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, targets: unknown[]) => {
       // Clicking empty ground cancels targeting.
-      if (targets.length === 0) this.clearSelection();
+      if (targets.length === 0 && !isCardGridOpen(this)) this.clearSelection();
     });
-    this.input.keyboard?.on('keydown-ESC', () => this.clearSelection());
-    this.input.keyboard?.on('keydown-E', () => this.onEndTurn());
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (!isCardGridOpen(this)) this.clearSelection();
+    });
+    this.input.keyboard?.on('keydown-E', () => {
+      if (!isCardGridOpen(this)) void this.onEndTurn();
+    });
 
     this.cameras.main.fadeIn(340, 8, 6, 4);
     this.syncHand();
@@ -348,15 +365,21 @@ export class CombatScene extends Phaser.Scene {
     this.energyOrb.add([orb, this.energyText]);
     fixed(this.add.text(88, 606, '气', bodyStyle(13, C.paperFaint)).setOrigin(0.5));
 
-    // Piles
-    this.drawText = this.add
-      .text(DRAW_PILE.x, DRAW_PILE.y + 22, '', bodyStyle(14, C.paperDim))
-      .setOrigin(0.5, 0);
-    fixed(this.drawText);
-    this.discardText = this.add
-      .text(DISCARD_PILE.x, DISCARD_PILE.y + 22, '', bodyStyle(14, C.paperDim))
-      .setOrigin(0.5, 0);
-    fixed(this.discardText);
+    // Piles. All four views read the same engine arrays the rules run on, so a
+    // count on screen can never disagree with what is actually in the pile.
+    this.drawPile = this.makePileCounter(DRAW_PILE.x, DRAW_PILE.y - 12, '抽牌堆', () =>
+      // Contents yes, order no — the draw pile is displayed scrambled.
+      this.openPile('抽 牌 堆', this.state.drawPile, true),
+    );
+    this.discardPile = this.makePileCounter(DISCARD_PILE.x, DISCARD_PILE.y - 12, '弃牌堆', () =>
+      this.openPile('弃 牌 堆', this.state.discardPile),
+    );
+    this.exhaustPile = this.makePileCounter(EXHAUST_PILE.x, EXHAUST_PILE.y - 12, '消耗堆', () =>
+      this.openPile('消 耗 堆', this.state.exhaustPile),
+    );
+    this.exhaustPile.container.setVisible(false);
+
+    fixed(this.makeDeckButton(28, 76));
 
     this.endTurnBtn = inkButton(this, 1148, 556, '结束回合', {
       width: 186,
@@ -365,6 +388,104 @@ export class CombatScene extends Phaser.Scene {
       onClick: () => this.onEndTurn(),
     });
     this.endTurnBtn.setDepth(DEPTH.hud);
+  }
+
+  // -------------------------------------------------------------- pile views
+
+  /**
+   * The card-stack glyph is drawn rather than blitted: it has to stay crisp at
+   * any RENDER_SCALE, and a real plate would only ever be one more thing to
+   * keep in register with the palette.
+   */
+  private makePileCounter(x: number, y: number, label: string, onOpen: () => void): PileCounter {
+    const container = this.add.container(x, y).setDepth(DEPTH.hud);
+
+    const glyph = this.add.graphics();
+    for (const [i, dx] of [-5, 0, 5].entries()) {
+      glyph.fillStyle(C.ink, 0.92);
+      glyph.fillRoundedRect(dx - 30, -19 + i * 2, 30, 40, 3);
+      glyph.lineStyle(1.5, i === 2 ? C.gold : C.paperFaint, i === 2 ? 0.85 : 0.5);
+      glyph.strokeRoundedRect(dx - 30, -19 + i * 2, 30, 40, 3);
+    }
+
+    const text = this.add.text(16, 2, '0', brushStyle(24, C.paper)).setOrigin(0.5);
+    const name = this.add.text(-6, -34, label, bodyStyle(12, C.paperFaint)).setOrigin(0.5);
+    const hit = this.add.zone(-6, -4, 100, 78).setInteractive({ useHandCursor: true });
+
+    container.add([glyph, name, text, hit]);
+    hit.on('pointerover', () => text.setColor(css(C.goldBright)));
+    hit.on('pointerout', () => text.setColor(css(C.paper)));
+    hit.on('pointerup', () => onOpen());
+
+    return { container, text, value: 0 };
+  }
+
+  private makeDeckButton(x: number, y: number): Phaser.GameObjects.Container {
+    const w = 116;
+    const h = 34;
+    const container = this.add.container(x + w / 2, y + h / 2).setDepth(DEPTH.hud);
+
+    const bg = this.add.graphics();
+    const paint = (hover: boolean): void => {
+      bg.clear();
+      bg.fillStyle(C.inkDeep, hover ? 0.92 : 0.72);
+      bg.fillRoundedRect(-w / 2, -h / 2, w, h, 3);
+      bg.lineStyle(1, hover ? C.goldBright : C.gold, hover ? 0.9 : 0.45);
+      bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 3);
+    };
+    paint(false);
+
+    const label = this.add.text(-w / 2 + 12, 0, '牌组', bodyStyle(15, C.paperDim)).setOrigin(0, 0.5);
+    this.deckCount = this.add
+      .text(w / 2 - 12, 0, '', brushStyle(20, C.gold))
+      .setOrigin(1, 0.5);
+    const hit = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
+
+    container.add([bg, label, this.deckCount, hit]);
+    hit.on('pointerover', () => paint(true));
+    hit.on('pointerout', () => paint(false));
+    hit.on('pointerup', () => {
+      openCardGrid(this, {
+        title: '牌 组',
+        subtitle: `共 ${this.run.deck.length} 张`,
+        entries: this.run.deck.map((card) => ({ ...card })),
+        mode: 'view',
+        state: this.state,
+      });
+    });
+
+    return container;
+  }
+
+  private openPile(title: string, uids: readonly string[], shuffleDisplay = false): void {
+    const entries: CardGridEntry[] = uids.map((uid) => {
+      const inst = this.state.cards[uid];
+      return { uid, defId: inst.defId, upgraded: inst.upgraded };
+    });
+    openCardGrid(this, {
+      title,
+      subtitle: `共 ${entries.length} 张`,
+      entries,
+      mode: 'view',
+      shuffleDisplay,
+      state: this.state,
+    });
+  }
+
+  /** Retype a count, popping the number when it actually moved. */
+  private setCount(counter: PileCounter, value: number): void {
+    if (counter.value === value) return;
+    counter.value = value;
+    counter.text.setText(String(value));
+    this.tweens.killTweensOf(counter.text);
+    counter.text.setScale(1);
+    this.tweens.add({
+      targets: counter.text,
+      scale: 1.45,
+      duration: 120,
+      yoyo: true,
+      ease: 'Back.easeOut',
+    });
   }
 
   // -------------------------------------------------------------- hand cards
@@ -981,8 +1102,12 @@ export class CombatScene extends Phaser.Scene {
 
     this.energyText.setText(`${this.state.energy}`);
     this.turnText.setText(`第 ${this.state.turn} 回合`);
-    this.drawText.setText(`抽牌堆 ${this.state.drawPile.length}`);
-    this.discardText.setText(`弃牌堆 ${this.state.discardPile.length}`);
+    this.deckCount.setText(String(this.run.deck.length));
+    this.setCount(this.drawPile, this.state.drawPile.length);
+    this.setCount(this.discardPile, this.state.discardPile.length);
+    this.setCount(this.exhaustPile, this.state.exhaustPile.length);
+    // Nothing exhausts in most fights; the pile only earns its corner once used.
+    this.exhaustPile.container.setVisible(this.state.exhaustPile.length > 0);
     this.endTurnBtn.setAlpha(this.state.phase === 'player' ? 1 : 0.45);
 
     for (const view of this.cardViews.values()) view.refresh(this.state);

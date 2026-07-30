@@ -42,7 +42,7 @@ export class CardView extends Phaser.GameObjects.Container {
     uid: string,
     defId: string,
     upgraded: number,
-    state: CombatState,
+    state: CombatState | undefined,
     mode: 'hand' | 'display' = 'hand',
   ) {
     super(scene, 0, 0);
@@ -134,10 +134,11 @@ export class CardView extends Phaser.GameObjects.Container {
   }
 
   /** Re-read the combat state: affordability and the live damage/block numbers. */
-  refresh(state: CombatState): void {
+  refresh(state: CombatState | undefined): void {
     this.descText.setText(describeCard(state, this.def));
     this.playable =
-      this.mode === 'display' || (state.phase === 'player' && state.energy >= this.def.cost);
+      this.mode === 'display' ||
+      (!!state && state.phase === 'player' && state.energy >= this.def.cost);
     this.dimmer.setVisible(!this.playable);
     this.costText.setColor(this.playable ? '#f0d67a' : '#8a7f66');
   }
