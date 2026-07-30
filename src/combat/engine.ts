@@ -5,6 +5,7 @@ import { fireHook, relicDamageBonus, relicEvent, relicModifiers } from './relics
 import { STATUS_META, STATUS_ORDER, type BlockSource, type TickPhase } from './statuses';
 import type {
   CardDef,
+  CardHooks,
   CardInstance,
   CardKeyword,
   Combatant,
@@ -88,6 +89,7 @@ export function startCombat(opts: StartCombatOptions): CombatState {
     discardPile: [],
     exhaustPile: [],
     attacksThisTurn: 0,
+    cardsPlayedThisTurn: 0,
     effectQueue: [],
     pendingChoice: null,
     nextUid: 0,
@@ -169,6 +171,7 @@ export function startPlayerTurn(state: CombatState): void {
   state.phase = 'player';
   state.energy = state.maxEnergy;
   state.attacksThisTurn = 0;
+  state.cardsPlayedThisTurn = 0;
   // 中毒 bites after the block wipe and before the draw, so a stack can never
   // be soaked by armour that is about to be thrown away anyway.
   tickStatuses(state, state.player, 'ownerTurnStart');
@@ -203,7 +206,23 @@ export function drawCards(state: CombatState, count: number): void {
     if (!uid) return;
     state.hand.push(uid);
     state.events.push({ t: 'draw', uid });
+    // 醉 charges its 气 here, while the turn can still be replanned around it.
+    fireCardHook(state, uid, 'onDrawn');
   }
+}
+
+/**
+ * A card's own hook, for the handful of cards whose behaviour fires from
+ * somewhere other than being played. Looked up per call rather than cached —
+ * `defOf` already resolves upgrades, and no card in either table has one.
+ */
+function fireCardHook(
+  state: CombatState,
+  uid: string,
+  hook: 'onDrawn' | 'onEndTurnInHand' | 'onCardPlayedInHand',
+): void {
+  const fn: CardHooks[typeof hook] = defOf(state, uid).hooks?.[hook];
+  fn?.(state, uid);
 }
 
 export function endPlayerTurn(state: CombatState): void {
@@ -212,6 +231,17 @@ export function endPlayerTurn(state: CombatState): void {
   if (state.pendingChoice) return;
 
   fireHook(state, 'turnEnd');
+
+  /*
+   * Statuses tick *before* the hand is dealt with, which is what lets 疑心's
+   * 怯战 survive into the enemy turn — ticking afterwards would strip the layer
+   * the curse had just applied and the card would do nothing at all. 焚营 in
+   * turn needs its hook to run while it is still in hand, which the same order
+   * gives. Nothing in the hand pass reads a status, so this costs the existing
+   * pool nothing.
+   */
+  tickStatuses(state, state.player, 'ownerTurnEnd');
+  for (const uid of [...state.hand]) fireCardHook(state, uid, 'onEndTurnInHand');
 
   // 虚无 burns, 保留 stays, everything else goes to the discard pile.
   const kept: string[] = [];
@@ -228,8 +258,9 @@ export function endPlayerTurn(state: CombatState): void {
   }
   state.hand = kept;
 
-  tickStatuses(state, state.player, 'ownerTurnEnd');
   state.phase = 'enemy';
+  // 焚营 can be the killing blow, and a dead player takes no enemy turn.
+  checkEnd(state);
 }
 
 /** Resolves every living enemy's intent, then hands the turn back. */
@@ -293,6 +324,11 @@ export function canPlay(state: CombatState, uid: string): boolean {
   const def = defOf(state, uid);
   if (hasKeyword(def, 'unplayable')) return false;
   if (def.type === 'attack' && stacks(state.player, 'entangled') > 0) return false;
+  // A curse in hand may forbid every other card — 宿命's three-card cap.
+  for (const other of state.hand) {
+    const gate = defOf(state, other).hooks?.restrictPlay;
+    if (gate && !gate(state)) return false;
+  }
   // An X-cost card is affordable at any 气, including none.
   return def.cost === X_COST || state.energy >= def.cost;
 }
@@ -327,6 +363,11 @@ export function playCard(state: CombatState, uid: string, targetId?: string): bo
   else state.discardPile.push(uid);
 
   if (def.type === 'attack') state.attacksThisTurn += 1;
+  state.cardsPlayedThisTurn += 1;
+  // 反噬 bleeds for a card that actually resolved. The card just played has
+  // already left the hand, so a lone 反噬 never charges for itself.
+  for (const other of [...state.hand]) fireCardHook(state, other, 'onCardPlayedInHand');
+
   fireHook(state, 'cardPlayed', def);
   if (def.type === 'attack') fireHook(state, 'attackPlayed', def);
 

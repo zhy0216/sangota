@@ -1,4 +1,5 @@
 import type { Rng } from '../core/rng';
+import type { RunState } from '../state/run';
 
 // ---------------------------------------------------------------- statuses
 
@@ -34,7 +35,12 @@ export interface StatusMeta {
 
 // ------------------------------------------------------------------- cards
 
-export type CardType = 'attack' | 'skill' | 'power';
+/**
+ * 诅咒 rides in the deck for the whole run; 状态 is minted into one fight and
+ * dies with it. Both are cards in every other respect, which is the point —
+ * they take up a hand slot and obey the same life cycle.
+ */
+export type CardType = 'attack' | 'skill' | 'power' | 'curse' | 'status';
 export type CardRarity = 'basic' | 'common' | 'uncommon' | 'rare';
 /** Who the player picks when playing the card. */
 export type TargetMode = 'enemy' | 'self' | 'all';
@@ -79,6 +85,29 @@ export type Effect =
   /** X-cost: repeats `per` once for every 气 the card actually consumed. */
   | { kind: 'scaleWithEnergy'; per: Effect[] };
 
+/**
+ * Behaviour a curse or status card cannot express as an `Effect`, because it
+ * fires from somewhere other than "this card was played". The engine calls
+ * these at four fixed moments and branches on no card id, the same contract
+ * relics run on.
+ */
+export interface CardHooks {
+  /** Our turn is ending and this card is still in hand. */
+  onEndTurnInHand?: (state: CombatState, uid: string) => void;
+  /** The moment this card enters the hand off the draw pile. */
+  onDrawn?: (state: CombatState, uid: string) => void;
+  /** The fight was won and this card was in it. Needs the run, so the scene fires it. */
+  onCombatEnd?: (state: CombatState, run: RunState) => void;
+  /** Another card finished resolving while this one sat in hand. */
+  onCardPlayedInHand?: (state: CombatState, uid: string) => void;
+  /**
+   * May *other* cards still be played while this one is in hand? Queried by
+   * `canPlay`, which the hand view calls once per card per repaint — so it must
+   * stay free of side effects.
+   */
+  restrictPlay?: (state: CombatState) => boolean;
+}
+
 export interface CardDef {
   id: string;
   name: string;
@@ -97,6 +126,7 @@ export interface CardDef {
   text: string;
   effects: Effect[];
   keywords?: readonly CardKeyword[];
+  hooks?: CardHooks;
   /**
    * Fields the upgraded ("·精") version overrides. Absent means the card can
    * never be upgraded — curses and status cards should leave it out.
@@ -228,6 +258,8 @@ export interface CombatState {
   exhaustPile: string[];
   /** Neutral bookkeeping relics ask about, e.g. "is this the first attack?". */
   attacksThisTurn: number;
+  /** Every card, not just 攻 — 宿命's cap counts them all. */
+  cardsPlayedThisTurn: number;
   /** Effects still to resolve. Non-empty only while a card is mid-resolution. */
   effectQueue: QueuedStep[];
   /** Non-null freezes the fight until `resolveChoice` answers it. */

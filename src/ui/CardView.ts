@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { C } from '../config';
 import { CARD_TYPE_META, KEYWORD_LABEL, resolveCard } from '../combat/cards';
-import { X_COST, canPlay, describeCard } from '../combat/engine';
+import { X_COST, canPlay, describeCard, hasKeyword } from '../combat/engine';
 import type { CardDef, CombatState } from '../combat/types';
+import { Rng } from '../core/rng';
 import { bodyStyle, brushStyle } from './theme';
 
 export const CARD_W = 144;
@@ -53,6 +54,7 @@ export class CardView extends Phaser.GameObjects.Container {
     const def = resolveCard(defId, upgraded);
     this.def = def;
 
+    // A curse can never be forged, so the gold accent can never claim one.
     const accent = upgraded > 0 ? C.goldBright : CARD_TYPE_META[def.type].color;
     this.accent = accent;
 
@@ -105,14 +107,23 @@ export class CardView extends Phaser.GameObjects.Container {
       .setOrigin(0.5)
       .setLetterSpacing(1);
 
-    // Cost orb
+    // Cost orb. An unplayable card has no cost to pay, and printing a 0 on one
+    // invites the player to keep trying to spend it.
+    const payable = !hasKeyword(def, 'unplayable');
     const orb = scene.add.graphics();
-    orb.fillStyle(C.inkDeep, 1);
-    orb.fillCircle(-56, -78, 17);
-    orb.lineStyle(2, C.goldBright, 0.95);
-    orb.strokeCircle(-56, -78, 17);
+    if (payable) {
+      orb.fillStyle(C.inkDeep, 1);
+      orb.fillCircle(-56, -78, 17);
+      orb.lineStyle(2, C.goldBright, 0.95);
+      orb.strokeCircle(-56, -78, 17);
+    }
     this.costText = scene.add
-      .text(-56, -78, def.cost === X_COST ? 'X' : String(def.cost), brushStyle(21, C.goldBright))
+      .text(
+        -56,
+        -78,
+        payable ? (def.cost === X_COST ? 'X' : String(def.cost)) : '',
+        brushStyle(21, C.goldBright),
+      )
       .setOrigin(0.5);
 
     // The type tag keeps its own colour — it reads type, not upgrade state.
@@ -138,12 +149,35 @@ export class CardView extends Phaser.GameObjects.Container {
   private paintFrame(accent: number, highlighted: boolean): void {
     const g = this.frame;
     g.clear();
-    g.fillStyle(C.ink, 1);
+    g.fillStyle(this.def.type === 'curse' ? C.inkDeep : C.ink, 1);
     g.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
+    if (this.def.type === 'curse') this.paintCracks(g);
     g.lineStyle(highlighted ? 3 : 2, highlighted ? C.goldBright : accent, highlighted ? 1 : 0.8);
     g.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
     g.lineStyle(1, C.paper, 0.12);
     g.strokeRoundedRect(-CARD_W / 2 + 4, -CARD_H / 2 + 4, CARD_W - 8, CARD_H - 8, 5);
+  }
+
+  /**
+   * 诅咒 only: a dried-blood fracture running under the whole face, so the card
+   * reads as damaged goods from across the table. Seeded off the card id rather
+   * than rolled, so the same curse cracks the same way every time it is drawn.
+   */
+  private paintCracks(g: Phaser.GameObjects.Graphics): void {
+    const rng = new Rng(`curse:${this.def.id}`);
+    for (let i = 0; i < 3; i++) {
+      let x = -CARD_W / 2 + rng.next() * CARD_W;
+      let y = -CARD_H / 2;
+      g.lineStyle(1.2, C.blood, 0.5);
+      g.beginPath();
+      g.moveTo(x, y);
+      while (y < CARD_H / 2) {
+        x += rng.jitter(16);
+        y += 14 + rng.next() * 16;
+        g.lineTo(x, y);
+      }
+      g.strokePath();
+    }
   }
 
   /** Re-read the combat state: playability and the live damage/block numbers. */

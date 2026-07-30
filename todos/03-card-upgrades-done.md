@@ -29,7 +29,7 @@
 关键决策：**升级信息挂在物理卡上，不是卡 ID 上**。所以 `deck` 必须从
 `string[]` 升级为对象数组。这是一次会波及不少地方的重构，越早做越好——
 [05 商店](05-shop.md)（移除卡）、[07 牌堆查看器](07-deck-viewer-done.md)、
-[14 诅咒](14-curses-and-status-cards.md) 都需要同样的实例化牌组。
+[14 诅咒](14-curses-and-status-cards-done.md) 都需要同样的实例化牌组。
 
 升级方式采用 **`upgrade` 字段声明差异**，不写第二份卡定义：
 
@@ -138,5 +138,5 @@ export interface RunState {
 ## 依赖
 
 无。但它引入的 `DeckCard` 是 [05 商店](05-shop.md)、[07 牌堆查看器](07-deck-viewer-done.md)、
-[14 诅咒与状态牌](14-curses-and-status-cards.md)、[22 结算界面](22-run-summary.md)
+[14 诅咒与状态牌](14-curses-and-status-cards-done.md)、[22 结算界面](22-run-summary.md)
 的共同前提，**应当尽早做**，越晚重构面越大。

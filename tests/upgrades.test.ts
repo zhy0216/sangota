@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, UPGRADE_SUFFIX, canUpgrade, getCard, resolveCard } from '../src/combat/cards';
+import { isNegative } from '../src/combat/curses';
 import { ENCOUNTERS } from '../src/combat/enemies';
 import {
   canPlay,
@@ -70,8 +71,11 @@ function bench(deck: DeckCard[]): CombatState {
 }
 
 describe('resolveCard', () => {
-  it('covers all 11 cards with the pinned upgrade table', () => {
-    expect(Object.keys(CARDS).sort()).toEqual(Object.keys(UPGRADE_TABLE).sort());
+  it('covers every forgeable card with the pinned upgrade table', () => {
+    // Curses and status cards are in `CARDS` and deliberately have no upgrade,
+    // which is what keeps them off the forge list — checked below.
+    const forgeable = Object.keys(CARDS).filter((id) => !isNegative(CARDS[id]));
+    expect(forgeable.sort()).toEqual(Object.keys(UPGRADE_TABLE).sort());
     for (const [id, expected] of Object.entries(UPGRADE_TABLE)) {
       const up = resolveCard(id, 1);
       if (expected.effects) expect(up.effects).toEqual(expected.effects);

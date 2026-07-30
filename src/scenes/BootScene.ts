@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
+import { makeCardArt } from '../ui/cardArt';
 import { useDesignSpace } from '../ui/designSpace';
 import { makeStatusIcons } from '../ui/statusIcons';
 import { bodyStyle, brushStyle } from '../ui/theme';
@@ -45,6 +46,9 @@ export class BootScene extends Phaser.Scene {
   create(): void {
     this.makeGlowTexture();
     makeStatusIcons(this);
+    // After the loader has settled, so a card with a real plate keeps it and
+    // only the ones with none — curses, status cards — get a drawn stand-in.
+    makeCardArt(this);
     this.scene.start('Title');
   }
 

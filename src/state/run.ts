@@ -1,4 +1,4 @@
-import { canUpgrade } from '../combat/cards';
+import { canUpgrade, getCard } from '../combat/cards';
 import { RELICS, relicModifiers } from '../combat/relics';
 import { generateMap } from '../map/generateMap';
 import type { GameMap } from '../map/types';
@@ -114,9 +114,34 @@ export function addRelic(run: RunState, id: string): boolean {
 }
 
 export function addCard(run: RunState, cardId: string, upgraded = 0): DeckCard {
+  // A 状态牌 exists for one fight and is minted into `state.cards`; letting one
+  // into the deck would make it permanent, which is the single thing that
+  // separates it from a curse. Loud rather than silent — a caller that wants a
+  // permanent downside means `addCurse`.
+  if (getCard(cardId).type === 'status') {
+    throw new Error(`Status cards never enter the deck: ${cardId}`);
+  }
   const card = newDeckCard(cardId, upgraded);
   run.deck.push(card);
   return card;
+}
+
+/** Events, relics and enemies inflict these; they ride in the deck for good. */
+export function addCurse(run: RunState, defId: string): DeckCard {
+  if (getCard(defId).type !== 'curse') throw new Error(`Not a curse: ${defId}`);
+  return addCard(run, defId);
+}
+
+/**
+ * The one removal primitive, by uid so the right physical copy goes. 商店弃卡,
+ * 营帐弃甲 and 五丈原 all end up here — a curse the player cannot shed is just
+ * punishment, so this must exist before any curse is handed out.
+ */
+export function removeCard(run: RunState, uid: string): boolean {
+  const at = run.deck.findIndex((c) => c.uid === uid);
+  if (at < 0) return false;
+  run.deck.splice(at, 1);
+  return true;
 }
 
 /** Cards the blacksmith may offer — already-upgraded copies are excluded. */

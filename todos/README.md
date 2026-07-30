@@ -40,7 +40,7 @@
 | [11](11-card-rarity-and-rewards.md) | 卡牌稀有度与奖励规则 | 8 张牌等概率 |
 | [12](12-status-library-done.md) ✅ | 状态效果库扩充 | 3 种 / 原版约 50 种 |
 | [13](13-card-keywords-done.md) ✅ | 卡牌关键词机制 | 消耗/虚无/固有/保留/X 费全缺 |
-| [14](14-curses-and-status-cards.md) | 诅咒与状态牌 | 完全缺失，负面构筑压力为 0 |
+| [14](14-curses-and-status-cards-done.md) ✅ | 诅咒与状态牌 | 完全缺失，负面构筑压力为 0 |
 | [15](15-enemy-mechanics.md) | 敌人机制与敌人库 | 4 个敌人 / 原版约 60 |
 | [16](16-intent-system.md) | 意图显示系统 | 纯文字，无图标无「未知」 |
 | [17](17-multiple-heroes.md) | 多武将与专属卡池 | 1 个武将 |

@@ -12,7 +12,7 @@ import { shuffleForDisplay, sortForDisplay, type CardGridEntry } from '../src/ui
  * here, and the re-export is checked as source text below.
  */
 
-const TYPE_RANK: Record<string, number> = { attack: 0, skill: 1, power: 2 };
+const TYPE_RANK: Record<string, number> = { attack: 0, skill: 1, power: 2, curse: 3, status: 4 };
 
 const entry = (defId: string, upgraded = 0, uid = `${defId}-${upgraded}`): CardGridEntry => ({
   uid,
@@ -20,7 +20,7 @@ const entry = (defId: string, upgraded = 0, uid = `${defId}-${upgraded}`): CardG
   upgraded,
 });
 
-/** One of every card, in both upgrade states — 22 entries, deliberately jumbled. */
+/** One of every card, in both upgrade states, deliberately jumbled. */
 const everyCard = (): CardGridEntry[] =>
   shuffleForDisplay(
     Object.keys(CARDS).flatMap((defId) => [entry(defId, 0), entry(defId, 1)]),
@@ -28,7 +28,7 @@ const everyCard = (): CardGridEntry[] =>
   );
 
 describe('sortForDisplay', () => {
-  it('groups 攻 → 谋 → 势, then cost, then id', () => {
+  it('groups 攻 → 谋 → 势 → 咒 → 厄, then cost, then id', () => {
     const sorted = sortForDisplay(everyCard());
     for (let i = 1; i < sorted.length; i++) {
       const a = resolveCard(sorted[i - 1].defId, sorted[i - 1].upgraded);

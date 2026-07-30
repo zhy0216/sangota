@@ -174,7 +174,7 @@ export interface EncounterTable {
 ## 依赖
 
 - [12 状态库](12-status-library-done.md)——被动全部依赖那 18 种状态
-- [14 诅咒与状态牌](14-curses-and-status-cards.md)——`addCards` 的内容
+- [14 诅咒与状态牌](14-curses-and-status-cards-done.md)——`addCards` 的内容
 - [13 关键词](13-card-keywords-done.md)——`addCards` 的底层实现
 - [16 意图系统](16-intent-system.md)——新意图类型（召唤、逃跑、未知、睡眠）的显示
 - [09 多幕](09-acts-and-progression.md)——二三幕敌人的归属

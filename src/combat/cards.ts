@@ -1,4 +1,5 @@
 import { C } from '../config';
+import { CURSES, NEGATIVE_TYPE_META, STATUS_CARDS } from './curses';
 import type { CardDef, CardType } from './types';
 
 /**
@@ -21,9 +22,12 @@ export const CARD_TYPE_META: Record<CardType, { label: string; color: number }> 
   attack: { label: '攻', color: C.cinnabar },
   skill: { label: '谋', color: C.jade },
   power: { label: '势', color: C.gold },
+  // 咒 / 厄, defined with the cards they frame.
+  ...NEGATIVE_TYPE_META,
 };
 
-export const CARDS: Record<string, CardDef> = {
+/** 关羽's own pool. Curses and status cards are merged in below, not here. */
+const HERO_CARDS: Record<string, CardDef> = {
   // --- Guan Yu's starting deck -------------------------------------------
   pikan: {
     id: 'pikan',
@@ -204,6 +208,13 @@ export const CARDS: Record<string, CardDef> = {
     },
   },
 };
+
+/**
+ * Every card the game can name. Curses and status cards live in here so
+ * `getCard` resolves them and the piles can hold them — their exclusion from
+ * rewards is enforced by rarity, not by a second table.
+ */
+export const CARDS: Record<string, CardDef> = { ...HERO_CARDS, ...CURSES, ...STATUS_CARDS };
 
 /** Cards that can show up as post-combat rewards. */
 export const REWARD_POOL: string[] = [

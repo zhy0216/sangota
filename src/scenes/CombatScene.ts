@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { Rng } from '../core/rng';
 import { REWARD_POOL, STATUS_META, STATUS_ORDER } from '../combat/cards';
+import { resolveCombatEndHooks } from '../combat/curses';
 import { ENCOUNTERS } from '../combat/enemies';
 import {
   canPlay,
@@ -1428,6 +1429,9 @@ export class CombatScene extends Phaser.Scene {
 
   private showVictory(): void {
     applyCombatResult(this.run, this.state.player.hp);
+    // 贪念 collects here — before the gold roll, so a curse can never eat the
+    // reward the player is about to be shown.
+    resolveCombatEndHooks(this.state, this.run);
 
     const rng = new Rng(`${this.run.map.seed}:${this.run.currentNodeId}:reward`);
     const gold = rng.range(this.encounter.goldReward[0], this.encounter.goldReward[1]);

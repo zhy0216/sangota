@@ -18,8 +18,14 @@ export interface CardGridEntry {
   previewUpgraded?: boolean;
 }
 
-/** 攻 → 谋 → 势. Curses and status cards (todo 14) sort after these. */
-const TYPE_ORDER: Record<CardType, number> = { attack: 0, skill: 1, power: 2 };
+/** 攻 → 谋 → 势 → 咒 → 厄. The dead weight files last, where it is countable. */
+const TYPE_ORDER: Record<CardType, number> = {
+  attack: 0,
+  skill: 1,
+  power: 2,
+  curse: 3,
+  status: 4,
+};
 
 /**
  * The one order every screen shows a pile in: type, then cost, then id. Cost

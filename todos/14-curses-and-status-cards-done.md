@@ -174,3 +174,45 @@ export const CURSE_POOL: string[];
 - [11 稀有度](11-card-rarity-and-rewards.md)——确保不进奖励池
 - 移除渠道依赖 [05 商店](05-shop.md) / [04 营帐](04-campfire.md)
   ——**不要在移除渠道就绪前上线诅咒**
+
+---
+
+## 实现记录
+
+落地为 `src/combat/curses.ts`（11 张牌 + `CURSE_POOL` / `STATUS_POOL` +
+`resolveCombatEndHooks`）。引擎侧只加了五个不认牌名的调用点：`drawCards` 的
+`onDrawn`、`endPlayerTurn` 的 `onEndTurnInHand`、`playCard` 的
+`onCardPlayedInHand`、`canPlay` 的 `restrictPlay`，以及需要 `RunState` 的
+`onCombatEnd`——最后一个留在 `curses.ts` 里由 `CombatScene` 在结算前调用，
+`engine.ts` 仍然看不到跑团状态。
+
+规格外的几个决定：
+
+- **`restrictPlay` 与 `onCardPlayedInHand` 拆开**。原稿把「反噬扣血」和
+  「宿命限次」都挂在 `restrictPlay` 上，但 `canPlay` 是卡面变灰的判定，
+  每帧每张牌都会调一次——合在一起就是「每帧掉 1 血」而不是「每张牌掉 1 血」。
+- **`endPlayerTurn` 的顺序改为 `turnEnd` 钩子 → 状态结算 → 手牌钩子 → 弃牌**。
+  疑心的怯战必须落在衰减之后才能活到敌方回合；焚营则要在手牌离场前触发。
+  现有卡池玩家侧没有任何 `ownerTurnEnd` 触发状态，所以 20 个 golden 快照
+  逐字节不变（已验证）。
+- **`loseHp` 走引擎的 `resolveDamage`**（`pierceBlock: true`），不再直写 `hp`。
+  代价是铁面之类读 `damageTaken` 的遗物会被诅咒触发一次——但 `loseHp` 效果
+  （土山约三事）本来就是这个行为，多一条伤害管线比多一个例外更糟。
+- **`state.cardsPlayedThisTurn`** 是宿命唯一的表达方式，`attacksThisTurn`
+  不能代替（限的是所有牌，不只是攻）。
+- **`addCard` 对状态牌直接抛错**，`addCurse` 对非诅咒牌抛错。这是「状态牌永不
+  进 `run.deck`」这条验收标准唯一靠得住的实现方式——靠调用方自觉迟早会破。
+- **`removeCard(run, uid)`** 提前落地。诅咒必须有出口，而 05/04/06 三个移除
+  渠道共用同一个原语，先把原语和测试放好。
+
+## 仍未做
+
+- **敌人生成状态牌**（步骤 6）：`EnemyMove.addCards` 属于
+  [15 敌人机制](15-enemy-mechanics.md)，这里只备好了 `STATUS_POOL` 和
+  `{ kind: 'addCard' }` 通路。
+- **移除渠道的界面**（步骤 7）：`removeCard` 有了，商店/营帐/五丈原的屏幕
+  分别属于 [05](05-shop.md) / [04](04-campfire.md) / [06](06-events.md)。
+  **在其中至少一个上线前，不要让任何事件真的发诅咒。**
+- **营帐锻造界面的灰显与原因提示**：`canUpgrade` 已经对诅咒返回 false、
+  `upgradableCards` 已经把它们排除，`CardGridEntry.disabledReason` 也已就位，
+  但那个界面本身还不存在（[04](04-campfire.md)）。

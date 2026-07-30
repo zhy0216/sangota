@@ -166,6 +166,6 @@ export interface EventOutcome {
 - [06 事件](06-events.md)——**强依赖**，复用 `EventOutcome` 和 `applyOutcome`
 - [07 牌堆查看器](07-deck-viewer-done.md)——选牌类选项
 - [01 遗物](01-relics-done.md) / [02 药水](02-potions.md) / [03 升级](03-card-upgrades-done.md)
-  / [11 稀有度](11-card-rarity-and-rewards.md) / [14 诅咒](14-curses-and-status-cards.md)
+  / [11 稀有度](11-card-rarity-and-rewards.md) / [14 诅咒](14-curses-and-status-cards-done.md)
   ——各类选项的内容来源
 - 顺序上应在 [08 存档](08-save-resume.md) 之前，或同时处理 `blessingTaken` 标志

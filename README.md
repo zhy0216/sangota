@@ -79,6 +79,26 @@ from its seed. `resolveCard(defId, upgraded)` is the single place card data is r
 
 Nothing hands out upgrades yet — the 营帐 blacksmith is the intended entry point.
 
+**诅咒 / 状态牌** — the deck can now get *worse*. 诅咒 (6) ride in `run.deck` for the
+whole run; 状态牌 (5) are minted into one fight and die with it. Both are ordinary cards
+otherwise: they take a hand slot, obey 虚无 / 消耗 / 不可打出, and sort last in every card
+screen. 焚营 burns 2 体力 at end of turn then exhausts, 醉 charges a 气 the moment it is
+drawn, 反噬 costs a 体力 per card played while it sits in hand, 宿命 caps the turn at
+three cards, 贪念 takes 15 资财 when the fight ends.
+
+The behaviour that no `Effect` can express rides on `CardDef.hooks` — `onDrawn`,
+`onEndTurnInHand`, `onCardPlayedInHand`, `restrictPlay` and `onCombatEnd` — fired from
+five fixed points in the engine that name no card, the same contract relics run on.
+`restrictPlay` is deliberately separate from `onCardPlayedInHand`: `canPlay` is what
+greys a card face and is called once per card per repaint, so the gate must stay pure —
+folding 反噬 onto it would cost a 体力 per frame instead of per card.
+
+Two invariants are enforced rather than documented: `addCard` throws on a 状态牌, so one
+can never become permanent, and both kinds carry `basic` rarity, which is what keeps them
+structurally out of the reward pool. `removeCard(run, uid)` is the removal primitive
+商店弃卡 / 营帐弃甲 / 五丈原 will all share — a curse the player cannot shed is
+punishment, not a decision.
+
 **Deck viewer** — `ui/CardGrid.ts` is one overlay serving every pile: the whole 牌组 from
 either the combat HUD or the map HUD, plus the draw / discard / exhaust piles from the
 counters in the combat corners (exhaust only appears once something has been exhausted).

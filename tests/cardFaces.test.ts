@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, resolveCard } from '../src/combat/cards';
+import { isNegative } from '../src/combat/curses';
 import { ENCOUNTERS } from '../src/combat/enemies';
 import { describeCard, playCard, previewValues, startCombat } from '../src/combat/engine';
 import type { CardDef, CombatState, StatusId } from '../src/combat/types';
@@ -14,6 +15,13 @@ import { newDeckCard } from '../src/state/run';
 
 /** Two enemies, so `damageAll` can be checked per target. */
 const TWO_UP = ENCOUNTERS.monster[1];
+
+/**
+ * Curses and status cards are in `CARDS` but print no numbers and mostly cannot
+ * be played at all, so the promise this suite checks does not apply to them.
+ * `tests/curses.test.ts` covers what they do instead.
+ */
+const HERO_CARDS = Object.keys(CARDS).filter((id) => !isNegative(CARDS[id]));
 
 const LOADOUTS: { name: string; player: Partial<Record<StatusId, number>>; vulnerable: number }[] = [
   { name: 'clean', player: {}, vulnerable: 0 },
@@ -49,7 +57,7 @@ const damageEffects = (def: CardDef): number =>
 const hitsEveryone = (def: CardDef): boolean => def.effects.some((e) => e.kind === 'damageAll');
 
 describe('previewValues matches what resolves', () => {
-  for (const defId of Object.keys(CARDS)) {
+  for (const defId of HERO_CARDS) {
     for (const upgraded of [0, 1]) {
       for (const loadout of LOADOUTS) {
         for (const passiveSpent of [false, true]) {
@@ -94,7 +102,7 @@ describe('previewValues matches what resolves', () => {
 
 describe('describeCard', () => {
   it('leaves no placeholder unfilled on any card', () => {
-    for (const defId of Object.keys(CARDS)) {
+    for (const defId of HERO_CARDS) {
       for (const upgraded of [0, 1]) {
         const state = bench(defId, upgraded, LOADOUTS[0]);
         const text = describeCard(state, resolveCard(defId, upgraded), state.enemies[0]);
@@ -104,7 +112,7 @@ describe('describeCard', () => {
   });
 
   it('prints the same numbers previewValues computed', () => {
-    for (const defId of Object.keys(CARDS)) {
+    for (const defId of HERO_CARDS) {
       for (const loadout of LOADOUTS) {
         const state = bench(defId, 0, loadout);
         const def = resolveCard(defId, 0);
