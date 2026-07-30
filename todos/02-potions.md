@@ -116,5 +116,5 @@ export interface RunState {
 
 ## 依赖
 
-- [01 遗物](01-relics.md)——槽位修饰、掉率修饰的遗物挂在那套 `modifiers` 上
+- [01 遗物](01-relics-done.md)——槽位修饰、掉率修饰的遗物挂在那套 `modifiers` 上
 - 建议在 [13 卡牌关键词](13-card-keywords.md) 之后做，`Effect` 扩完了药水能直接复用

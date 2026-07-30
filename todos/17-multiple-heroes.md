@@ -53,7 +53,7 @@ README：「One act, one hero.」
 
 1. **卡牌归属**：`CardDef` 加 `hero: string | 'colorless'`，
    卡池按武将过滤
-2. **武将被动搬进遗物**：这是 [01 遗物](01-relics.md) 里已经列的工作，
+2. **武将被动搬进遗物**：这是 [01 遗物](01-relics-done.md) 里已经列的工作，
    多武将会让它变成硬要求（4 个 if 分支不可接受）
 3. **独有资源的挂载点**：`CombatState` 需要一个武将专属的状态槽，
    不能给每个武将往 `CombatState` 加字段
@@ -115,7 +115,7 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
 
 ## 实现步骤
 
-1. **先完成 [01 遗物](01-relics.md) 的被动搬迁**。关羽的
+1. **先完成 [01 遗物](01-relics-done.md) 的被动搬迁**。关羽的
    `firstAttackUsed`（`engine.ts:230-235`）必须先变成遗物，
    否则第二个武将没法接。
 2. `cards.ts`：给 11 张现有牌加 `hero: 'guanyu'`（其中通用性强的
@@ -163,7 +163,7 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
 
 ## 依赖
 
-- [01 遗物](01-relics.md)——**强依赖**，被动必须先搬进遗物系统
+- [01 遗物](01-relics-done.md)——**强依赖**，被动必须先搬进遗物系统
 - [11 稀有度](11-card-rarity-and-rewards.md)——卡池要先按稀有度分组才好按武将分
 - [13 关键词](13-card-keywords.md)——独有资源的 scaling 需要条件/缩放效果
 - [07 牌堆查看器](07-deck-viewer-done.md)——选将界面的牌组预览

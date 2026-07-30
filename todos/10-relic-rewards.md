@@ -139,7 +139,7 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
 
 ## 依赖
 
-- [01 遗物](01-relics.md)——遗物系统本体
+- [01 遗物](01-relics-done.md)——遗物系统本体
 - [02 药水](02-potions.md)——宝箱附赠
 - [04 营帐](04-campfire.md)——`RoomScene` 壳
 - [11 稀有度](11-card-rarity-and-rewards.md)——精英选卡加权

@@ -146,7 +146,7 @@ export interface RunState {
 
 ## 依赖
 
-- [01 遗物](01-relics.md)——`cardRewardCount` 的修饰来源
+- [01 遗物](01-relics-done.md)——`cardRewardCount` 的修饰来源
 - [12 状态库](12-status-library.md) / [13 关键词](13-card-keywords.md)
   ——新卡的机制基础。**不做这两个的话，13 张新卡只能是数值变体，没意义**
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——扩池后的平衡验证

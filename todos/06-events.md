@@ -142,7 +142,7 @@ export interface RunState {
 ## 依赖
 
 - [04 营帐](04-campfire.md)——`RoomScene` 壳
-- [01 遗物](01-relics.md) / [02 药水](02-potions.md) / [03 升级](03-card-upgrades-done.md)
+- [01 遗物](01-relics-done.md) / [02 药水](02-potions.md) / [03 升级](03-card-upgrades-done.md)
   ——`EventOutcome` 的几个字段需要它们存在（可以先做没有这些字段的事件）
 - [14 诅咒](14-curses-and-status-cards.md)——黄金台/醉酒张飞的代价
 - [07 牌堆查看器](07-deck-viewer-done.md)——选牌类结果

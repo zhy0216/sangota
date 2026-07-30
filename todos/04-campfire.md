@@ -119,6 +119,6 @@ export interface RunState {
 
 - [03 卡牌升级](03-card-upgrades-done.md)——锻造的实际内容
 - [07 牌堆查看器](07-deck-viewer-done.md)——选牌 UI
-- 弱依赖 [01 遗物](01-relics.md)（掘藏/弃甲/举鼎的解锁条件）
+- 弱依赖 [01 遗物](01-relics-done.md)（掘藏/弃甲/举鼎的解锁条件）
 - **产出被复用**：`RoomScene` 壳是 [05 商店](05-shop.md) 和
   [06 事件](06-events.md) 的基础
