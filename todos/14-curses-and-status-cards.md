@@ -85,7 +85,7 @@ export type CardType = 'attack' | 'skill' | 'power' | 'curse' | 'status';
    所以只要保证「战斗内生成的牌不写回 `run.deck`」就自动成立。
    但 [08 存档](08-save-resume.md) 的战斗内存档要能序列化这些临时牌。
 2. **诅咒牌不可升级**。`CardDef.upgrade` 缺省即不可升级
-   （见 [03 升级](03-card-upgrades.md)），刚好对上。营帐锻造的选牌
+   （见 [03 升级](03-card-upgrades-done.md)），刚好对上。营帐锻造的选牌
    界面要把诅咒牌标为 `disabled`。
 
 ## 数据结构
@@ -170,7 +170,7 @@ export const CURSE_POOL: string[];
 
 - [13 卡牌关键词](13-card-keywords.md)——`unplayable` / `ethereal` / `exhaust`
   是这些牌的基础，`addCard` 是生成手段
-- [03 卡牌升级](03-card-upgrades.md)——`DeckCard` 实例化
+- [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` 实例化
 - [11 稀有度](11-card-rarity-and-rewards.md)——确保不进奖励池
 - 移除渠道依赖 [05 商店](05-shop.md) / [04 营帐](04-campfire.md)
   ——**不要在移除渠道就绪前上线诅咒**

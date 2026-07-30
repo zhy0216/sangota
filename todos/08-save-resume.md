@@ -160,7 +160,7 @@ README 说已经在 400 个 seed 上验证过，正好。
 
 ## 依赖
 
-- 结构上依赖 [03 升级](03-card-upgrades.md)（`DeckCard`）、
+- 结构上依赖 [03 升级](03-card-upgrades-done.md)（`DeckCard`）、
   [01 遗物](01-relics.md)、[02 药水](02-potions.md)、[06 事件](06-events.md)
   ——它们都往 `RunState` 加字段。**建议在这些做完后再做存档**，
   否则字段每加一次就要动一次 `SavedRun` 和版本号。

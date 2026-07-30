@@ -96,7 +96,7 @@ export function openCardGrid(scene: Phaser.Scene, opts: CardGridOptions): void;
    - `pick` 模式：点选后描金边，达到 `pickCount` 时出确认按钮
    - `Esc` / 点空白关闭（`pick` 模式下若是强制选择则不允许关）
 2. 卡面渲染直接用现有 `CardView`（`src/ui/CardView.ts`）的 `display` 模式，
-   数值预览要走 [03](03-card-upgrades.md) 的 `resolveCard`。
+   数值预览要走 [03](03-card-upgrades-done.md) 的 `resolveCard`。
    注意 `CardView` 目前需要 `CombatState` 来算 `describeCard`
    （`src/combat/engine.ts:377`）——地图上没有 `CombatState`，所以要么
    给 `describeCard` 加一个「静态预览」重载（`state` 可选，缺省用空状态），
@@ -124,5 +124,5 @@ export function openCardGrid(scene: Phaser.Scene, opts: CardGridOptions): void;
 
 ## 依赖
 
-- [03 卡牌升级](03-card-upgrades.md)——`DeckCard` / `upgraded` 字段和 `resolveCard`
+- [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` / `upgraded` 字段和 `resolveCard`
 - **产出被复用**：04 / 05 / 06 / 22 都要它的 `pick` 模式
