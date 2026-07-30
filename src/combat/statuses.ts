@@ -51,6 +51,14 @@ export interface StatusDef extends StatusMeta {
     hpLost: number,
     blocked: number,
   ) => void;
+  /**
+   * Fires on the player when any enemy drops, at the same moment the
+   * `enemyKilled` relic hook does. Player-scoped because a kill is a thing that
+   * happens *to* the fight, not to a combatant — there is no "the enemy that
+   * died gets to react" case, and scoping it to the owner would make the
+   * trigger depend on who landed the blow.
+   */
+  onEnemyKilled?: (state: CombatState, owner: Combatant, n: number) => void;
 }
 
 /**
@@ -74,6 +82,7 @@ export const STATUS_ORDER: readonly StatusId[] = [
   'regen',
   'metallicize',
   'ritual',
+  'slayer',
   'noDraw',
   'entangled',
   'curlUp',
@@ -265,6 +274,22 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
     decay: 'none',
     blockable: false,
     tick: { phase: 'ownerTurnEnd', run: (state, owner, n) => addStatus(state, owner, 'strength', n) },
+  },
+  /**
+   * 五关六将's payoff. Worthless against a lone boss and worth +4 神力 halfway
+   * through a three-enemy room, which is the spread that makes the card a rare
+   * rather than a staple. Rides the same kill moment 枭首令 hooks.
+   */
+  slayer: {
+    id: 'slayer',
+    label: '斩将',
+    desc: '每击杀一名敌人，获得等量【神力】。',
+    kind: 'buff',
+    color: C.blood,
+    icon: 'status-slayer',
+    decay: 'none',
+    blockable: false,
+    onEnemyKilled: (state, owner, n) => addStatus(state, owner, 'strength', n),
   },
 
   // --- 规则改写 -----------------------------------------------------------

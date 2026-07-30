@@ -136,7 +136,7 @@ export interface EventOutcome {
    [07 牌堆查看器](07-deck-viewer-done.md) 的 pick 模式，作用于 `run.deck`
    （此时是初始 10 张）。
 4. `transformCards` 实现：移除选中的牌 → 从**同稀有度**池
-   （[11](11-card-rarity-and-rewards.md) 的 `CARD_POOL_BY_RARITY`）
+   （[11](11-card-rarity-and-rewards-done.md) 的 `CARD_POOL_BY_RARITY`）
    抽一张不同的牌加入。原版转化会跳过同名牌，照做。
 5. 流程接线：`TitleScene`「出征」（`TitleScene.ts:130`）→
    `HeroSelectScene`（若 [17](17-multiple-heroes.md) 已做）→
@@ -166,6 +166,6 @@ export interface EventOutcome {
 - [06 事件](06-events.md)——**强依赖**，复用 `EventOutcome` 和 `applyOutcome`
 - [07 牌堆查看器](07-deck-viewer-done.md)——选牌类选项
 - [01 遗物](01-relics-done.md) / [02 药水](02-potions-done.md) / [03 升级](03-card-upgrades-done.md)
-  / [11 稀有度](11-card-rarity-and-rewards.md) / [14 诅咒](14-curses-and-status-cards-done.md)
+  / [11 稀有度](11-card-rarity-and-rewards-done.md) / [14 诅咒](14-curses-and-status-cards-done.md)
   ——各类选项的内容来源
 - 顺序上应在 [08 存档](08-save-resume.md) 之前，或同时处理 `blessingTaken` 标志

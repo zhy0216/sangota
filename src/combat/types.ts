@@ -18,6 +18,7 @@ export type StatusId =
   | 'intangible'
   | 'buffer'
   | 'ritual'
+  | 'slayer'
   | 'noDraw'
   | 'entangled'
   | 'curlUp'

@@ -149,7 +149,7 @@ export interface RunState {
    - `advanceAct`（[09 多幕](09-acts-and-progression.md)）：`actStartHpLossPercent`
    - `startRun`（`src/state/run.ts:22`）：`maxHpMult`、`potionSlots`、
      `startingCurses`
-   - `rollCardReward`（[11](11-card-rarity-and-rewards.md)）：`rarityWeightMult`
+   - `rollCardReward`（[11](11-card-rarity-and-rewards-done.md)）：`rarityWeightMult`
    - `priceOf`（[05 商店](05-shop.md)）：`shopPriceMult`
 3. `AscensionProgress` 持久化（localStorage，和 [08 存档](08-save-resume.md)
    分开存——难度进度不该被跑团存档清除影响）。

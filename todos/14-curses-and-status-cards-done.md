@@ -122,7 +122,7 @@ export const CURSE_POOL: string[];
 
 1. `cards.ts`：加 `CURSES` / `STATUS_CARDS` 表（11 张），
    并入 `CARDS` 总表（`getCard` 要能查到）但**不进 `CARD_POOL_BY_RARITY`**
-   （见 [11](11-card-rarity-and-rewards.md)）——否则会作为奖励出现。
+   （见 [11](11-card-rarity-and-rewards-done.md)）——否则会作为奖励出现。
 2. `CARD_TYPE_META` 加两项，`CardView`（`src/ui/CardView.ts`）
    按类型换框色。诅咒牌卡框建议加一层暗红噪点或裂纹，视觉上「不祥」。
 3. `engine.ts`：
@@ -171,7 +171,7 @@ export const CURSE_POOL: string[];
 - [13 卡牌关键词](13-card-keywords-done.md)——`unplayable` / `ethereal` / `exhaust`
   是这些牌的基础，`addCard` 是生成手段
 - [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` 实例化
-- [11 稀有度](11-card-rarity-and-rewards.md)——确保不进奖励池
+- [11 稀有度](11-card-rarity-and-rewards-done.md)——确保不进奖励池
 - 移除渠道依赖 [05 商店](05-shop.md) / [04 营帐](04-campfire.md)
   ——**不要在移除渠道就绪前上线诅咒**
 

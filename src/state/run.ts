@@ -1,6 +1,7 @@
 import { canUpgrade, getCard } from '../combat/cards';
 import { POTION_DROP, getPotion } from '../combat/potions';
 import { RELICS, relicModifiers } from '../combat/relics';
+import { BASE_CARD_REWARD_COUNT } from '../combat/rewards';
 import { generateMap } from '../map/generateMap';
 import type { GameMap } from '../map/types';
 import { DEFAULT_HERO, type HeroDef } from '../data/heroes';
@@ -32,6 +33,10 @@ export interface RunState {
   potionSlots: number;
   /** Drop chance for the next monster fight, in percent. Drifts, see POTION_DROP. */
   potionChance: number;
+  /** Rewards since the last rare, added to the rare weight. See `rollCardReward`. */
+  rareBump: number;
+  /** Cards a reward offers. Relic-modified; kept in step by `syncRewardCount`. */
+  cardRewardCount: number;
   /** null until the player commits to a starting node on floor 1. */
   currentNodeId: string | null;
   /** Node ids in visit order — used to paint the travelled path. */
@@ -66,11 +71,24 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState 
     potions: [],
     potionSlots: 0,
     potionChance: POTION_DROP.start,
+    rareBump: 0,
+    cardRewardCount: 0,
     currentNodeId: null,
     path: [],
   };
   syncPotionSlots(active);
+  syncRewardCount(active);
   return active;
+}
+
+/**
+ * Re-derives the reward width from the relics owned right now. Clamped at 1: a
+ * relic that subtracts more than the pool offers must still leave something to
+ * pick, and 「不取」 is already the way to decline.
+ */
+export function syncRewardCount(run: RunState): void {
+  const mods = relicModifiers(run.relics);
+  run.cardRewardCount = Math.max(1, BASE_CARD_REWARD_COUNT + mods.cardRewardCount);
 }
 
 /**
@@ -136,8 +154,10 @@ export function addRelic(run: RunState, id: string): boolean {
   const gain = def.modifiers?.maxHp ?? 0;
   run.maxHp += gain;
   run.hp += gain;
-  // 药囊 widens the belt the moment it is picked up, not at the next fight.
+  // 药囊 widens the belt the moment it is picked up, not at the next fight,
+  // and 求贤令 / 独断 widen or narrow the next reward the same way.
   syncPotionSlots(run);
+  syncRewardCount(run);
   return true;
 }
 

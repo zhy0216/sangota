@@ -25,7 +25,7 @@ else state.discardPile.push(uid);
 
 结果：**每张牌都是「消耗 N 气，产生固定效果，进弃牌堆」**。
 没有消耗牌、没有多段攻击、没有 X 费、没有条件效果、没有牌生成。
-这直接限制了 [11 卡池扩容](11-card-rarity-and-rewards.md) —— 新卡只能是
+这直接限制了 [11 卡池扩容](11-card-rarity-and-rewards-done.md) —— 新卡只能是
 现有 11 张的数值变体。
 
 ## 原版行为
@@ -189,7 +189,7 @@ export interface CardInstance {
 - [07 牌堆查看器](07-deck-viewer-done.md)——`pendingChoice` 的选牌 UI 复用它的 pick 模式
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——`pendingChoice` 会破坏
   无头模拟的同步假设，模拟器需要一个自动决策策略来消费它
-- **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards.md)、
+- **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards-done.md)、
   [14 诅咒与状态牌](14-curses-and-status-cards-done.md)（`unplayable` 是状态牌的基础）、
   [02 药水](02-potions-done.md)
 

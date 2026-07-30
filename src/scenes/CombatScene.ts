@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { Rng } from '../core/rng';
-import { REWARD_POOL, STATUS_META, STATUS_ORDER } from '../combat/cards';
+import { STATUS_META, STATUS_ORDER } from '../combat/cards';
 import { resolveCombatEndHooks } from '../combat/curses';
 import { ENCOUNTERS } from '../combat/enemies';
 import {
@@ -21,7 +21,8 @@ import {
   rollPotion,
   type PotionDef,
 } from '../combat/potions';
-import { relicByBanner } from '../combat/relics';
+import { relicByBanner, relicModifiers } from '../combat/relics';
+import { rollCardReward } from '../combat/rewards';
 import type { CombatEvent, CombatState, EnemyState, Encounter, StatusId } from '../combat/types';
 import {
   addCard,
@@ -1571,7 +1572,9 @@ export class CombatScene extends Phaser.Scene {
     const gold = rng.range(this.encounter.goldReward[0], this.encounter.goldReward[1]);
     addGold(this.run, gold);
 
-    const picks = rng.shuffle([...REWARD_POOL]).slice(0, 3);
+    // Rolled off the same stream the gold came from, so a seed still replays
+    // the whole reward; `rollCardReward` also moves `run.rareBump`.
+    const picks = rollCardReward({ tier: this.nodeType, run: this.run, rng });
     // Its own stream, so adding or removing a potion drop can never shift the
     // gold roll or the card picks for a seed that already existed.
     const drop = this.rollPotionDrop();
@@ -1597,9 +1600,12 @@ export class CombatScene extends Phaser.Scene {
         .setOrigin(0.5),
     );
 
-    const spacing = 210;
+    // Laid out from the row's own width rather than around a fixed centre card,
+    // so 1, 3 and 4 cards are all centred. Tightened once the row would
+    // otherwise run past the screen edge.
+    const spacing = Math.min(210, (GAME_WIDTH - 120) / Math.max(1, picks.length));
     picks.forEach((cardId, i) => {
-      const x = GAME_WIDTH / 2 + (i - 1) * spacing;
+      const x = GAME_WIDTH / 2 + (i - (picks.length - 1) / 2) * spacing;
       const card = new CardView(this, `reward-${i}`, cardId, 0, this.state, 'display');
       card.setPosition(x, 400);
       card.setDepth(DEPTH.overlay + 1);
@@ -1616,11 +1622,19 @@ export class CombatScene extends Phaser.Scene {
       layer.add(card);
     });
 
-    const skip = inkButton(this, GAME_WIDTH / 2, 596, '不取', {
-      width: 170,
+    // 歌钵 turns declining into a decision rather than a concession.
+    const skipHp = relicModifiers(this.run.relics).skipRewardMaxHp;
+    const skip = inkButton(this, GAME_WIDTH / 2, 596, skipHp > 0 ? `不取 · 体力上限 +${skipHp}` : '不取', {
+      width: skipHp > 0 ? 260 : 170,
       height: 54,
       fontSize: 22,
-      onClick: () => this.leaveToMap(),
+      onClick: () => {
+        if (skipHp > 0) {
+          this.run.maxHp += skipHp;
+          this.run.hp += skipHp;
+        }
+        this.leaveToMap();
+      },
     });
     skip.setDepth(DEPTH.overlay + 1);
     layer.add(skip);

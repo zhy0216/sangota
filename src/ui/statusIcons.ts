@@ -33,7 +33,8 @@ type Glyph =
   | 'ban'
   | 'chain'
   | 'spiral'
-  | 'bang';
+  | 'bang'
+  | 'blade';
 
 /** One glyph per status, grouped so a family reads at a glance. */
 const GLYPH: Record<StatusId, Glyph> = {
@@ -51,6 +52,7 @@ const GLYPH: Record<StatusId, Glyph> = {
   intangible: 'ghost',
   buffer: 'dome',
   ritual: 'diamond',
+  slayer: 'blade',
   noDraw: 'ban',
   entangled: 'chain',
   curlUp: 'spiral',
@@ -230,6 +232,18 @@ function drawGlyph(ctx: CanvasRenderingContext2D, glyph: Glyph): void {
       ctx.beginPath();
       ctx.arc(10, 16, 2, 0, Math.PI * 2);
       ctx.fill();
+      break;
+    case 'blade':
+      // A dagger, point down: the only glyph in the set that reads as a weapon,
+      // which is what separates 斩将 from the other gold-tinted buffs.
+      ctx.beginPath();
+      ctx.moveTo(10, 18);
+      ctx.lineTo(7, 11);
+      ctx.lineTo(13, 11);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(4, 9, 12, 2);
+      ctx.fillRect(9, 2, 2, 7);
       break;
   }
 }

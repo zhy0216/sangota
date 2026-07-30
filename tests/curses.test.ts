@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CARDS, REWARD_POOL, canUpgrade } from '../src/combat/cards';
+import { CARDS, CARD_POOL_BY_RARITY, canUpgrade } from '../src/combat/cards';
 import {
   CURSES,
   CURSE_POOL,
@@ -228,9 +228,11 @@ describe('诅咒牌', () => {
 
 describe('pool hygiene', () => {
   it('keeps both kinds out of every reward pool', () => {
-    for (const id of REWARD_POOL) expect(isNegative(CARDS[id]), id).toBe(false);
-    // `basic` is what structurally excludes them once todos/11 keys the pool by
-    // rarity, so it is the property worth pinning rather than the list above.
+    for (const id of Object.values(CARD_POOL_BY_RARITY).flat()) {
+      expect(isNegative(CARDS[id]), id).toBe(false);
+    }
+    // `basic` is what structurally excludes them now that todos/11 keys the pool
+    // by rarity, so it is the property worth pinning rather than the list above.
     for (const def of [...Object.values(CURSES), ...Object.values(STATUS_CARDS)]) {
       expect(def.rarity, def.id).toBe('basic');
     }

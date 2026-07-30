@@ -3,7 +3,7 @@ import { CARDS, resolveCard } from '../src/combat/cards';
 import { isNegative } from '../src/combat/curses';
 import { ENCOUNTERS } from '../src/combat/enemies';
 import { describeCard, playCard, previewValues, startCombat } from '../src/combat/engine';
-import type { CardDef, CombatState, StatusId } from '../src/combat/types';
+import type { CardDef, CombatState, Effect, StatusId } from '../src/combat/types';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { newDeckCard } from '../src/state/run';
 
@@ -44,6 +44,12 @@ function bench(defId: string, upgraded: number, loadout: (typeof LOADOUTS)[numbe
   });
   // 气 is not what is under test here.
   state.energy = 99;
+  // Nor is lethality: an enemy that dies partway through a multi-hit card would
+  // absorb less than the face promised for a reason the face is right about.
+  for (const enemy of state.enemies) {
+    enemy.hp = 99999;
+    enemy.maxHp = 99999;
+  }
   Object.assign(state.player.statuses, loadout.player);
   // Uneven Vulnerable across the two enemies catches a preview that ignores the
   // defender, which a single-target-only check would miss.
@@ -51,10 +57,30 @@ function bench(defId: string, upgraded: number, loadout: (typeof LOADOUTS)[numbe
   return state;
 }
 
-const damageEffects = (def: CardDef): number =>
-  def.effects.filter((e) => e.kind === 'damage' || e.kind === 'damageAll').length;
+/**
+ * Damage can sit under a `conditional` branch or inside `scaleWithEnergy`, so
+ * both predicates walk the tree. Reading only the top level used to make every
+ * nested-damage card look like it dealt none, which is a test that passes by
+ * checking nothing.
+ */
+function walkEffects(effects: readonly Effect[], seen: Effect[] = []): Effect[] {
+  for (const effect of effects) {
+    seen.push(effect);
+    if (effect.kind === 'conditional') {
+      walkEffects(effect.then, seen);
+      walkEffects(effect.otherwise ?? [], seen);
+    } else if (effect.kind === 'scaleWithEnergy') {
+      walkEffects(effect.per, seen);
+    }
+  }
+  return seen;
+}
 
-const hitsEveryone = (def: CardDef): boolean => def.effects.some((e) => e.kind === 'damageAll');
+const damageEffects = (def: CardDef): number =>
+  walkEffects(def.effects).filter((e) => e.kind === 'damage' || e.kind === 'damageAll').length;
+
+const hitsEveryone = (def: CardDef): boolean =>
+  walkEffects(def.effects).some((e) => e.kind === 'damageAll');
 
 describe('previewValues matches what resolves', () => {
   for (const defId of HERO_CARDS) {
@@ -74,7 +100,12 @@ describe('previewValues matches what resolves', () => {
             const uid = state.hand[0];
             const target = state.enemies[0];
 
-            const promised = state.enemies.map((e) => previewValues(state, def, e).D);
+            // `D` is one hit and `T` is how many land, so the total a card
+            // promises is the product — 水淹七军 prints 5 and deals 10.
+            const promised = state.enemies.map((e) => {
+              const { D, T } = previewValues(state, def, e);
+              return D * T;
+            });
             const promisedBlock = previewValues(state, def).B;
 
             const hpBefore = state.enemies.map((e) => e.hp);
@@ -124,6 +155,26 @@ describe('describeCard', () => {
         if (def.effects.some((e) => e.kind === 'block')) expect(text, defId).toContain(String(B));
       }
     }
+  });
+
+  /**
+   * A card is spliced out of the hand before its effects resolve, so 单刀赴会's
+   * 「若手牌已空」 is really "if this was your last card". The preview has to
+   * model the same thing or the face under-reports by half its damage on
+   * exactly the turn the card is meant to shine.
+   */
+  it('reads 手牌已空 as the hand this card is about to leave', () => {
+    const alone = bench('dandaofuhui', 0, LOADOUTS[0]);
+    alone.attacksThisTurn = 1; // passive spent, so the numbers are the printed ones
+    const def = resolveCard('dandaofuhui', 0);
+    expect(alone.hand.length).toBe(1);
+    expect(previewValues(alone, def, alone.enemies[0]).D).toBe(12);
+
+    // With a second card in hand the payoff branch is correctly not promised.
+    const crowded = bench('dandaofuhui', 0, LOADOUTS[0]);
+    crowded.attacksThisTurn = 1;
+    crowded.hand.push(crowded.drawPile[0] ?? crowded.hand[0]);
+    expect(previewValues(crowded, def, crowded.enemies[0]).D).toBe(6);
   });
 
   /**

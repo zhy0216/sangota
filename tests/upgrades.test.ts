@@ -55,6 +55,61 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       { kind: 'block', amount: 6 },
     ],
   },
+
+  // --- todos/11 pool expansion --------------------------------------------
+  dandaofuhui: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'handEmpty' },
+        then: [{ kind: 'damage', amount: 16 }],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+  },
+  huarongdao: { effects: [{ kind: 'block', amount: 13 }] },
+  bingzhudadan: { effects: [{ kind: 'block', amount: 10 }] },
+  yeduchunqiu: { effects: [{ kind: 'draw', amount: 3 }] },
+  shuiyanqijun: {
+    effects: [
+      { kind: 'damageAll', amount: 7, times: 2 },
+      {
+        kind: 'conditional',
+        when: { c: 'enemyCountAtLeast', n: 2 },
+        then: [{ kind: 'draw', amount: 1 }],
+      },
+    ],
+  },
+  zhanyanliang: {
+    effects: [
+      { kind: 'damage', amount: 12 },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'vulnerable' },
+        then: [{ kind: 'energy', amount: 1 }],
+      },
+    ],
+  },
+  hulaoguan: { effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 7 }] }] },
+  tushanyuesanshi: {
+    effects: [
+      { kind: 'loseHp', amount: 3 },
+      { kind: 'energy', amount: 2 },
+      { kind: 'draw', amount: 2 },
+    ],
+  },
+  wubaijiaodaoshou: {
+    effects: [{ kind: 'addCard', defId: 'baima', count: 3, to: 'hand', upgraded: 1 }],
+  },
+  guaguliaodu: {
+    effects: [
+      { kind: 'loseHp', amount: 3 },
+      { kind: 'status', status: 'regen', amount: 5, to: 'self' },
+    ],
+  },
+  weizhenhuaxia: { effects: [{ kind: 'status', status: 'ritual', amount: 2, to: 'self' }] },
+  wuguanliujiang: { effects: [{ kind: 'status', status: 'slayer', amount: 3, to: 'self' }] },
+  shengougaolei: { cost: 2 },
 };
 
 /** Minimal combat state to preview a card face against — no enemies needed. */

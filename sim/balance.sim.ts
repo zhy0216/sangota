@@ -1,4 +1,6 @@
 import { expect, test } from 'vitest';
+import { rollCardReward } from '../src/combat/rewards';
+import { Rng } from '../src/core/rng';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { addCard, startRun, upgradeCard, type DeckCard } from '../src/state/run';
 import { POLICIES, type PolicyName } from './policy';
@@ -32,12 +34,43 @@ const TIERS: { tier: string; encounters: string[] }[] = [
 const DECKS: { profile: string; build: (seed: string) => DeckCard[] }[] = [
   { profile: 'starting', build: (seed) => startRun(DEFAULT_HERO, seed).deck },
   { profile: 'act-1', build: act1Deck },
+  { profile: 'act-1 rolled', build: act1RolledDeck },
 ];
 
-/** A plausible floor-15 deck: the 10 starters, one card per reward, three forged. */
+/**
+ * A plausible floor-15 deck: the 10 starters, one card per reward, three forged.
+ *
+ * The card list is hard-coded and predates todos/11 on purpose — it is the
+ * control. Holding it fixed is what lets the table below prove that a change in
+ * the numbers came from the rules and not from the deck being rebuilt.
+ */
 function act1Deck(seed: string): DeckCard[] {
   const run = startRun(DEFAULT_HERO, seed);
   for (const id of ['wenjiu', 'wanren', 'quedi', 'jieying', 'yiyong', 'xuzhao']) addCard(run, id);
+  for (const defId of ['pikan', 'tuodao', 'tiebi']) {
+    upgradeCard(run, run.deck.find((c) => c.defId === defId)!.uid);
+  }
+  return run.deck;
+}
+
+/**
+ * The same shape, drafted out of the real reward system instead: six rewards
+ * (the last one an elite's), one card taken from each. This is the profile that
+ * actually measures todos/11 — the control above can never draw a card the pool
+ * expansion added.
+ *
+ * The pick is uniform among the three on offer rather than "best", which
+ * deliberately under-states a real player. A greedy picker would measure the
+ * ceiling of the new pool; this measures its average, and the average is what a
+ * win-rate band is about.
+ */
+function act1RolledDeck(seed: string): DeckCard[] {
+  const run = startRun(DEFAULT_HERO, seed);
+  const rng = new Rng(`${seed}:rewards`);
+  for (let i = 0; i < 6; i++) {
+    const picks = rollCardReward({ tier: i === 5 ? 'elite' : 'monster', run, rng });
+    if (picks.length > 0) addCard(run, rng.pick(picks));
+  }
   for (const defId of ['pikan', 'tuodao', 'tiebi']) {
     upgradeCard(run, run.deck.find((c) => c.defId === defId)!.uid);
   }

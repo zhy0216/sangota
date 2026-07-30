@@ -7,6 +7,8 @@ import { bodyStyle, brushStyle } from '../ui/theme';
 
 const ICON_KEYS = ['monster', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'] as const;
 const ENEMY_KEYS = ['yellowturban', 'bandit', 'huaxiong', 'lubu'] as const;
+// Cards with a real painting to load. The 13 from todos/11 have none yet, so
+// they fall through to the procedural plate `makeCardArt` draws in `create`.
 const CARD_KEYS = [
   'pikan', 'tiebi', 'tuodao', 'wenjiu', 'wanren',
   'quedi', 'yiyong', 'baima', 'jieying', 'guanzhen', 'xuzhao',

@@ -90,7 +90,7 @@ export interface RunState {
 1. `src/rooms/shop.ts`：
    - `generateStock(run, nodeId): ShopStock`——用 seeded Rng 抽卡/遗物/药水，
      排除玩家已持有的遗物、遵守卡牌稀有度权重（见
-     [11 稀有度](11-card-rarity-and-rewards.md)）
+     [11 稀有度](11-card-rarity-and-rewards-done.md)）
    - `priceOf(kind, rarity, rng)`——按上表 ±10%
    - `buy(run, stock, item): boolean`——查金币、扣钱、进牌组/遗物/药水槽
    - `removeCard(run, stock, uid)`——扣钱、从 `run.deck` 删、
@@ -126,4 +126,4 @@ export interface RunState {
 - [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` 实例化（弃卡要定位到具体一张）
 - [01 遗物](01-relics-done.md) / [02 药水](02-potions-done.md)——库存的两个品类
 - [07 牌堆查看器](07-deck-viewer-done.md)——弃卡的选牌 UI
-- [11 稀有度](11-card-rarity-and-rewards.md)——卡牌库存的抽取权重
+- [11 稀有度](11-card-rarity-and-rewards-done.md)——卡牌库存的抽取权重

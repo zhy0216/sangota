@@ -86,6 +86,10 @@ export interface RelicModifiers {
   goldMultiplier?: number;
   /** Extra 丹药 slots. Read by the run, not the engine — a fight has no belt. */
   potionSlots?: number;
+  /** Cards a reward offers, relative to the base 3. Also run-side, not engine. */
+  cardRewardCount?: number;
+  /** 「不取」 pays this much 最大体力 instead of nothing. */
+  skipRewardMaxHp?: number;
 }
 
 /** Everything a pure damage query may look at. Must not be mutated. */
@@ -358,6 +362,46 @@ export const RELICS: Record<string, RelicDef> = {
     modifiers: { potionSlots: 2 },
   },
 
+  qiuxianling: {
+    id: 'qiuxianling',
+    name: '求贤令',
+    tier: 'uncommon',
+    art: 'relic-qiuxianling',
+    text: '战后可选的卡牌 +{N} 张。',
+    value: 1,
+    modifiers: { cardRewardCount: 1 },
+  },
+
+  /**
+   * The 魁首 trade: a narrower draft in exchange for the boss relic itself.
+   * -2 rather than "always 1" so it composes with 求贤令 instead of overriding
+   * it — two relics that both rewrite the count would need a precedence rule.
+   */
+  duduan: {
+    id: 'duduan',
+    name: '独断',
+    tier: 'boss',
+    art: 'relic-duduan',
+    text: '战后可选的卡牌 -{N} 张。',
+    value: 2,
+    modifiers: { cardRewardCount: -2 },
+  },
+
+  /**
+   * Makes 「不取」 a real option rather than a concession — a thin deck is a
+   * strategy, and before this the screen charged nothing for it but paid
+   * nothing either.
+   */
+  geban: {
+    id: 'geban',
+    name: '歌钵',
+    tier: 'shop',
+    art: 'relic-geban',
+    text: '战后选择「不取」时，最大体力 +{N}。',
+    value: 2,
+    modifiers: { skipRewardMaxHp: 2 },
+  },
+
   jubaopen: {
     id: 'jubaopen',
     name: '聚宝盆',
@@ -405,6 +449,8 @@ export interface ResolvedModifiers {
   startingBlock: number;
   goldMultiplier: number;
   potionSlots: number;
+  cardRewardCount: number;
+  skipRewardMaxHp: number;
 }
 
 /** Summed static modifiers for a set of relics. Gold multipliers compound. */
@@ -416,6 +462,8 @@ export function relicModifiers(ids: readonly string[]): ResolvedModifiers {
     startingBlock: 0,
     goldMultiplier: 1,
     potionSlots: 0,
+    cardRewardCount: 0,
+    skipRewardMaxHp: 0,
   };
   for (const id of ids) {
     const mods = RELICS[id]?.modifiers;
@@ -426,6 +474,8 @@ export function relicModifiers(ids: readonly string[]): ResolvedModifiers {
     total.startingBlock += mods.startingBlock ?? 0;
     total.goldMultiplier *= mods.goldMultiplier ?? 1;
     total.potionSlots += mods.potionSlots ?? 0;
+    total.cardRewardCount += mods.cardRewardCount ?? 0;
+    total.skipRewardMaxHp += mods.skipRewardMaxHp ?? 0;
   }
   return total;
 }

@@ -551,10 +551,18 @@ function applyEffect(state: CombatState, step: QueuedStep): void {
   }
 }
 
+/**
+ * `handSize` is a parameter rather than a read of `state.hand` because a card
+ * is spliced out of the hand *before* its effects resolve, so 单刀赴会 asks
+ * "will my hand be empty once this is gone?". `applyEffect` therefore gets the
+ * default — the post-play hand it is already looking at — while `previewValues`
+ * passes the same count one card early, so the face promises what will land.
+ */
 function conditionMet(
   state: CombatState,
   cond: EffectCondition,
   target: Combatant | undefined,
+  handSize: number = state.hand.length,
 ): boolean {
   switch (cond.c) {
     case 'targetHasStatus':
@@ -562,7 +570,7 @@ function conditionMet(
     case 'selfHasStatus':
       return stacks(state.player, cond.status) >= (cond.min ?? 1);
     case 'handEmpty':
-      return state.hand.length === 0;
+      return handSize === 0;
     case 'attackPlayedThisTurn':
       return state.attacksThisTurn > 0;
     case 'hpBelow':
@@ -763,6 +771,13 @@ export function resolveDamage(state: CombatState, ctx: DamageContext): void {
       enemy.intent = null;
       state.events.push({ t: 'death', targetId: enemy.id });
       fireHook(state, 'enemyKilled', enemy);
+      // 斩将 and anything else that reads a kill. Player-scoped, and read fresh
+      // per status so one that grants another cannot see a stale count.
+      for (const id of STATUS_ORDER) {
+        const def = STATUS_META[id];
+        const n = stacks(state.player, id);
+        if (def.onEnemyKilled && n > 0) def.onEnemyKilled(state, state.player, n);
+      }
     }
   }
 
@@ -938,6 +953,9 @@ export function previewValues(
   const bonus = relicDamageBonus(state, def).amount;
   const player = state?.player ?? NEUTRAL;
   const out: PreviewValues = { D: 0, B: 0, T: 1 };
+  // A preview is a preview of *playing* this card, so it reads the hand the
+  // effects will see: one card lighter than the one on screen right now.
+  const handAfterPlay = Math.max(0, (state?.hand.length ?? 0) - 1);
 
   const walk = (effects: readonly Effect[], repeat: number): void => {
     for (const effect of effects) {
@@ -953,7 +971,9 @@ export function previewValues(
         case 'conditional':
           // Without a fight to ask, the card reads at its headline branch.
           walk(
-            !state || conditionMet(state, effect.when, against) ? effect.then : (effect.otherwise ?? []),
+            !state || conditionMet(state, effect.when, against, handAfterPlay)
+              ? effect.then
+              : (effect.otherwise ?? []),
             repeat,
           );
           break;

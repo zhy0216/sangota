@@ -48,9 +48,9 @@ Statuses are 破绽 (Vulnerable, +50% damage taken), 怯战 (Weak, −25% damage
 神力 (Strength, flat damage per hit); debuffs tick down at the end of their owner's
 turn. Cards come in 攻 / 谋 / 势. Click a card to play it; attack cards ask for a
 target, so click the enemy (`Esc` cancels). `E` ends the turn. Winning pays gold and
-offers one of three cards.
+offers a card reward.
 
-11 cards, 4 enemies (黄巾力士, 山贼, elite 华雄, boss 吕布) and 6 encounter tables.
+24 cards, 4 enemies (黄巾力士, 山贼, elite 华雄, boss 吕布) and 6 encounter tables.
 
 **宝物 (relics)** — permanent passives on a data-driven hook system. A relic is a row in
 `combat/relics.ts`: static `modifiers` (max HP, 气 ceiling, hand size, starting block,
@@ -98,6 +98,27 @@ can never become permanent, and both kinds carry `basic` rarity, which is what k
 structurally out of the reward pool. `removeCard(run, uid)` is the removal primitive
 商店弃卡 / 营帐弃甲 / 五丈原 will all share — a curse the player cannot shed is
 punishment, not a decision.
+
+**卡牌稀有度与奖励** — the reward pool is `CARD_POOL_BY_RARITY`, keyed by
+`Exclude<CardRarity, 'basic'>`, and `rollCardReward` rolls a rarity per card before
+picking inside it. Weights are the original's — monster 60/37/3, elite 50/37/13, boss
+40/40/20 — plus the escalation: a reward that produces no rare adds 1 to the rare weight
+of the next one, and a rare resets it. Three distinct cards, never a duplicate, and a
+drained tier falls *down* first so running out of commons cannot start handing out rares.
+
+The `basic` keying is the point: the three starters, the six 诅咒 and the five 状态牌 are
+all `basic`, so they are structurally unable to appear as loot. It is a type error rather
+than a filter someone has to remember.
+
+The pool went from 11 cards to 24 — 10 common, 8 uncommon, 3 rare — built on the keywords
+and statuses todos 13 and 12 landed rather than being damage variants of 劈砍: 华容道 is
+虚无 block, 秉烛达旦 is 保留 block, 虎牢关 is an X-cost, 水淹七军 hits everyone twice,
+五百校刀手 mints three 白马义从 into hand, and the three rares are 蓄势 / 斩将 / 深沟高垒
+engines. 斩将 is the one new status, and it hangs off the same kill moment 枭首令 does.
+
+`run.cardRewardCount` is relic-driven — 求贤令 offers 4, 独断 offers 1 in exchange for
+being a boss relic, and 歌钵 pays 2 最大体力 for taking 「不取」. The reward row lays out
+from its own width, so 1, 3 and 4 cards are all centred.
 
 **丹药 (potions)** — the run's only emergency resource: free to drink, no 气, no play
 limit, gone after. 17 of them across three rarities — 火油罐 (20 damage), 壮行酒 (+2 气
@@ -185,10 +206,13 @@ the composition order and per-step flooring of 神力/怯战/破绽 in `computeA
 absorption in `applyDamage`, debuff decay, draw-pile reshuffling and the `MAX_HAND` cap,
 `maxRepeat` on intents across 200 seeds per enemy, and the 400-seed map property test.
 
-The one that matters most is card-face consistency: every one of the 11 cards is
+The one that matters most is card-face consistency: every one of the 24 cards is
 actually played, in both upgrade states, against five status loadouts and with the
-passive both available and spent — 220 cases asserting that the number on the card face
-equals the HP that comes off. A card face that lies is the worst bug this genre has.
+passive both available and spent — 480 cases asserting that the number on the card face
+equals the HP that comes off. A card face that lies is the worst bug this genre has, and
+this suite caught one during the pool expansion: 单刀赴会 promised 6 and dealt 12,
+because a card leaves the hand *before* its effects resolve and only the resolver knew
+it. `previewValues` now reads the hand the effects will see.
 
 `tests/integrity.test.ts` also greps the rules layer for `Math.random` and for Phaser
 imports, so determinism and headlessness can't be lost by accident.
@@ -207,7 +231,7 @@ snapshots plus 3 unit assertions. The two that survive are the two fights where
 Vulnerable never landed.
 
 **Layer 3 · balance simulation** (`npm run sim`) — 500 fights per cell over three AI
-policies (`random` as a floor, `greedy`, `threat`) and two deck profiles.
+policies (`random` as a floor, `greedy`, `threat`) and three deck profiles.
 
 **starting deck** (10 cards, floor 1)
 
@@ -225,7 +249,37 @@ policies (`random` as a floor, `greedy`, `threat`) and two deck profiles.
 | elite 华雄 | 92% · 7.3 turns · 31 hp | 100% · 4.7 turns · 34 hp | 100% · 4.7 turns · 35 hp |
 | boss 吕布 | 49% · 9.6 turns · 14 hp | 53% · 6.7 turns · 10 hp | 62% · 7.6 turns · 9 hp |
 
-Deck profile turns out to matter more than policy, which is why both are reported. 吕布
+**act-1 rolled deck** (the same shape, drafted out of `rollCardReward` instead of a
+hard-coded list — this is the profile that actually measures the expanded pool)
+
+| | random AI | greedy AI | threat AI |
+|---|---|---|---|
+| trash | 100% · 5.6 turns · 58 hp | 100% · 4.1 turns · 61 hp | 100% · 4.1 turns · 62 hp |
+| elite 华雄 | 95% · 6.3 turns · 33 hp | 100% · 4.5 turns · 39 hp | 100% · 4.5 turns · 40 hp |
+| boss 吕布 | 49% · 8.4 turns · 18 hp | 71% · 6.5 turns · 15 hp | **78%** · 6.8 turns · 16 hp |
+
+⚠️ **The pool expansion overshoots its own acceptance band.** todos/11 asks for a 吕布
+win rate inside 40–75% after the pool reaches 24 cards; drafting from the new pool the
+threat policy reaches **78%**, three points over. The hard-coded `act-1` profile above is
+held fixed as a control and reads 49/53/62% — bit-identical to what it read before the
+expansion — so the drift is the new cards, not the rules.
+
+A per-card sweep (control deck plus two copies, 500 fights on 吕布) isolates it to two
+cards, both of which hand back the 气 they cost:
+
+| card | greedy | Δ | threat | Δ |
+|---|---|---|---|---|
+| 土山约三事 | 95% | +42 | 95% | +27 |
+| 斩颜良 | 90% | +38 | 90% | +21 |
+| *every other new card* | ≤59% | ≤+6 | ≤67% | ≤−1 |
+
+土山约三事 is 0 气 for +2 气 and +2 cards, so it is card- and tempo-positive at once and
+snowballs into itself; 斩颜良 refunds its 气 against a 破绽'd target, which this deck
+keeps up more or less permanently. Everything else in the 13 is neutral or a slight loss
+at boss scale. Left as-is and recorded rather than quietly re-tuned — the numbers above
+are the brief for that decision.
+
+Deck profile turns out to matter more than policy, which is why all three are reported. 吕布
 is close to unwinnable against the bare starting deck (12% / 7%) and a real fight once
 the deck has grown (53% / 62%) — quoting one number per tier without saying which deck
 it assumes hides the whole difficulty curve. The threat-aware policy only pulls ahead on
@@ -335,9 +389,14 @@ shows up immediately once the canvas is pixel-exact.
   宝藏 pays gold, but neither has a real screen yet.
 - One act, one hero. Beating 吕布 ends the map with nothing after it.
 - No save/resume.
-- Relics exist and fire, but only the hero's starter one is ever granted — 药囊, the
-  relic that proves the potion-slot modifier works, is among the ones nothing hands out.
+- Relics exist and fire, but only the hero's starter one is ever granted — 药囊, 求贤令,
+  独断 and 歌钵, the four that prove the potion-slot and reward-count modifiers work, are
+  among the ones nothing hands out.
 - Potions drop from fights, but shops and events cannot sell or give them yet.
+- 吕布's win rate against a deck drafted from the expanded pool is 78% on the threat
+  policy, above the 40–75% band todos/11 set for itself. Cause is isolated (see the
+  balance section); nothing has been re-tuned yet.
+- `COLORLESS_POOL` is empty — 无色 cards need the shop (todos/05) to have an entry point.
 - Card upgrades exist as model + card face + `upgradeCard()`, but no screen grants
   them yet.
 - No sound at all — every beat of combat feel is currently visual only.

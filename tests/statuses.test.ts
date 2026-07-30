@@ -67,8 +67,8 @@ describe('the status table', () => {
     expect(new Set(STATUS_ORDER).size).toBe(STATUS_ORDER.length);
   });
 
-  it('gives all 18 statuses a name, a description and an icon', () => {
-    expect(STATUS_ORDER).toHaveLength(18);
+  it('gives all 19 statuses a name, a description and an icon', () => {
+    expect(STATUS_ORDER).toHaveLength(19);
     for (const id of STATUS_ORDER) {
       const def = STATUS_META[id];
       expect(def.id, id).toBe(id);
@@ -424,6 +424,76 @@ describe('龟缩 / 暴怒', () => {
 
     playCard(state, state.hand[0], enemy.id);
     expect(enemy.statuses.strength).toBe(4);
+  });
+});
+
+// -------------------------------------------------------------------- 斩将
+
+describe('斩将 (todos/11)', () => {
+  /** Two enemies, so a kill can happen with the fight still running. */
+  const bench2 = (deck: DeckCard[]): CombatState => bench(deck, 'm2', 'slayer');
+  const stacksOf = (state: CombatState, id: StatusId): number => state.player.statuses[id] ?? 0;
+
+  it('grants 神力 equal to its stacks each time an enemy drops', () => {
+    const state = bench2(cards('pikan', 6));
+    addStatus(state, state.player, 'slayer', 2);
+
+    const first = state.enemies[0];
+    resolveDamage(state, {
+      attacker: state.player,
+      defender: first,
+      base: 999,
+      isAttack: true,
+      pierceBlock: true,
+    });
+    expect(first.alive).toBe(false);
+    expect(stacksOf(state, 'strength')).toBe(2);
+
+    const second = state.enemies[1];
+    resolveDamage(state, {
+      attacker: state.player,
+      defender: second,
+      base: 999,
+      isAttack: true,
+      pierceBlock: true,
+    });
+    expect(stacksOf(state, 'strength')).toBe(4);
+  });
+
+  it('does nothing at all without the status', () => {
+    const state = bench2(cards('pikan', 6));
+    resolveDamage(state, {
+      attacker: state.player,
+      defender: state.enemies[0],
+      base: 999,
+      isAttack: true,
+      pierceBlock: true,
+    });
+    expect(stacksOf(state, 'strength')).toBe(0);
+  });
+
+  it('fires once per enemy, not once per killing hit', () => {
+    const state = bench2(cards('pikan', 6));
+    addStatus(state, state.player, 'slayer', 3);
+    const target = state.enemies[0];
+
+    for (let i = 0; i < 3; i++) {
+      resolveDamage(state, {
+        attacker: state.player,
+        defender: target,
+        base: 999,
+        isAttack: true,
+        pierceBlock: true,
+      });
+    }
+    // A corpse cannot die again — `enemy.alive` gates the whole block.
+    expect(stacksOf(state, 'strength')).toBe(3);
+  });
+
+  it('is a permanent buff that no debuff ward intercepts', () => {
+    expect(STATUS_META.slayer.decay).toBe('none');
+    expect(STATUS_META.slayer.kind).toBe('buff');
+    expect(STATUS_META.slayer.blockable).toBe(false);
   });
 });
 

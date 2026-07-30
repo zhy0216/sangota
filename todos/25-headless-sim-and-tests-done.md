@@ -26,7 +26,7 @@ so the whole system is testable headlessly」，而且确实如此
 - [13 关键词](13-card-keywords-done.md) 要改牌的整个生命周期
 - [15 敌人机制](15-enemy-mechanics.md) 要改意图选择和 move 执行
 - [19 天命](19-ascension.md) 要在十几个点插入倍率
-- [11 卡池扩容](11-card-rarity-and-rewards.md) 要标定 24 张牌的平衡
+- [11 卡池扩容](11-card-rarity-and-rewards-done.md) 要标定 24 张牌的平衡
 
 这些改动**不可能靠手玩验证**。手玩一场战斗 90 秒，验证一次伤害管线
 重构要跑几十场。而且数值漂移是静默的——改错了游戏照样能玩，
@@ -216,6 +216,6 @@ export interface TierStats {
 **无依赖，应当第一个做。**
 
 被以下条目依赖（它们都是规则重构，没有回归网会静默改坏数值）：
-[11 卡池](11-card-rarity-and-rewards.md)、[12 状态库](12-status-library-done.md)、
+[11 卡池](11-card-rarity-and-rewards-done.md)、[12 状态库](12-status-library-done.md)、
 [13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics.md)、
 [19 天命](19-ascension.md)、[09 多幕](09-acts-and-progression.md)

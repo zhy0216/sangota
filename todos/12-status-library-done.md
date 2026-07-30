@@ -17,7 +17,7 @@ export type StatusId = 'vulnerable' | 'weak' | 'strength';
 
 这个架构撑 3 个状态没问题，但扩到 20 个就会变成一坨 if。而状态效果
 **是卡牌设计的原材料**——只有 3 种状态，能设计的卡就只有
-「伤害/护甲/上破绽/上怯战/加神力/抽牌」六种。这是 [11 卡池扩容](11-card-rarity-and-rewards.md)
+「伤害/护甲/上破绽/上怯战/加神力/抽牌」六种。这是 [11 卡池扩容](11-card-rarity-and-rewards-done.md)
 的硬约束。
 
 ## 原版行为
@@ -225,7 +225,7 @@ export interface DamageContext {
 
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——**强依赖**。这是纯规则重构，
   没有回归测试会静默改坏数值
-- **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards.md)、
+- **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards-done.md)、
   [13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics.md)
   全都建立在状态库上
 

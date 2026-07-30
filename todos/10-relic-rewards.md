@@ -110,7 +110,7 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
    遗物图标从中心放大出现 + 名字 + 说明，然后才展开选卡区。
 4. **精英选卡加权**：`CombatScene.ts:1175` 附近生成三张奖励卡的地方，
    按 `nodeType` 用不同的稀有度权重表（见
-   [11 稀有度](11-card-rarity-and-rewards.md)）。
+   [11 稀有度](11-card-rarity-and-rewards-done.md)）。
 5. **Boss 宝箱**：新场景或 `RoomScene` 的一个模式。
    - 三件 boss 遗物横排，各自图标 + 名字 + 完整说明（Boss 遗物有负收益，
      说明必须写全，别让玩家瞎选）
@@ -142,5 +142,5 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
 - [01 遗物](01-relics-done.md)——遗物系统本体
 - [02 药水](02-potions-done.md)——宝箱附赠
 - [04 营帐](04-campfire.md)——`RoomScene` 壳
-- [11 稀有度](11-card-rarity-and-rewards.md)——精英选卡加权
+- [11 稀有度](11-card-rarity-and-rewards-done.md)——精英选卡加权
 - [09 多幕](09-acts-and-progression.md)——Boss 宝箱和宝钥的意义

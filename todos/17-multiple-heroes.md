@@ -120,7 +120,7 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
    否则第二个武将没法接。
 2. `cards.ts`：给 11 张现有牌加 `hero: 'guanyu'`（其中通用性强的
    如「观阵」「铁壁」可以标 `'colorless'`）。
-   `CARD_POOL_BY_RARITY`（见 [11](11-card-rarity-and-rewards.md)）
+   `CARD_POOL_BY_RARITY`（见 [11](11-card-rarity-and-rewards-done.md)）
    改成按武将建索引。
 3. `heroes.ts`：加赵云的 `HeroDef`，`cardPool` 列 20+ 张新牌，
    `resource: { id: 'combo', label: '连击', initial: 0, resetOn: 'turn', display: 'counter' }`。
@@ -164,7 +164,7 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
 ## 依赖
 
 - [01 遗物](01-relics-done.md)——**强依赖**，被动必须先搬进遗物系统
-- [11 稀有度](11-card-rarity-and-rewards.md)——卡池要先按稀有度分组才好按武将分
+- [11 稀有度](11-card-rarity-and-rewards-done.md)——卡池要先按稀有度分组才好按武将分
 - [13 关键词](13-card-keywords-done.md)——独有资源的 scaling 需要条件/缩放效果
 - [07 牌堆查看器](07-deck-viewer-done.md)——选将界面的牌组预览
 - 弱依赖 [23 解锁](23-compendium-and-unlocks.md)（武将解锁条件）
