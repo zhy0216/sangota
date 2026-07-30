@@ -107,7 +107,7 @@ function makeEnemy(defId: string, slot: number, rng: Rng): EnemyState {
  * Weighted pick over the enemy's moves, skipping any move that has already run
  * `maxRepeat` times in a row so enemies don't lock into one action.
  */
-function pickIntent(state: CombatState, enemy: EnemyState): void {
+export function pickIntent(state: CombatState, enemy: EnemyState): void {
   const def = getEnemy(enemy.defId);
   let pool = def.moves.filter(
     (m) => !(enemy.intent?.id === m.id && enemy.repeat >= (m.maxRepeat ?? Infinity)),
@@ -294,7 +294,8 @@ function dealAttack(
   applyDamage(state, defender, computeAttack(base, attacker, defender));
 }
 
-function applyDamage(state: CombatState, target: Combatant, damage: number): void {
+/** Block soaks first; only the remainder is HP loss, and only that can kill. */
+export function applyDamage(state: CombatState, target: Combatant, damage: number): void {
   const blocked = Math.min(target.block, damage);
   target.block -= blocked;
   const hpLoss = damage - blocked;

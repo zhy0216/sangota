@@ -1,0 +1,257 @@
+{
+  "encounter": "m1",
+  "seed": "gold-03",
+  "policy": "random",
+  "deck": "base",
+  "result": {
+    "won": true,
+    "turns": 4,
+    "hpLeft": 78,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "discard",
+      "uid": "d9"
+    },
+    {
+      "t": "discard",
+      "uid": "d0"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "yellowturban-0",
+      "label": "劈斩"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 0,
+      "blocked": 9,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d8"
+    },
+    {
+      "t": "discard",
+      "uid": "d2"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "yellowturban-0",
+      "label": "劈斩"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 5,
+      "lethal": false
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "discard",
+      "uid": "d4"
+    },
+    {
+      "t": "discard",
+      "uid": "d8"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "yellowturban-0",
+      "label": "据守"
+    },
+    {
+      "t": "block",
+      "targetId": "yellowturban-0",
+      "amount": 6
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 0,
+      "blocked": 5,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-0",
+      "amount": 3,
+      "blocked": 6,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "damage",
+      "targetId": "yellowturban-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "yellowturban-0"
+    }
+  ]
+}

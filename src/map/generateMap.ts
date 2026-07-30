@@ -1,5 +1,5 @@
 import { MAP } from '../config';
-import { Rng } from '../core/rng';
+import { Rng, randomSeed } from '../core/rng';
 import { nodeKey, type GameMap, type MapNode, type RoomType } from './types';
 
 /**
@@ -30,7 +30,7 @@ const RESTRICTED: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'el
 const edgeKey = (row: number, from: number, to: number) => `${row}:${from}>${to}`;
 
 export function generateMap(seedInput?: string): GameMap {
-  const seed = seedInput ?? Math.floor(Math.random() * 0xffffffff).toString(36);
+  const seed = seedInput ?? randomSeed();
   const rng = new Rng(seed);
 
   const { rows, cols, paths } = MAP;

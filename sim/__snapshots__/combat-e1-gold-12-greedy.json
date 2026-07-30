@@ -1,0 +1,334 @@
+{
+  "encounter": "e1",
+  "seed": "gold-12",
+  "policy": "greedy",
+  "deck": "base",
+  "result": {
+    "won": true,
+    "turns": 5,
+    "hpLeft": 21,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d7"
+    },
+    {
+      "t": "discard",
+      "uid": "d0"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "huaxiong-0",
+      "label": "巨斧"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 15,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "huaxiong-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d5"
+    },
+    {
+      "t": "discard",
+      "uid": "d8"
+    },
+    {
+      "t": "discard",
+      "uid": "d6"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "huaxiong-0",
+      "label": "巨斧"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 15,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 13,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "discard",
+      "uid": "d8"
+    },
+    {
+      "t": "discard",
+      "uid": "d7"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "huaxiong-0",
+      "label": "横扫"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 2,
+      "blocked": 5,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "huaxiong-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d1"
+    },
+    {
+      "t": "discard",
+      "uid": "d4"
+    },
+    {
+      "t": "discard",
+      "uid": "d6"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "huaxiong-0",
+      "label": "巨斧"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 15,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "huaxiong-0",
+      "amount": 13,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "huaxiong-0"
+    }
+  ]
+}

@@ -9,7 +9,10 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sim": "vitest run --config vitest.sim.config.ts --reporter=verbose",
+    "check": "npm run typecheck && npm test"
   },
   "dependencies": {
     "phaser": "^3.90.0"

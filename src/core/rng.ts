@@ -19,6 +19,18 @@ export class Rng {
     return h >>> 0;
   }
 
+  /**
+   * The generator's cursor. Save/resume and the headless sim both need to park
+   * a stream mid-run and pick it back up bit-for-bit.
+   */
+  getState(): number {
+    return this.state;
+  }
+
+  fromState(state: number): void {
+    this.state = state >>> 0;
+  }
+
   /** [0, 1) */
   next(): number {
     this.state = (this.state + 0x6d2b79f5) >>> 0;
@@ -65,4 +77,15 @@ export class Rng {
     }
     return items;
   }
+}
+
+/**
+ * The single point of real entropy in the project. Everything downstream is
+ * derived from the string this returns, so a run stays reproducible and the
+ * headless sim can replay any fight from its seed alone.
+ */
+export function randomSeed(): string {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return buf[0].toString(36);
 }

@@ -15,7 +15,9 @@ npm run dev      # http://localhost:5173
 
 ```bash
 npm run typecheck   # tsc --noEmit
-npm test            # vitest run
+npm test            # vitest run — unit + property + golden, under a second
+npm run check       # typecheck + test, what CI runs
+npm run sim         # balance simulation, 9000 fights (~1s), prints markdown
 npm run build       # typecheck + production bundle
 ```
 
@@ -28,8 +30,9 @@ treasure, floor 15 always a camp; elite/camp/shop locked out below floor 6; no r
 of those types along an edge or between siblings). Maps are seeded — the seed prints
 bottom-left, and re-running it reproduces the layout exactly.
 
-Validated across 400 seeds: every node reachable, no rule violations, room mix landing
-at roughly monster 49% / event 21% / camp 12% / elite 7% / shop 3%.
+Validated across 400 seeds on every `npm test` (`tests/generateMap.test.ts`): every node
+reachable from floor 1, no crossing edges, fixed floors correct, elite/camp/shop never
+below floor 6, and no restricted type repeating up an edge or between siblings.
 
 **Hero** — 关羽 (Guan Yu), with a title screen card and an in-map drawer (click the HUD
 portrait, `Esc` to close). Passive 青龙偃月: the first attack card each turn deals +3,
@@ -59,7 +62,7 @@ from its seed. `resolveCard(defId, upgraded)` is the single place card data is r
 Nothing hands out upgrades yet — the 营帐 blacksmith is the intended entry point.
 
 The rules live in `combat/engine.ts` as pure functions with no Phaser import, so the
-whole system is testable headlessly — see below.
+whole system is testable headlessly — see [Testing](#testing).
 
 **Combat feel** — `ui/vfx.ts` holds the reusable effects (tapered brush-stroke slashes,
 impact bursts, dust, shield flares, ink splashes, pop text, screen washes, turn bands);
@@ -81,22 +84,72 @@ Two things worth knowing if you touch this:
 - Camera shake pulls empty space in at the edges, so the combat backdrop and ground
   band are drawn with ~6% bleed.
 
-**Balance** — 150 simulated fights per tier, two AI policies:
+## Testing
 
-| | greedy AI | threat-aware AI |
-|---|---|---|
-| trash | 100% win · 6.1 turns | 100% win · 4.2 turns |
-| elite 华雄 | 85% · 23 hp left | 94% · 29 hp left |
-| boss 吕布 | 41% · 17 hp left | 71% · 17 hp left |
+Three layers, cheapest first. `npm test` is all of layers 1–2 and finishes in well
+under a second; the balance sim is opt-in.
 
-The boss gap between the two policies is the point: 吕布 punishes bad sequencing and
-is winnable with good play. 吕布 was tuned down from an unwinnable 0% after the first
-sim run — Strength compounds viciously on multi-hit moves (+4 Strength on a 4-hit
-attack is a 16-damage swing in one turn).
+**Layer 1 · unit and property tests** (`tests/`) — exact assertions on the pure rules:
+the composition order and per-step flooring of 神力/怯战/破绽 in `computeAttack`, block
+absorption in `applyDamage`, debuff decay, draw-pile reshuffling and the `MAX_HAND` cap,
+`maxRepeat` on intents across 200 seeds per enemy, and the 400-seed map property test.
 
-Combat invariants checked across 360 fights with zero violations: card conservation
-across draw/hand/discard/exhaust, non-negative energy and block, HP within bounds,
-no living enemy at 0 HP, and every fight terminating.
+The one that matters most is card-face consistency: every one of the 11 cards is
+actually played, in both upgrade states, against five status loadouts and with the
+passive both available and spent — 220 cases asserting that the number on the card face
+equals the HP that comes off. A card face that lies is the worst bug this genre has.
+
+`tests/integrity.test.ts` also greps the rules layer for `Math.random` and for Phaser
+imports, so determinism and headlessness can't be lost by accident.
+
+**Layer 2 · golden snapshots** (`sim/__snapshots__/`) — 20 fixed fights across every
+encounter table, with the complete `CombatEvent` stream committed byte-for-byte. These
+are the record of correct behaviour *before* the damage-pipeline work, so a silent
+numeric drift shows up as a diff rather than as a game that quietly got easier.
+
+The net is verified, not assumed: setting `VULNERABLE_MULT` to 1.4 fails 18 of the 20
+snapshots plus 3 unit assertions. The two that survive are the two fights where
+Vulnerable never landed.
+
+**Layer 3 · balance simulation** (`npm run sim`) — 500 fights per cell over three AI
+policies (`random` as a floor, `greedy`, `threat`) and two deck profiles.
+
+**starting deck** (10 cards, floor 1)
+
+| | random AI | greedy AI | threat AI |
+|---|---|---|---|
+| trash | 99% win · 6.6 turns · 45 hp left | 100% · 4.2 turns · 56 hp | 100% · 4.2 turns · 56 hp |
+| elite 华雄 | 65% · 7.0 turns · 16 hp | 100% · 4.8 turns · 26 hp | 99% · 4.8 turns · 27 hp |
+| boss 吕布 | 0% · 8.0 turns | 12% · 6.1 turns · 6 hp | 7% · 6.8 turns · 6 hp |
+
+**act-1 deck** (16 cards, three forged — what you actually reach floor 15 with)
+
+| | random AI | greedy AI | threat AI |
+|---|---|---|---|
+| trash | 100% · 6.2 turns · 58 hp | 100% · 4.3 turns · 60 hp | 100% · 4.2 turns · 60 hp |
+| elite 华雄 | 92% · 7.3 turns · 31 hp | 100% · 4.7 turns · 34 hp | 100% · 4.7 turns · 35 hp |
+| boss 吕布 | 49% · 9.6 turns · 14 hp | 53% · 6.7 turns · 10 hp | 62% · 7.6 turns · 9 hp |
+
+Deck profile turns out to matter more than policy, which is why both are reported. 吕布
+is close to unwinnable against the bare starting deck (12% / 7%) and a real fight once
+the deck has grown (53% / 62%) — quoting one number per tier without saying which deck
+it assumes hides the whole difficulty curve. The threat-aware policy only pulls ahead on
+the boss, and only with a grown deck: 吕布 punishes bad sequencing, while 华雄 dies fast
+enough that blocking is wasted tempo.
+
+The sim also prints HP-left deciles. An average of 10 HP left can mean "everyone
+finishes around 10" or "half die, half finish at 20", and those are completely different
+to play — on the act-1 boss the deciles read `0 · 0 · 0 · 1 · 3 · 5 · 7 · 11 · 18`, so it
+is the second one.
+
+Combat invariants are re-checked after every single action across 360 fights
+(`sim/invariants.test.ts`): card conservation over draw/hand/discard/exhaust with no
+uid in two piles, non-negative energy and block, HP within bounds, no living enemy at
+0 HP, no dead enemy still telegraphing, and every fight terminating.
+
+The driver has two protective bail-outs so a rules bug reports itself instead of hanging
+CI: a turn cap, and a state-hash detector that fires when nothing has changed for 16
+iterations. Both are themselves tested.
 
 ## Retina / HiDPI
 
@@ -142,6 +195,13 @@ src/
   ui/CardView.ts       one card face
   ui/vfx.ts            reusable combat effects (slashes, bursts, banners, pop text)
   scenes/              Boot → Title → Map ⇄ Combat
+sim/
+  policy.ts            AI drivers: random / greedy / threat
+  runCombat.ts         headless combat driver + protective bail-outs
+  balance.sim.ts       balance tables (npm run sim, not npm test)
+  golden.test.ts       20 committed CombatEvent streams
+  invariants.test.ts   per-action invariant fuzz
+tests/                 unit + property tests
 public/assets/         generated art (map, hero, icons, enemies, card art)
 ```
 
