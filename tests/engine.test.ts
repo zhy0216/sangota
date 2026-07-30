@@ -4,7 +4,6 @@ import {
   BASE_ENERGY,
   HAND_SIZE,
   MAX_HAND,
-  PASSIVE_ATTACK_BONUS,
   applyDamage,
   computeAttack,
   drawCards,
@@ -14,6 +13,7 @@ import {
   runEnemyTurn,
   startCombat,
 } from '../src/combat/engine';
+import { RELICS } from '../src/combat/relics';
 import type { CombatState, Combatant, Encounter, StatusId } from '../src/combat/types';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { newDeckCard, type DeckCard } from '../src/state/run';
@@ -38,6 +38,7 @@ function bench(
     heroName: DEFAULT_HERO.name,
     hp: DEFAULT_HERO.maxHp,
     maxHp: DEFAULT_HERO.maxHp,
+    relics: [DEFAULT_HERO.starterRelic],
     seed,
   });
 }
@@ -257,7 +258,7 @@ describe('turn cycle', () => {
 
     let hp = enemy.hp;
     playCard(state, state.hand[0], enemy.id);
-    expect(hp - enemy.hp).toBe(6 + PASSIVE_ATTACK_BONUS);
+    expect(hp - enemy.hp).toBe(6 + (RELICS.qinglongdao.value ?? 0));
 
     hp = enemy.hp;
     playCard(state, state.hand[0], enemy.id);
@@ -265,6 +266,6 @@ describe('turn cycle', () => {
 
     endPlayerTurn(state);
     runEnemyTurn(state);
-    expect(state.firstAttackUsed).toBe(false);
+    expect(state.attacksThisTurn).toBe(0);
   });
 });

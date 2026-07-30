@@ -11,6 +11,9 @@ export interface HeroDef {
   /** Texture keys registered in BootScene. */
   portraitKey: string;
   fullKey: string;
+  /** Relic id the hero starts the run with — where the passive actually lives. */
+  starterRelic: string;
+  /** Title-screen flavour for that relic. It drives no rules. */
   passive: { name: string; desc: string };
   blurb: string;
   /** Card ids, one entry per physical copy. */
@@ -27,6 +30,7 @@ export const HEROES: Record<string, HeroDef> = {
     startingGold: 99,
     portraitKey: 'portrait-guanyu',
     fullKey: 'hero-guanyu',
+    starterRelic: 'qinglongdao',
     passive: {
       name: '青龙偃月',
       desc: '每回合首次打出【攻】牌时，该牌额外造成 3 点伤害。',

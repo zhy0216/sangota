@@ -1,6 +1,7 @@
 import { Rng } from '../core/rng';
 import { resolveCard } from './cards';
 import { getEnemy } from './enemies';
+import { fireHook, relicDamageBonus, relicEvent, relicModifiers } from './relics';
 import type {
   CardDef,
   CardInstance,
@@ -18,11 +19,14 @@ import type {
  * these functions and animating whatever lands in `state.events`.
  */
 
+/**
+ * Baselines only: relic modifiers are added on top in `startCombat`, and the
+ * rest of the engine reads `state.handSize` / `state.maxEnergy` rather than
+ * these, so a relic can move either number.
+ */
 export const HAND_SIZE = 5;
 export const MAX_HAND = 10;
 export const BASE_ENERGY = 3;
-/** 关羽 · 青龙偃月: the first attack card each turn hits harder. */
-export const PASSIVE_ATTACK_BONUS = 3;
 
 const VULNERABLE_MULT = 1.5;
 const WEAK_MULT = 0.75;
@@ -36,6 +40,8 @@ export interface StartCombatOptions {
   heroName: string;
   hp: number;
   maxHp: number;
+  /** Relic ids, in pickup order. Ids alone — the engine never sees run state. */
+  relics: readonly string[];
   seed: string;
 }
 
@@ -43,6 +49,7 @@ export interface StartCombatOptions {
 
 export function startCombat(opts: StartCombatOptions): CombatState {
   const rng = new Rng(opts.seed);
+  const mods = relicModifiers(opts.relics);
 
   const cards: Record<string, CardInstance> = {};
   const drawPile: string[] = [];
@@ -58,13 +65,14 @@ export function startCombat(opts: StartCombatOptions): CombatState {
     turn: 0,
     phase: 'player',
     energy: 0,
-    maxEnergy: BASE_ENERGY,
+    maxEnergy: BASE_ENERGY + mods.energy,
+    handSize: Math.max(0, HAND_SIZE + mods.handSize),
     player: {
       id: 'player',
       name: opts.heroName,
       hp: opts.hp,
       maxHp: opts.maxHp,
-      block: 0,
+      block: mods.startingBlock,
       statuses: {},
     },
     enemies,
@@ -73,12 +81,15 @@ export function startCombat(opts: StartCombatOptions): CombatState {
     hand: [],
     discardPile: [],
     exhaustPile: [],
-    firstAttackUsed: false,
+    attacksThisTurn: 0,
+    relics: [...opts.relics],
+    relicCounters: {},
     rng,
     events: [],
   };
 
   for (const enemy of enemies) pickIntent(state, enemy);
+  fireHook(state, 'combatStart');
   startPlayerTurn(state);
   return state;
 }
@@ -125,12 +136,14 @@ export function pickIntent(state: CombatState, enemy: EnemyState): void {
 // -------------------------------------------------------------- turn cycle
 
 export function startPlayerTurn(state: CombatState): void {
+  // Turn 1 keeps whatever combatStart relics granted; later turns wipe as usual.
+  if (state.turn > 0) state.player.block = 0;
   state.turn += 1;
   state.phase = 'player';
   state.energy = state.maxEnergy;
-  state.player.block = 0;
-  state.firstAttackUsed = false;
-  drawCards(state, HAND_SIZE);
+  state.attacksThisTurn = 0;
+  fireHook(state, 'turnStart');
+  drawCards(state, state.handSize);
 }
 
 export function drawCards(state: CombatState, count: number): void {
@@ -141,6 +154,7 @@ export function drawCards(state: CombatState, count: number): void {
       state.drawPile = state.rng.shuffle(state.discardPile);
       state.discardPile = [];
       state.events.push({ t: 'shuffle' });
+      fireHook(state, 'shuffle');
     }
     const uid = state.drawPile.pop();
     if (!uid) return;
@@ -151,6 +165,7 @@ export function drawCards(state: CombatState, count: number): void {
 
 export function endPlayerTurn(state: CombatState): void {
   if (state.phase !== 'player') return;
+  fireHook(state, 'turnEnd');
   for (const uid of state.hand) {
     state.discardPile.push(uid);
     state.events.push({ t: 'discard', uid });
@@ -183,15 +198,13 @@ export function runEnemyTurn(state: CombatState): void {
     pickIntent(state, enemy);
   }
 
+  fireHook(state, 'enemyTurnEnd');
   checkEnd(state);
   if (state.phase === 'enemy') startPlayerTurn(state);
 }
 
 function executeMove(state: CombatState, enemy: EnemyState, move: EnemyMove): void {
-  if (move.block) {
-    enemy.block += move.block;
-    state.events.push({ t: 'block', targetId: enemy.id, amount: move.block });
-  }
+  if (move.block) gainBlock(state, enemy, move.block);
   if (move.damage) {
     const hits = move.hits ?? 1;
     for (let i = 0; i < hits; i++) {
@@ -227,18 +240,19 @@ export function playCard(state: CombatState, uid: string, targetId?: string): bo
   state.energy -= def.cost;
   state.hand.splice(state.hand.indexOf(uid), 1);
 
-  const passive = def.type === 'attack' && !state.firstAttackUsed;
-  if (passive) {
-    state.firstAttackUsed = true;
-    state.events.push({ t: 'passive', label: '青龙偃月' });
-  }
-  const bonus = passive ? PASSIVE_ATTACK_BONUS : 0;
+  // Announced before the effects resolve, so the flourish leads the damage.
+  const bonus = relicDamageBonus(state, def);
+  for (const relic of bonus.sources) state.events.push(relicEvent(relic));
 
-  for (const effect of def.effects) applyEffect(state, effect, target, bonus);
+  for (const effect of def.effects) applyEffect(state, effect, target, bonus.amount);
 
   // Powers stay out of the deck for the rest of the fight.
   if (def.type === 'power') state.exhaustPile.push(uid);
   else state.discardPile.push(uid);
+
+  if (def.type === 'attack') state.attacksThisTurn += 1;
+  fireHook(state, 'cardPlayed', def);
+  if (def.type === 'attack') fireHook(state, 'attackPlayed', def);
 
   checkEnd(state);
   return true;
@@ -260,8 +274,7 @@ function applyEffect(
       }
       break;
     case 'block':
-      state.player.block += effect.amount;
-      state.events.push({ t: 'block', targetId: state.player.id, amount: effect.amount });
+      gainBlock(state, state.player, effect.amount);
       break;
     case 'status': {
       const who = effect.to === 'self' ? state.player : target;
@@ -310,11 +323,30 @@ export function applyDamage(state: CombatState, target: Combatant, damage: numbe
       enemy.alive = false;
       enemy.intent = null;
       state.events.push({ t: 'death', targetId: enemy.id });
+      fireHook(state, 'enemyKilled', enemy);
     }
   }
+
+  if (target.id === state.player.id && hpLoss > 0) fireHook(state, 'damageTaken', hpLoss);
 }
 
-function addStatus(
+/** The one place block is granted, so `blockGained` can't be routed around. */
+export function gainBlock(state: CombatState, target: Combatant, amount: number): void {
+  if (amount <= 0) return;
+  target.block += amount;
+  state.events.push({ t: 'block', targetId: target.id, amount });
+  if (target.id === state.player.id) fireHook(state, 'blockGained', amount);
+}
+
+/** Combat healing. The run carries the survivor's HP back out afterwards. */
+export function healCombatant(state: CombatState, target: Combatant, amount: number): void {
+  const healed = Math.min(amount, target.maxHp - target.hp);
+  if (healed <= 0) return;
+  target.hp += healed;
+  state.events.push({ t: 'heal', targetId: target.id, amount: healed });
+}
+
+export function addStatus(
   state: CombatState,
   target: Combatant,
   status: StatusId,
@@ -339,7 +371,10 @@ export function checkEnd(state: CombatState): void {
     state.phase = 'lost';
     return;
   }
-  if (aliveEnemies(state).length === 0) state.phase = 'won';
+  if (aliveEnemies(state).length !== 0) return;
+  state.phase = 'won';
+  // Only on a win: rewards follow, and nothing a relic does can save a corpse.
+  fireHook(state, 'combatEnd');
 }
 
 // ----------------------------------------------------------------- helpers
@@ -356,8 +391,8 @@ export const defOf = (state: CombatState, uid: string): CardDef => {
 const NEUTRAL: Combatant = { id: '_', name: '', hp: 1, maxHp: 1, block: 0, statuses: {} };
 
 /**
- * The numbers a card will actually produce right now — Strength, Weak and the
- * pending passive folded in — so the card face never lies about its damage.
+ * The numbers a card will actually produce right now — Strength, Weak and any
+ * relic bonus folded in — so the card face never lies about its damage.
  * Target-specific Vulnerable is applied only when `against` is supplied.
  *
  * `state` is optional because the deck viewer also runs on the map, where no
@@ -368,7 +403,7 @@ export function previewValues(
   def: CardDef,
   against?: Combatant,
 ): { D: number; B: number } {
-  const bonus = state && def.type === 'attack' && !state.firstAttackUsed ? PASSIVE_ATTACK_BONUS : 0;
+  const bonus = relicDamageBonus(state, def).amount;
 
   let damage = 0;
   let block = 0;

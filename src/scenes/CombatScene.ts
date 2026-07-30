@@ -11,10 +11,12 @@ import {
   runEnemyTurn,
   startCombat,
 } from '../combat/engine';
+import { relicByBanner } from '../combat/relics';
 import type { CombatEvent, CombatState, EnemyState, Encounter, StatusId } from '../combat/types';
 import { addCard, addGold, applyCombatResult, getRun, type RunState } from '../state/run';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_W, CardView } from '../ui/CardView';
+import { RelicBar } from '../ui/RelicBar';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, inkButton } from '../ui/theme';
@@ -23,6 +25,7 @@ import {
   dust,
   hitStop,
   inkSplash,
+  pop,
   popText,
   screenPulse,
   shieldFlare,
@@ -105,6 +108,8 @@ export class CombatScene extends Phaser.Scene {
   private finished = false;
 
   private energyText!: Phaser.GameObjects.Text;
+  private energyMaxText!: Phaser.GameObjects.Text;
+  private relicBar!: RelicBar;
   private turnText!: Phaser.GameObjects.Text;
   private drawPile!: PileCounter;
   private discardPile!: PileCounter;
@@ -148,6 +153,7 @@ export class CombatScene extends Phaser.Scene {
       heroName: this.run.hero.name,
       hp: this.run.hp,
       maxHp: this.run.maxHp,
+      relics: this.run.relics,
       seed,
     });
 
@@ -361,9 +367,22 @@ export class CombatScene extends Phaser.Scene {
     orb.strokeCircle(0, 0, 40);
     orb.lineStyle(1, C.cinnabar, 0.6);
     orb.strokeCircle(0, 0, 46);
-    this.energyText = this.add.text(0, -2, '', brushStyle(34, C.goldBright)).setOrigin(0.5);
-    this.energyOrb.add([orb, this.energyText]);
+    this.energyText = this.add.text(0, -8, '', brushStyle(34, C.goldBright)).setOrigin(0.5);
+    // The ceiling is printed too: a relic can move it, and a lone number would
+    // give the player no way to tell 3 of 3 from 3 of 4.
+    this.energyMaxText = this.add.text(0, 20, '', bodyStyle(13, C.paperDim)).setOrigin(0.5);
+    this.energyOrb.add([orb, this.energyText, this.energyMaxText]);
     fixed(this.add.text(88, 606, '气', bodyStyle(13, C.paperFaint)).setOrigin(0.5));
+
+    // Relic bar, clear of the encounter name on the left and of the boss's
+    // intent marker, which rides high over the middle of the top edge.
+    this.relicBar = new RelicBar(this, {
+      x: 196,
+      y: 18,
+      depth: DEPTH.hud,
+      tooltipDepth: DEPTH.float,
+    });
+    this.relicBar.setRelics(this.run.relics);
 
     // Piles. All four views read the same engine arrays the rules run on, so a
     // count on screen can never disagree with what is actually in the pile.
@@ -928,8 +947,30 @@ export class CombatScene extends Phaser.Scene {
         break;
       }
 
+      case 'relic':
+        this.relicBar.flash(ev.relicId);
+        await this.wait(120);
+        break;
+
+      case 'heal': {
+        const view = this.viewOf(ev.targetId);
+        if (view) {
+          const at = this.torso(view);
+          popText(this, at.x, at.y - 30, `+${ev.amount}`, { color: C.jade, size: 26 });
+          // The trailing bar can't lag behind a gain, or the next hit drains
+          // from a stale, lower value.
+          view.ghost.value = this.hpOf(ev.targetId);
+        }
+        this.paintHpBars();
+        await this.wait(150);
+        break;
+      }
+
       case 'passive': {
         const at = this.torso(this.playerView);
+        // A bannered relic still owns an icon in the bar — light that too.
+        const relic = relicByBanner(ev.label);
+        if (relic) this.relicBar.flash(relic.id);
         screenPulse(this, GAME_WIDTH, GAME_HEIGHT, 0xc9a227, 0.16, 360);
         burst(this, at.x, at.y, { color: 0xf0d67a, count: 20, speed: 260, scale: 0.2 });
         popText(this, PLAYER_X, BASELINE_Y - this.playerView.height - 24, `【${ev.label}】`, {
@@ -1073,15 +1114,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private popBadge(badge: Phaser.GameObjects.Container): void {
-    this.tweens.killTweensOf(badge);
-    badge.setScale(1);
-    this.tweens.add({
-      targets: badge,
-      scale: 1.35,
-      duration: 110,
-      yoyo: true,
-      ease: 'Back.easeOut',
-    });
+    pop(this, badge, 1.35, 110);
   }
 
   // ------------------------------------------------------------------ render
@@ -1101,6 +1134,7 @@ export class CombatScene extends Phaser.Scene {
     this.lastEnergy = this.state.energy;
 
     this.energyText.setText(`${this.state.energy}`);
+    this.energyMaxText.setText(`/ ${this.state.maxEnergy}`);
     this.turnText.setText(`第 ${this.state.turn} 回合`);
     this.deckCount.setText(String(this.run.deck.length));
     this.setCount(this.drawPile, this.state.drawPile.length);

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, MAP, css } from '../config';
 import { Rng } from '../core/rng';
+import { fireRunHook } from '../combat/relics';
 import { ROOM_META } from '../map/roomMeta';
 import type { MapNode } from '../map/types';
 import {
@@ -13,6 +14,7 @@ import {
   type RunState,
 } from '../state/run';
 import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
+import { RelicBar } from '../ui/RelicBar';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, circleMask, goldRing, gradientStrip, inkPanel } from '../ui/theme';
 
@@ -59,6 +61,7 @@ export class MapScene extends Phaser.Scene {
   private floorText!: Phaser.GameObjects.Text;
   private deckText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
+  private relicBar!: RelicBar;
 
   private tooltip!: Phaser.GameObjects.Container;
   private tooltipTitle!: Phaser.GameObjects.Text;
@@ -315,6 +318,10 @@ export class MapScene extends Phaser.Scene {
 
   /** Route a committed node to its room. Combat takes over the scene. */
   private enterRoom(node: MapNode): void {
+    // Proof that hooks aren't combat-only: this pays out before the room does.
+    for (const id of fireRunHook(this.run, 'roomEnter', node.type)) this.relicBar.flash(id);
+    this.refreshHud();
+
     switch (node.type) {
       case 'monster':
       case 'elite':
@@ -526,6 +533,17 @@ export class MapScene extends Phaser.Scene {
       if (this.dragDistance > 8) return;
       this.openDeck();
     });
+
+    // --- Relics -----------------------------------------------------------
+    // Between the deck box and the act title, both of which are fixed width.
+    this.relicBar = new RelicBar(this, {
+      x: 744,
+      y: 26,
+      depth: DEPTH.hud,
+      fixed: true,
+      tooltipDepth: DEPTH.tooltip,
+    });
+    this.relicBar.setRelics(this.run.relics);
 
     // --- Act / floor ------------------------------------------------------
     fixed(

@@ -22,6 +22,12 @@ export const brushStyle = (size: number, color: number = C.paper): TextStyle => 
   resolution: RENDER_SCALE,
 });
 
+export interface InkPanelOpts {
+  alpha?: number;
+  border?: number;
+  radius?: number;
+}
+
 /**
  * Ink-wash panel: a dark slab with a hairline gold border and a slightly
  * lighter inner bevel. Returned as a Graphics so callers can position it.
@@ -32,10 +38,26 @@ export function inkPanel(
   y: number,
   w: number,
   h: number,
-  opts: { alpha?: number; border?: number; radius?: number } = {},
+  opts: InkPanelOpts = {},
+): Phaser.GameObjects.Graphics {
+  return paintInkPanel(scene.add.graphics(), x, y, w, h, opts);
+}
+
+/**
+ * The same panel painted into a Graphics that already exists — for tooltips,
+ * which resize to their text on every hover and shouldn't leak an object per
+ * repaint.
+ */
+export function paintInkPanel(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  opts: InkPanelOpts = {},
 ): Phaser.GameObjects.Graphics {
   const { alpha = 0.86, border = C.gold, radius = 6 } = opts;
-  const g = scene.add.graphics();
+  g.clear();
   g.fillStyle(C.inkDeep, alpha);
   g.fillRoundedRect(x, y, w, h, radius);
   g.lineStyle(1, border, 0.55);

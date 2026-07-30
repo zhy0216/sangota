@@ -49,6 +49,7 @@ function fuzzFight(encounterId: string, policy: Policy, seed: string): void {
     heroName: DEFAULT_HERO.name,
     hp: DEFAULT_HERO.maxHp,
     maxHp: DEFAULT_HERO.maxHp,
+    relics: [DEFAULT_HERO.starterRelic],
     seed,
   });
 

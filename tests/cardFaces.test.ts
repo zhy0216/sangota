@@ -31,6 +31,7 @@ function bench(defId: string, upgraded: number, loadout: (typeof LOADOUTS)[numbe
     heroName: DEFAULT_HERO.name,
     hp: DEFAULT_HERO.maxHp,
     maxHp: DEFAULT_HERO.maxHp,
+    relics: [DEFAULT_HERO.starterRelic],
     seed: `face-${defId}-${upgraded}-${loadout.name}`,
   });
   // 气 is not what is under test here.
@@ -58,7 +59,8 @@ describe('previewValues matches what resolves', () => {
 
           it(label, () => {
             const state = bench(defId, upgraded, loadout);
-            state.firstAttackUsed = passiveSpent;
+            // Spending the passive is now "an attack already went out this turn".
+            state.attacksThisTurn = passiveSpent ? 1 : 0;
 
             const def = resolveCard(defId, upgraded);
             const uid = state.hand[0];

@@ -113,6 +113,7 @@ export type CombatPhase = 'player' | 'enemy' | 'won' | 'lost';
 /** Emitted by the engine so the scene can animate; drained by the scene. */
 export type CombatEvent =
   | { t: 'damage'; targetId: string; amount: number; blocked: number; lethal: boolean }
+  | { t: 'heal'; targetId: string; amount: number }
   | { t: 'block'; targetId: string; amount: number }
   | { t: 'status'; targetId: string; status: StatusId; amount: number }
   | { t: 'death'; targetId: string }
@@ -120,6 +121,9 @@ export type CombatEvent =
   | { t: 'discard'; uid: string }
   | { t: 'shuffle' }
   | { t: 'enemyMove'; enemyId: string; label: string }
+  /** A relic fired: flash its icon in the bar. */
+  | { t: 'relic'; relicId: string }
+  /** A relic with a `banner` fired: the full-screen flourish. */
   | { t: 'passive'; label: string };
 
 export interface CombatState {
@@ -127,6 +131,8 @@ export interface CombatState {
   phase: CombatPhase;
   energy: number;
   maxEnergy: number;
+  /** Cards drawn at the start of each turn, relic modifiers already folded in. */
+  handSize: number;
   player: Combatant;
   enemies: EnemyState[];
   cards: Record<string, CardInstance>;
@@ -134,8 +140,12 @@ export interface CombatState {
   hand: string[];
   discardPile: string[];
   exhaustPile: string[];
-  /** Guan Yu's 青龙偃月 fires on the first attack card each turn. */
-  firstAttackUsed: boolean;
+  /** Neutral bookkeeping relics ask about, e.g. "is this the first attack?". */
+  attacksThisTurn: number;
+  /** Relic ids in effect, in pickup order — hooks fire in this order. */
+  relics: string[];
+  /** Per-relic counters for this fight only; run-long ones live on RunState. */
+  relicCounters: Record<string, number>;
   rng: Rng;
   events: CombatEvent[];
 }

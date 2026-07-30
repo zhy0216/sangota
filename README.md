@@ -35,8 +35,9 @@ reachable from floor 1, no crossing edges, fixed floors correct, elite/camp/shop
 below floor 6, and no restricted type repeating up an edge or between siblings.
 
 **Hero** — 关羽 (Guan Yu), with a title screen card and an in-map drawer (click the HUD
-portrait, `Esc` to close). Passive 青龙偃月: the first attack card each turn deals +3,
-and the card face shows the boosted number until it is spent.
+portrait, `Esc` to close). His passive 青龙偃月 is not special-cased anywhere: it is his
+starter relic 青龙偃月刀 (the first attack card each turn deals +3), and the card face
+shows the boosted number until it is spent.
 
 **Map controls** — wheel or drag to pan, `Space` recenters on your position, hover a
 node for its tooltip, click a lit node to advance.
@@ -50,6 +51,23 @@ target, so click the enemy (`Esc` cancels). `E` ends the turn. Winning pays gold
 offers one of three cards.
 
 11 cards, 4 enemies (黄巾力士, 山贼, elite 华雄, boss 吕布) and 6 encounter tables.
+
+**宝物 (relics)** — permanent passives on a data-driven hook system. A relic is a row in
+`combat/relics.ts`: static `modifiers` (max HP, 气 ceiling, hand size, starting block,
+gold multiplier) folded in where the engine reads its constants, plus callbacks on named
+hooks — `combatStart`, `turnStart`, `turnEnd`, `enemyTurnEnd`, `cardPlayed`,
+`attackPlayed`, `damageTaken`, `blockGained`, `enemyKilled`, `shuffle`, `combatEnd`, and
+`roomEnter` for the ones that fire out on the map. The engine calls `fireHook` at each of
+those points and never names a relic, so adding one is pure data.
+
+17 to start: 关羽's 青龙偃月刀, counter relics (督军令旗 pays block every 3 cards, 连弩
+shoots every 3 attacks), 赤兔马's +1 气 for −1 card, 行商符节's gold on entering a room,
+and so on. The bar sits in both HUDs — hover for the description, and an icon flashes
+when its relic fires. Icons are procedural sigils seeded off the relic id; real art drops
+in under the `relic-<id>` texture keys with no code change.
+
+Nothing hands relics out yet beyond the hero's starter — 精英战 / 宝箱 / 商店 rewards are
+todos 10, 05 and 11.
 
 **Card upgrades** — every card has a forged version, named with a 「·精」 suffix and
 framed in bright gold. A card definition declares only what changes (`upgrade: { … }`),
@@ -271,7 +289,8 @@ shows up immediately once the canvas is pixel-exact.
 - 奇遇 (events) and 商旅 (shops) still show a placeholder toast. 营帐 heals 30% and
   宝藏 pays gold, but neither has a real screen yet.
 - One act, one hero. Beating 吕布 ends the map with nothing after it.
-- No relics, no save/resume.
+- No save/resume.
+- Relics exist and fire, but only the hero's starter one is ever granted.
 - Card upgrades exist as model + card face + `upgradeCard()`, but no screen grants
   them yet.
 - No sound at all — every beat of combat feel is currently visual only.

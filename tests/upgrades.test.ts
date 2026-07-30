@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { CARDS, UPGRADE_SUFFIX, canUpgrade, getCard, resolveCard } from '../src/combat/cards';
 import { ENCOUNTERS } from '../src/combat/enemies';
 import {
-  PASSIVE_ATTACK_BONUS,
   canPlay,
   defOf,
   endPlayerTurn,
@@ -11,6 +10,7 @@ import {
   runEnemyTurn,
   startCombat,
 } from '../src/combat/engine';
+import { RELICS } from '../src/combat/relics';
 import type { CombatEvent, CombatState, Effect } from '../src/combat/types';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import {
@@ -64,6 +64,7 @@ function bench(deck: DeckCard[]): CombatState {
     heroName: DEFAULT_HERO.name,
     hp: DEFAULT_HERO.maxHp,
     maxHp: DEFAULT_HERO.maxHp,
+    relics: [DEFAULT_HERO.starterRelic],
     seed: 'bench',
   });
 }
@@ -135,8 +136,8 @@ describe('upgraded card faces', () => {
     const state = bench([newDeckCard('pikan', 1)]);
     const def = resolveCard('pikan', 1);
 
-    expect(previewValues(state, def).D).toBe(9 + PASSIVE_ATTACK_BONUS);
-    state.firstAttackUsed = true;
+    expect(previewValues(state, def).D).toBe(9 + (RELICS.qinglongdao.value ?? 0));
+    state.attacksThisTurn = 1;
     expect(previewValues(state, def).D).toBe(9);
   });
 

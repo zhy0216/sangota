@@ -1,4 +1,5 @@
 import { canUpgrade } from '../combat/cards';
+import { RELICS, relicModifiers } from '../combat/relics';
 import { generateMap } from '../map/generateMap';
 import type { GameMap } from '../map/types';
 import { DEFAULT_HERO, type HeroDef } from '../data/heroes';
@@ -20,6 +21,10 @@ export interface RunState {
   map: GameMap;
   /** One entry per physical copy. */
   deck: DeckCard[];
+  /** Relic ids in pickup order — the HUD bar and the hooks both read this order. */
+  relics: string[];
+  /** Relic counters that outlive a single fight, keyed by relic id. */
+  relicCounters: Record<string, number>;
   /** null until the player commits to a starting node on floor 1. */
   currentNodeId: string | null;
   /** Node ids in visit order — used to paint the travelled path. */
@@ -36,14 +41,18 @@ export function newDeckCard(defId: string, upgraded = 0): DeckCard {
 
 export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState {
   nextUid = 0;
+  const relics = [hero.starterRelic];
+  const maxHp = hero.maxHp + relicModifiers(relics).maxHp;
   active = {
     hero,
-    hp: hero.maxHp,
-    maxHp: hero.maxHp,
+    hp: maxHp,
+    maxHp,
     gold: hero.startingGold,
     act: 1,
     map: generateMap(seed),
     deck: hero.startingDeck.map((defId) => newDeckCard(defId)),
+    relics,
+    relicCounters: {},
     currentNodeId: null,
     path: [],
   };
@@ -83,8 +92,25 @@ export function heal(run: RunState, amount: number): number {
   return run.hp - before;
 }
 
+/** Gains are scaled by the relic multiplier; spending is charged at face value. */
 export function addGold(run: RunState, amount: number): void {
-  run.gold = Math.max(0, run.gold + amount);
+  const gained =
+    amount > 0 ? Math.floor(amount * relicModifiers(run.relics).goldMultiplier) : amount;
+  run.gold = Math.max(0, run.gold + gained);
+}
+
+export const hasRelic = (run: RunState, id: string): boolean => run.relics.includes(id);
+
+/** Rejects unknown ids and duplicates — a relic is owned once or not at all. */
+export function addRelic(run: RunState, id: string): boolean {
+  const def = RELICS[id];
+  if (!def || hasRelic(run, id)) return false;
+  run.relics.push(id);
+  // A max-HP relic heals for what it grants, so picking one up is never a loss.
+  const gain = def.modifiers?.maxHp ?? 0;
+  run.maxHp += gain;
+  run.hp += gain;
+  return true;
 }
 
 export function addCard(run: RunState, cardId: string, upgraded = 0): DeckCard {

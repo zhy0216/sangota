@@ -23,7 +23,7 @@ export interface SimOptions {
   maxHp: number;
   seed: string;
   policy: Policy;
-  /** [01] relics — accepted now so call sites don't have to change later. */
+  /** Defaults to the hero's starter relic, i.e. what a real run always carries. */
   relics?: string[];
   /** [19] ascension — not read by the engine yet. */
   ascension?: number;
@@ -57,6 +57,7 @@ export function simulateCombat(opts: SimOptions): SimResult {
     heroName: opts.hero.name,
     hp: opts.hp,
     maxHp: opts.maxHp,
+    relics: opts.relics ?? [opts.hero.starterRelic],
     seed: opts.seed,
   });
 

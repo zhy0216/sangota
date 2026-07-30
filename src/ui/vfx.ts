@@ -187,6 +187,19 @@ export function hitStop(scene: Phaser.Scene, factor = 0.22, ms = 70): void {
   });
 }
 
+type Poppable = Phaser.GameObjects.GameObject & { setScale(value: number): unknown };
+
+/**
+ * Scale punch — the workhorse "this just fired" beat for icons, badges and
+ * counters. Any in-flight pop is killed first so rapid triggers don't stack
+ * into a permanently oversized object.
+ */
+export function pop(scene: Phaser.Scene, target: Poppable, scale = 1.25, duration = 120): void {
+  scene.tweens.killTweensOf(target);
+  target.setScale(1);
+  scene.tweens.add({ targets: target, scale, duration, yoyo: true, ease: 'Back.easeOut' });
+}
+
 export interface PopTextOpts {
   color?: number;
   size?: number;
