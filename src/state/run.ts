@@ -4,6 +4,7 @@ import { RELICS, relicModifiers } from '../combat/relics';
 import { BASE_CARD_REWARD_COUNT } from '../combat/rewards';
 import { generateMap } from '../map/generateMap';
 import type { GameMap } from '../map/types';
+import type { RoomRecord } from '../rooms/types';
 import { DEFAULT_HERO, type HeroDef } from '../data/heroes';
 
 /** One physical card in the deck. Upgrades ride on the copy, not on the id. */
@@ -41,6 +42,33 @@ export interface RunState {
   currentNodeId: string | null;
   /** Node ids in visit order — used to paint the travelled path. */
   path: string[];
+
+  // ------------------------------------------------------------ 房间层
+  // Added whole rather than in instalments: every one of these is read by more
+  // than one room, and a field that lands later would need a save migration.
+
+  /**
+   * Per-node room ledger plus that node's materialised randomness. Keyed by
+   * `MapNode.id`. `committed` inside a record is the single source of truth for
+   * "has this already been done" — see `src/rooms/commit.ts`.
+   */
+  rooms: Record<string, RoomRecord>;
+  /**
+   * Event ids resolved this run. Drives both `once` events and same-run
+   * de-duplication — 3.14 event rooms against a 12-event pool means repeats are
+   * the norm, not the exception, without this.
+   */
+  seenEvents: string[];
+  /** Card-removal price escalation. Run-long: it survives leaving the shop. */
+  cardRemovalSurcharge: number;
+  /** Fights finished in the current act — picks the weak vs strong table. */
+  actCombatCount: number;
+  /** Encounter ids spent this act; cleared on an act change. */
+  usedEncounters: string[];
+  /** The three boss relics on offer, frozen the moment the chest is opened. */
+  bossRelicOffer: string[] | null;
+  /** Locked doors this run has the key to. */
+  keys: { sapphire: boolean };
 }
 
 let active: RunState | null = null;
@@ -75,6 +103,16 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState 
     cardRewardCount: 0,
     currentNodeId: null,
     path: [],
+    // Constants, every one of them: `startRun` must never draw from an Rng.
+    // `sim/golden.test.ts` builds its decks through here, and one extra roll
+    // would invalidate all 26 golden snapshots.
+    rooms: {},
+    seenEvents: [],
+    cardRemovalSurcharge: 0,
+    actCombatCount: 0,
+    usedEncounters: [],
+    bossRelicOffer: null,
+    keys: { sapphire: false },
   };
   syncPotionSlots(active);
   syncRewardCount(active);

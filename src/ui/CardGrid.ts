@@ -5,11 +5,21 @@ import type { CombatState } from '../combat/types';
 import { CARD_H, CARD_W, CardView } from './CardView';
 import { shuffleForDisplay, sortForDisplay, type CardGridEntry } from './cardOrder';
 import { toDesign } from './designSpace';
+import { pushOverlay } from './overlayStack';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from './theme';
 import { popText } from './vfx';
 
 export type { CardGridEntry } from './cardOrder';
 export { shuffleForDisplay, sortForDisplay } from './cardOrder';
+
+/**
+ * Scenes with camera-panning or hotkey handlers of their own must stand down
+ * while a grid is up: freezing the display list stops Game Objects from being
+ * hit, but scene-level pointer/wheel/key events fire regardless of what is
+ * under the pointer. Now that rooms put panels up too, "is a grid open" is just
+ * "is anything open" — kept under the old name so every call site is unchanged.
+ */
+export { isOverlayOpen as isCardGridOpen } from './overlayStack';
 
 export type CardGridMode = 'view' | 'pick';
 
@@ -24,6 +34,14 @@ export interface CardGridOptions {
   shuffleDisplay?: boolean;
   /** Second-step confirmation label; null picks as soon as the count is met. */
   confirmText?: string | null;
+  /**
+   * Draw the hovered card twice — current face dimmed, forged face lit, a gold
+   * arrow between them. 营帐锻造 needs the player to see what the 6 气 buys
+   * before spending it.
+   */
+  compareUpgrade?: boolean;
+  /** Replaces the stock 「请选择 N 张」 footer line in `pick` mode. */
+  footerHint?: string;
   /**
    * The live fight, when there is one. Card faces then read their real numbers;
    * on the map there is no combat and they read their printed ones.
@@ -46,18 +64,8 @@ const HEAD_H = 96;
 const FOOT_H = 76;
 const MAX_VIEW_H = GAME_HEIGHT - 64 - HEAD_H - FOOT_H;
 
-/** Above every scene's own overlay depth (Combat 200, Map 500). */
-const DEPTH = 900;
-
-/**
- * Scenes with camera-panning or hotkey handlers of their own must stand down
- * while a grid is up: freezing the display list stops Game Objects from being
- * hit, but scene-level pointer/wheel/key events fire regardless of what is
- * under the pointer.
- */
-const openOn = new WeakMap<Phaser.Scene, number>();
-
-export const isCardGridOpen = (scene: Phaser.Scene): boolean => (openOn.get(scene) ?? 0) > 0;
+/** Centre-to-centre spacing of the two faces in an upgrade comparison. */
+const COMPARE_GAP = CARD_W + 40;
 
 /**
  * Take every already-interactive object in the scene out of the input system
@@ -113,7 +121,13 @@ export function openCardGrid(scene: Phaser.Scene, opts: CardGridOptions): void {
   const maxScroll = Math.max(0, contentH - viewH);
 
   const thaw = freezeSceneInput(scene);
-  openOn.set(scene, (openOn.get(scene) ?? 0) + 1);
+  // The stack owns Esc, so two overlays up at once no longer both close on it.
+  const overlay = pushOverlay(scene, {
+    id: 'cardGrid',
+    dismissable,
+    onDismiss: () => close(null),
+  });
+  const DEPTH = overlay.depth;
 
   const root = scene.add.container(0, 0).setDepth(DEPTH).setScrollFactor(0);
   const picked: string[] = [];
@@ -238,24 +252,38 @@ export function openCardGrid(scene: Phaser.Scene, opts: CardGridOptions): void {
 
   // --------------------------------------------------------------- preview
 
+  /** A full-size face for the preview layer, deaf to the pointer. */
+  function previewFace(entry: CardGridEntry, upgraded: number): CardView {
+    const card = new CardView(scene, entry.uid, entry.defId, upgraded, opts.state, 'display');
+    // The blown-up copy must not steal the pointer from the thumbnail under it.
+    card.hitZone.disableInteractive();
+    return card;
+  }
+
   /** The hovered card, redrawn at full size on top of the grid and unclipped. */
   function showPreview(view: CardView, entry: CardGridEntry): void {
     hidePreview();
-    const x = Phaser.Math.Clamp(view.x, CARD_W / 2 + 12, GAME_WIDTH - CARD_W / 2 - 12);
+    // A comparison is two cards wide, so the clamp has to widen with it or the
+    // 「before」 face walks off the left edge of the screen.
+    const compare = !!opts.compareUpgrade && !entry.disabled;
+    const halfW = compare ? COMPARE_GAP / 2 + CARD_W / 2 : CARD_W / 2;
+    const x = Phaser.Math.Clamp(view.x, halfW + 12, GAME_WIDTH - halfW - 12);
     const y = Phaser.Math.Clamp(content.y + view.y, CARD_H / 2 + 12, GAME_HEIGHT - CARD_H / 2 - 26);
     const layer = scene.add.container(x, y);
 
-    const big = new CardView(
-      scene,
-      entry.uid,
-      entry.defId,
-      entry.previewUpgraded ? 1 : entry.upgraded,
-      opts.state,
-      'display',
-    );
-    // The blown-up copy must not steal the pointer from the thumbnail under it.
-    big.hitZone.disableInteractive();
-    layer.add(big);
+    const face = entry.previewUpgraded ? 1 : entry.upgraded;
+    if (compare) {
+      const before = previewFace(entry, face);
+      before.setPosition(-COMPARE_GAP / 2, 0).setAlpha(0.55);
+      const after = previewFace(entry, face + 1);
+      after.setPosition(COMPARE_GAP / 2, 0);
+      layer.add([before, after]);
+      layer.add(
+        scene.add.text(0, 0, '→', brushStyle(40, C.goldBright)).setOrigin(0.5).setLetterSpacing(2),
+      );
+    } else {
+      layer.add(previewFace(entry, face));
+    }
 
     if (entry.disabledReason) {
       layer.add(
@@ -292,7 +320,9 @@ export function openCardGrid(scene: Phaser.Scene, opts: CardGridOptions): void {
     const wantConfirm = mode === 'pick' && need === 0 && opts.confirmText !== null;
 
     if (wantConfirm) hint.setText('');
-    else if (mode === 'pick') hint.setText(`请选择 ${need} 张${dismissable ? '　·　Esc 取消' : ''}`);
+    else if (mode === 'pick') {
+      hint.setText(opts.footerHint ?? `请选择 ${need} 张${dismissable ? '　·　Esc 取消' : ''}`);
+    }
     else hint.setText(maxScroll > 0 ? '滚轮翻阅　·　Esc 或点击空白处关闭' : 'Esc 或点击空白处关闭');
 
     if (wantConfirm && !confirmBtn) {
@@ -371,20 +401,17 @@ export function openCardGrid(scene: Phaser.Scene, opts: CardGridOptions): void {
     const inside = x >= PANEL_X && x <= PANEL_X + PANEL_W && y >= panelY && y <= panelY + panelH;
     if (!inside) close(null);
   };
-  const onEsc = (): void => close(null);
 
   scene.input.on('wheel', onWheel);
   scene.input.on('pointerdown', onPointerDown);
-  scene.input.keyboard?.on('keydown-ESC', onEsc);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, teardown);
 
   function teardown(): void {
     if (closed) return;
     closed = true;
-    openOn.set(scene, Math.max(0, (openOn.get(scene) ?? 1) - 1));
+    overlay.release();
     scene.input.off('wheel', onWheel);
     scene.input.off('pointerdown', onPointerDown);
-    scene.input.keyboard?.off('keydown-ESC', onEsc);
     scene.events.off(Phaser.Scenes.Events.SHUTDOWN, teardown);
     hidePreview();
     maskShape.destroy();

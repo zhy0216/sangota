@@ -1,15 +1,12 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, MAP, css } from '../config';
 import { Rng } from '../core/rng';
-import { fireRunHook } from '../combat/relics';
 import { ROOM_META } from '../map/roomMeta';
 import type { MapNode } from '../map/types';
 import {
-  addGold,
   availableNodes,
   currentFloor,
   getRun,
-  heal,
   removePotion,
   travelTo,
   usePotionOutOfCombat,
@@ -20,6 +17,7 @@ import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, circleMask, goldRing, gradientStrip, inkPanel } from '../ui/theme';
+import { enterRoom } from './nav';
 
 type NodeState = 'current' | 'available' | 'visited' | 'locked';
 
@@ -47,13 +45,19 @@ const DEPTH = {
   hud: 100,
   tooltip: 300,
   drawer: 400,
-  toast: 500,
 } as const;
 
 const ACT_NAME = '第一幕 · 虎牢关道';
 
 export class MapScene extends Phaser.Scene {
-  private run!: RunState;
+  /**
+   * Public, and read-only by convention: `nav.ts` needs the run and the two HUD
+   * widgets to re-sync a room's purchases when the map wakes back up.
+   */
+  run!: RunState;
+  relicBar!: RelicBar;
+  potionBelt!: PotionBelt;
+
   private views = new Map<string, NodeView>();
   private edgeGfx!: Phaser.GameObjects.Graphics;
   private edgeHiGfx!: Phaser.GameObjects.Graphics;
@@ -64,8 +68,6 @@ export class MapScene extends Phaser.Scene {
   private floorText!: Phaser.GameObjects.Text;
   private deckText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
-  private relicBar!: RelicBar;
-  private potionBelt!: PotionBelt;
 
   private tooltip!: Phaser.GameObjects.Container;
   private tooltipTitle!: Phaser.GameObjects.Text;
@@ -77,6 +79,8 @@ export class MapScene extends Phaser.Scene {
 
   private dragDistance = 0;
   private dragging = false;
+  /** Set the instant a node is committed to; cleared when the map wakes. */
+  private leaving = false;
 
   constructor() {
     super('Map');
@@ -85,6 +89,7 @@ export class MapScene extends Phaser.Scene {
   create(): void {
     this.run = getRun();
     this.views.clear();
+    this.leaving = false;
 
     const { map } = this.run;
     // No setBounds here: its clamping assumes a camera origin of 0.5, and
@@ -117,7 +122,27 @@ export class MapScene extends Phaser.Scene {
     this.buildDrawer();
     this.bindCameraControls();
 
+    this.events.on(Phaser.Scenes.Events.WAKE, () => this.resume());
+
     this.refreshAll();
+  }
+
+  /**
+   * Coming back from a room. The scene was asleep, not stopped, so nothing has
+   * to be rebuilt — but the run it was drawing has moved on underneath it, and
+   * both HUD widgets are only otherwise filled in `buildHud`. Forgetting either
+   * one is the "bought a relic in the shop and it isn't on the map" bug.
+   */
+  private resume(): void {
+    this.leaving = false;
+    this.input.enabled = true;
+    this.run = getRun();
+    this.relicBar.setRelics(this.run.relics);
+    this.potionBelt.setPotions(this.run.potions);
+    this.refreshAll();
+    this.hideTooltip();
+    this.toggleDrawer(false);
+    this.cameras.main.fadeIn(260, 8, 6, 4);
   }
 
   // --------------------------------------------------------------- backdrop
@@ -310,52 +335,24 @@ export class MapScene extends Phaser.Scene {
     this.tweens.add({ targets: view.container, scale: 1, duration: 140, ease: 'Quad.easeOut' });
   }
 
+  /**
+   * The gate matters. A combat node fades for ~780 ms before the fight starts,
+   * and `refreshAll` has already lit that node's children by then — a second
+   * click inside the fade used to run `travelTo` again, walking the player past
+   * a whole room and opening the fight with the *next* node's seed.
+   */
   private onNodeClick(view: NodeView): void {
+    if (this.leaving) return;
     if (this.nodeState(view) !== 'available') return;
 
+    this.leaving = true;
+    this.input.enabled = false;
+    // The one and only `markVisited`: room code never touches `visited`.
     travelTo(this.run, view.node.id);
     this.hideTooltip();
     this.refreshAll();
     this.panTo(view.node);
-    this.enterRoom(view.node);
-  }
-
-  /** Route a committed node to its room. Combat takes over the scene. */
-  private enterRoom(node: MapNode): void {
-    // Proof that hooks aren't combat-only: this pays out before the room does.
-    for (const id of fireRunHook(this.run, 'roomEnter', node.type)) this.relicBar.flash(id);
-    this.refreshHud();
-
-    switch (node.type) {
-      case 'monster':
-      case 'elite':
-      case 'boss':
-        this.time.delayedCall(460, () => {
-          this.cameras.main.fadeOut(320, 8, 6, 4);
-          this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
-            this.scene.start('Combat', { nodeType: node.type }),
-          );
-        });
-        break;
-
-      case 'rest': {
-        const healed = heal(this.run, Math.round(this.run.maxHp * 0.3));
-        this.refreshHud();
-        this.showToast(node, `休整完毕，回复 ${healed} 点体力。`);
-        break;
-      }
-
-      case 'treasure': {
-        const gold = new Rng(`${this.run.map.seed}:${node.id}:loot`).range(25, 45);
-        addGold(this.run, gold);
-        this.refreshHud();
-        this.showToast(node, `启封得资财 ${gold}。`);
-        break;
-      }
-
-      default:
-        this.showToast(node);
-    }
+    enterRoom(this, view.node);
   }
 
   // ------------------------------------------------------------------ edges
@@ -605,7 +602,8 @@ export class MapScene extends Phaser.Scene {
     fixed(this.add.text(16, GAME_HEIGHT - 22, `种子 ${this.run.map.seed}`, bodyStyle(11, 0x554d40)));
   }
 
-  private refreshHud(): void {
+  /** Public: `nav.ts` repaints the bars after a room hook pays out. */
+  refreshHud(): void {
     const { run } = this;
     const geom = this.hpText.getData('geom') as { x: number; y: number; w: number; h: number };
     const ratio = Phaser.Math.Clamp(run.hp / run.maxHp, 0, 1);
@@ -736,56 +734,6 @@ export class MapScene extends Phaser.Scene {
       x: open ? 0 : -430,
       duration: 320,
       ease: open ? 'Cubic.easeOut' : 'Cubic.easeIn',
-    });
-  }
-
-  // ------------------------------------------------------------------ toast
-
-  private showToast(node: MapNode, message?: string): void {
-    const meta = ROOM_META[node.type];
-    const w = 460;
-    const h = 132;
-    const x = GAME_WIDTH / 2 - w / 2;
-    const y = GAME_HEIGHT / 2 - h / 2;
-
-    const toast = this.add.container(0, 0).setDepth(DEPTH.toast).setScrollFactor(0).setAlpha(0);
-    toast.add(inkPanel(this, x, y, w, h, { alpha: 0.94, border: meta.accent }));
-    toast.add(
-      this.add
-        .text(GAME_WIDTH / 2, y + 34, `〔 ${meta.label} 〕`, brushStyle(30, meta.accent))
-        .setOrigin(0.5)
-        .setLetterSpacing(4),
-    );
-    toast.add(
-      this.add
-        .text(GAME_WIDTH / 2, y + 74, message ?? meta.desc, bodyStyle(15, C.paperDim))
-        .setOrigin(0.5),
-    );
-    if (!message) {
-      toast.add(
-        this.add
-          .text(GAME_WIDTH / 2, y + 104, '此处的玩法尚未实装', bodyStyle(12, 0x6b6355))
-          .setOrigin(0.5),
-      );
-    }
-
-    this.tweens.add({
-      targets: toast,
-      alpha: 1,
-      y: -10,
-      duration: 260,
-      ease: 'Quad.easeOut',
-      onComplete: () => {
-        this.tweens.add({
-          targets: toast,
-          alpha: 0,
-          y: -26,
-          delay: 1150,
-          duration: 380,
-          ease: 'Quad.easeIn',
-          onComplete: () => toast.destroy(true),
-        });
-      },
     });
   }
 

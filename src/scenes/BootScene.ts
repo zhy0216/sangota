@@ -7,6 +7,8 @@ import { bodyStyle, brushStyle } from '../ui/theme';
 
 const ICON_KEYS = ['monster', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'] as const;
 const ENEMY_KEYS = ['yellowturban', 'bandit', 'huaxiong', 'lubu'] as const;
+/** Backdrops for the four non-combat rooms — keys match `RoomMeta.plate`. */
+const ROOM_KEYS = ['rest', 'shop', 'event', 'treasure'] as const;
 // Cards with a real painting to load. The 13 from todos/11 have none yet, so
 // they fall through to the procedural plate `makeCardArt` draws in `create`.
 const CARD_KEYS = [
@@ -31,6 +33,9 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`icon-${key}`, `icons/${key}.png`);
     }
     this.load.image('combat-bg', 'combat/combat-bg.jpg');
+    for (const key of ROOM_KEYS) {
+      this.load.image(`room-${key}`, `rooms/${key}.jpg`);
+    }
     for (const key of ENEMY_KEYS) {
       this.load.image(`enemy-${key}`, `enemies/${key}.png`);
     }

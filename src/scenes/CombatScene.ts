@@ -23,6 +23,7 @@ import {
 } from '../combat/potions';
 import { relicByBanner, relicModifiers } from '../combat/relics';
 import { rollCardReward } from '../combat/rewards';
+import { stream, streamSeed } from '../rooms/rng';
 import type { CombatEvent, CombatState, EnemyState, Encounter, StatusId } from '../combat/types';
 import {
   addCard,
@@ -52,6 +53,7 @@ import {
   slash,
   turnBanner,
 } from '../ui/vfx';
+import { returnToMap } from './nav';
 
 type CombatNodeType = 'monster' | 'elite' | 'boss';
 
@@ -185,10 +187,13 @@ export class CombatScene extends Phaser.Scene {
     useDesignSpace(this);
     this.run = getRun();
 
-    const seed = `${this.run.map.seed}:${this.run.currentNodeId ?? 'start'}`;
-    const rng = new Rng(seed);
+    // Two decisions, two streams. They used to share one seed, which meant the
+    // encounter pick and the fight's own shuffle read the same numbers — adding
+    // a single encounter to a table then reshuffled every opening hand.
+    const nodeId = this.run.currentNodeId ?? 'start';
+    const seed = streamSeed(this.run, nodeId, 'combat');
     const table = ENCOUNTERS[this.nodeType];
-    this.encounter = rng.pick(table);
+    this.encounter = stream(this.run, nodeId, 'encounter').pick(table);
 
     this.state = startCombat({
       encounter: this.encounter,
@@ -1834,7 +1839,7 @@ export class CombatScene extends Phaser.Scene {
   private leaveToMap(): void {
     this.cameras.main.fadeOut(300, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
-      this.scene.start('Map'),
+      returnToMap(this),
     );
   }
 }

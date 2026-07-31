@@ -367,8 +367,13 @@ describe('relic table', () => {
     expect(unfired).toEqual([]);
   });
 
-  it('fires the room hook from the map scene', () => {
-    expect(SOURCES['../src/scenes/MapScene.ts']).toContain("fireRunHook(this.run, 'roomEnter'");
+  it('fires the room hook once per node, through the commit gate', () => {
+    // Room dispatch moved out of MapScene into nav.ts; the hook must still be
+    // fired, and must sit behind `commit.once` — 行商符节 pays 5 资财 on entry,
+    // and re-entering a node (or reloading onto it) must not pay it twice.
+    const nav = SOURCES['../src/scenes/nav.ts'];
+    expect(nav).toContain("fireRunHook(run, 'roomEnter'");
+    expect(nav).toMatch(/roomCommit\(run, node\.id\)\.once\('enter'/);
   });
 
   it('keeps the engine free of relic-specific branches', () => {

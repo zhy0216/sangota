@@ -16,6 +16,11 @@ export interface RoomMeta {
   icon: string;
   /** Accent colour for the node ring + hover glow. */
   accent: number;
+  /**
+   * Backdrop texture for the room screen, when the type has one. Combat rooms
+   * take over the whole scene and have their own plate, so they have none.
+   */
+  plate?: string;
 }
 
 export interface MapNode {
