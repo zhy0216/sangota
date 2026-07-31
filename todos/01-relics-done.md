@@ -156,5 +156,5 @@ export interface CombatState {
 ## 依赖
 
 无强依赖，但**必须先做**，因为 [02 药水](02-potions-done.md)、[10 遗物奖励](10-relic-rewards-done.md)、
-[18 开局祝福](18-neow-blessing.md)、[05 商店](05-shop-done.md) 都挂在它上面。
+[18 开局祝福](18-neow-blessing-done.md)、[05 商店](05-shop-done.md) 都挂在它上面。
 钩子埋点也会被 [12 状态库](12-status-library-done.md) 复用。

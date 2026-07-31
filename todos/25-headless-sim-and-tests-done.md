@@ -83,7 +83,7 @@ so the whole system is testable headlessly」，而且确实如此
 - 每档 500+ 场（150 场的置信区间太宽——41% 胜率在 n=150 时
   95% CI 约 ±8%，看不出 5% 的改动）
 - 输出：胜率、平均回合数、平均剩余 HP、HP 分布直方图
-- **跨幕全程模拟**（[09 多幕](09-acts-and-progression.md) 之后）：
+- **跨幕全程模拟**（[09 多幕](09-acts-and-progression-done.md) 之后）：
   从开局跑到 Boss，包括选卡（用一个简单的选卡启发式）、
   营帐决策、升级——这才能标定整体难度曲线
 
@@ -218,4 +218,4 @@ export interface TierStats {
 被以下条目依赖（它们都是规则重构，没有回归网会静默改坏数值）：
 [11 卡池](11-card-rarity-and-rewards-done.md)、[12 状态库](12-status-library-done.md)、
 [13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics-done.md)、
-[19 天命](19-ascension.md)、[09 多幕](09-acts-and-progression.md)
+[19 天命](19-ascension.md)、[09 多幕](09-acts-and-progression-done.md)

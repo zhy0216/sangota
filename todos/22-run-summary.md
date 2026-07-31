@@ -211,7 +211,7 @@ export function computeScore(run: RunState, victory: boolean): {
 
 ## 依赖
 
-- [09 多幕](09-acts-and-progression.md)——胜利条件的定义（打完第三幕还是终章）
+- [09 多幕](09-acts-and-progression-done.md)——胜利条件的定义（打完第三幕还是终章）
 - [07 牌堆查看器](07-deck-viewer-done.md)——牌组展示
 - [08 存档](08-save-resume.md)——结算时清档
 - [19 天命](19-ascension.md)——分数加成和通关记录

@@ -203,3 +203,31 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
 阶段四已经做的：`sim/balance.sim.ts` 的 `buildKit` / `runActTier` 现在收
 `hero` 参数，「三将逐场」表每次 `npm run sim` 都会打印这个差距——
 在补齐之前它至少是**可见的**，而不是一个没人量过的假设。
+
+---
+
+## 阶段五复核 · 拒绝归档，两条验收落在自己范围内且未做
+
+阶段五逐条对了九条验收标准。七条通过（选将、三套起手数值、起手宝物驱动的
+首攻差异、卡面数字随连击实时变化、奖励/坊市/奇遇一律走 `poolFor`、
+选将界面的初始牌组预览、以及被 08 卡住的读档恢复）。**没通过的两条：**
+
+1. **「赵云的战斗 HUD 显示连击数」** —— `grep -rn attacksThisTurn src/scenes src/ui`
+   零命中。状态本身早就在（`engine.ts` 里 `startPlayerTurn` 归零、
+   `playCard` 递增），卡面数字也确实是活的
+   （`CardView` → `describeCard` → `previewValues`，
+   `tests/heroes.test.ts`「prints on the face exactly what it is about to deal」
+   断言了打两张【攻】后七探盘蛇显示 10）。缺的只是 `CombatScene` 里
+   把这个数画出来的一处读数。
+2. **「赵云专属遗物只在玩赵云时出现」** —— 闸门是实的：`rewards.ts` 的
+   `unowned()` 按 `RelicDef.hero` 过滤，且注释写明它是全项目唯一检查遗物归属的
+   地方，`relicPool` / `rollRelicOfTier` / `rollBossOffer` / 坊市 `generateStock`
+   全部经过它。但 `src/combat/relics.ts` 里**没有任何一条声明 `hero`**，
+   三件起手宝物走的是 `tier: 'starter'`（永不掉落、永不上架）。
+   所以这条验收没有任何东西能证明它成立。
+
+另有一处与验收字面的偏离（不阻塞归档，记录以免下次当成 bug）：验收写
+「战斗奖励只出本武将的牌，加上 colorless」，实际 `COLORLESS_POOL` 只由
+坊市与奇遇发放，战斗奖励不含无色——与原版一致，与验收字面不符。
+
+归档条件：上面两条 + 「实现步骤」第 3 条的 20+ 张卡池。

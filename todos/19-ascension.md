@@ -146,7 +146,7 @@ export interface RunState {
      （**在 `computeAttack` 之前**乘基础伤害，否则和怯战/破绽的乘法顺序不对）
    - `intentOf`（[16 意图](16-intent-system-done.md)）也要乘，否则意图数字和实际不符
    - `MapScene.ts:330` 的营帐：`restHealPercent`（→ [04 营帐](04-campfire-done.md)）
-   - `advanceAct`（[09 多幕](09-acts-and-progression.md)）：`actStartHpLossPercent`
+   - `advanceAct`（[09 多幕](09-acts-and-progression-done.md)）：`actStartHpLossPercent`
    - `startRun`（`src/state/run.ts:22`）：`maxHpMult`、`potionSlots`、
      `startingCurses`
    - `rollCardReward`（[11](11-card-rarity-and-rewards-done.md)）：`rarityWeightMult`
@@ -181,7 +181,7 @@ export interface RunState {
 
 ## 依赖
 
-- [09 多幕](09-acts-and-progression.md)——`actStartHpLossPercent` 和双 Boss 需要多幕
+- [09 多幕](09-acts-and-progression-done.md)——`actStartHpLossPercent` 和双 Boss 需要多幕
 - [22 结算界面](22-run-summary.md)——通关记录的写入点
 - [17 多武将](17-multiple-heroes.md)——难度进度是按武将分的
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——**强依赖**，20 级难度不可能手调

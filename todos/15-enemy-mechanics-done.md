@@ -144,7 +144,7 @@ export interface EncounterTable {
 4. **敌人被动的显示**：`CombatScene` 敌人头上除了意图，还要显示被动状态图标
    （龟缩、反刺等）。见 [12 状态库](12-status-library-done.md) 的图标工作。
 5. `enemies.ts` 的 `ENCOUNTERS`（`enemies.ts:97-106`）搬进
-   [09 多幕](09-acts-and-progression.md) 的 `ActDef`，并改成 `EncounterTable` 结构。
+   [09 多幕](09-acts-and-progression-done.md) 的 `ActDef`，并改成 `EncounterTable` 结构。
 6. **弱敌表不重复**：`run.actCombatCount < weakCount` 时从 weak 抽，
    且记录 `run.usedEncounters` 避免连续重复。
 7. 美术：每个新敌人一张立绘，走 `genmedia`（`nano-banana-pro` +
@@ -177,7 +177,7 @@ export interface EncounterTable {
 - [14 诅咒与状态牌](14-curses-and-status-cards-done.md)——`addCards` 的内容
 - [13 关键词](13-card-keywords-done.md)——`addCards` 的底层实现
 - [16 意图系统](16-intent-system-done.md)——新意图类型（召唤、逃跑、未知、睡眠）的显示
-- [09 多幕](09-acts-and-progression.md)——二三幕敌人的归属
+- [09 多幕](09-acts-and-progression-done.md)——二三幕敌人的归属
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——每个新机制都要能在无头环境跑通
 
 ---

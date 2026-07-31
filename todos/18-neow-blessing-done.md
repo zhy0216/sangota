@@ -169,3 +169,14 @@ export interface EventOutcome {
   / [11 稀有度](11-card-rarity-and-rewards-done.md) / [14 诅咒](14-curses-and-status-cards-done.md)
   ——各类选项的内容来源
 - 顺序上应在 [08 存档](08-save-resume.md) 之前，或同时处理 `blessingTaken` 标志
+
+---
+
+## 阶段五归档 · 一条验收被 08 卡住
+
+十一条验收里十条已核实通过，`tests/blessing.test.ts` 逐条覆盖。
+第十一条「读档后不会重复弹祝福」无从验证——[08 存档](08-save-resume.md)
+不存在。`run.blessing.takenId` 就是那个标志（`blessingTaken(run)` 读它，
+`blessingSettled(run)` 是「已选完且没有欠着的选牌」那道门），
+存档层**不需要新增任何字段**，只要把 `run.blessing` 一并存下来。
+08 落地时回来补这一条。

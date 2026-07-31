@@ -115,7 +115,7 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
    - 三件 boss 遗物横排，各自图标 + 名字 + 完整说明（Boss 遗物有负收益，
      说明必须写全，别让玩家瞎选）
    - 「不取（换取宝钥）」选项 → `run.keys.sapphire = true`，见
-     [09 多幕](09-acts-and-progression.md)
+     [09 多幕](09-acts-and-progression-done.md)
    - 选完 → 幕间过场
 6. **Boss 档遗物内容**（至少 6 件，正负收益）：
    - 「赤兔马」+1 气，每回合少抽 1 张
@@ -143,4 +143,4 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
 - [02 药水](02-potions-done.md)——宝箱附赠
 - [04 营帐](04-campfire-done.md)——`RoomScene` 壳
 - [11 稀有度](11-card-rarity-and-rewards-done.md)——精英选卡加权
-- [09 多幕](09-acts-and-progression.md)——Boss 宝箱和宝钥的意义
+- [09 多幕](09-acts-and-progression-done.md)——Boss 宝箱和宝钥的意义

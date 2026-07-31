@@ -182,3 +182,16 @@ export interface RunState {
 **第三幕 20 个节点 0 种新的**——`eligible()` 的 `unseen` 早已为空，
 全部落到 repeatable 兜底。要么补到 24+ 条，要么给每幕自己的事件池
 （本文件「实现步骤」里提过的 per-act event/shop pool，仍未做）。
+
+---
+
+## 阶段五归档 · 一条验收被 08 卡住
+
+八条验收里七条已核实通过（见 `tests/acts.test.ts` 的
+「幕表」/「每幕一张地图」/`advanceAct`/「终章的门」四组）。第八条
+「`RunState.act` 真的会变，且 [08 存档](08-save-resume.md) 能跨幕恢复」
+只完成前半：`advanceAct` 是唯一写 `run.act` 的地方且有测试守着，
+但没有存档层去证明后半。**08 落地时必须回来补这半条**——
+跨幕状态本身是可序列化的，`{ act, seed }` 足以重建整幕地图
+（`runSeedOf` / `actSeed` 是那对函数），`run.map` 目前是活的 `Map` 对象，
+序列化时按节点数组存即可。
