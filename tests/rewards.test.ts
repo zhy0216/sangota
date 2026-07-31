@@ -5,11 +5,13 @@ import {
   BASE_CARD_REWARD_COUNT,
   REWARD_RARITIES,
   TIER_WEIGHTS,
+  availableRarity,
   rewardWeights,
   rollCardReward,
   type RewardRarity,
   type RewardTier,
 } from '../src/combat/rewards';
+import shopSource from '../src/rooms/shop.ts?raw';
 import { Rng } from '../src/core/rng';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { addRelic, startRun, type RunState } from '../src/state/run';
@@ -226,5 +228,50 @@ describe('the pool itself', () => {
       const w = TIER_WEIGHTS[tier];
       expect(w.common + w.uncommon + w.rare, tier).toBe(100);
     }
+  });
+});
+
+/**
+ * The fallback ladder for *cards*, which had no test at all — the pools are
+ * 10/8/3 and a reward takes three, so nothing in the game can drain one, and
+ * nothing in the suite ever constructed a drained one either.
+ *
+ * There used to be two identical copies of this function, one here and one in
+ * `shop.ts`. Both were uncovered, and either could have drifted from the other.
+ */
+describe('availableRarity — degrade first, promote second', () => {
+  const drain = (...rarities: RewardRarity[]): string[] =>
+    rarities.flatMap((r) => CARD_POOL_BY_RARITY[r]);
+
+  it('hands back the wanted rarity while it still has anything in it', () => {
+    expect(availableRarity('rare', [])).toBe('rare');
+    expect(availableRarity('uncommon', [])).toBe('uncommon');
+    expect(availableRarity('common', [])).toBe('common');
+  });
+
+  it('steps *down* when the wanted rarity is empty', () => {
+    // The stated rule: "draining the commons should not start handing out
+    // rares". Walking the ladder upward first passes every other test in the
+    // file, because no other test ever empties a pool.
+    expect(availableRarity('rare', drain('rare'))).toBe('uncommon');
+    expect(availableRarity('uncommon', drain('uncommon'))).toBe('common');
+  });
+
+  it('only promotes once everything below is gone too', () => {
+    expect(availableRarity('rare', drain('rare', 'uncommon'))).toBe('common');
+    expect(availableRarity('common', drain('common'))).toBe('uncommon');
+    expect(availableRarity('common', drain('common', 'uncommon'))).toBe('rare');
+    expect(availableRarity('uncommon', drain('uncommon', 'common'))).toBe('rare');
+  });
+
+  it('returns null only when every pool is empty', () => {
+    expect(availableRarity('uncommon', drain('common', 'uncommon', 'rare'))).toBeNull();
+  });
+
+  it('is the same function the 坊市 shelf walks', () => {
+    // 商旅 used to carry a byte-identical private copy. If it ever grows one
+    // again, this is the test that has to be duplicated with it.
+    expect(shopSource).toContain("from '../combat/rewards'");
+    expect(shopSource).not.toMatch(/function availableRarity\b/);
   });
 });

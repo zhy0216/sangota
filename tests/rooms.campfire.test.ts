@@ -49,6 +49,7 @@ describe('休整', () => {
 
     const report = applyCampfireOption(run, camp(run), 'rest')!;
     expect(report.healed).toBe(25);
+    expect(report.offered).toBe(25);
     expect(run.hp).toBe(26);
     expect(report.hp).toBe(26);
     expect(report.maxHp).toBe(82);
@@ -82,6 +83,22 @@ describe('休整', () => {
     const report = applyCampfireOption(run, camp(run), 'rest')!;
     expect(report.healed).toBe(5);
     expect(run.hp).toBe(run.maxHp);
+
+    // …and the report says what the night was worth as well as what landed, so
+    // the view can tell "healed everything" from "healed all it was offered".
+    // The view used to compute this from `restGain`, which is itself already
+    // capped by the wound, so the two were equal by construction and the
+    // 「伤已痊愈」 line was dead code.
+    expect(report.offered).toBe(25);
+    expect(report.healed).toBeLessThan(report.offered);
+  });
+
+  it('offers the full night when the wound is deep enough to take it', () => {
+    const run = wounded();
+    const report = applyCampfireOption(run, camp(run), 'rest')!;
+    expect(report.offered).toBe(25);
+    expect(report.healed).toBe(25);
+    expect(report.healed).toBe(report.offered);
   });
 
   it('is greyed at full health, and refusing it does not cost the night', () => {

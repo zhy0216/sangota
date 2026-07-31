@@ -13,6 +13,14 @@ function cover(img: Phaser.GameObjects.Image, w: number, h: number): void {
 
 export class TitleScene extends Phaser.Scene {
   private parallax: { obj: Phaser.GameObjects.GameObject & { x: number; y: number }; depth: number; baseX: number; baseY: number }[] = [];
+  /**
+   * The same gate `MapScene.leaving`, `RoomScene.leaving` and
+   * `CombatScene.claimed` are: `inkButton` binds `pointerdown` and Enter
+   * auto-repeats, and the fade out runs for 420 ms with both still live. Every
+   * extra call was another `startRun()` — a whole new map generated under a
+   * player who had already committed to the one being faded out.
+   */
+  private leaving = false;
 
   constructor() {
     super('Title');
@@ -20,6 +28,7 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     useDesignSpace(this);
+    this.leaving = false;
     const hero = DEFAULT_HERO;
 
     // --- Backdrop ---------------------------------------------------------
@@ -160,6 +169,8 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private beginRun(): void {
+    if (this.leaving) return;
+    this.leaving = true;
     startRun(DEFAULT_HERO);
     this.cameras.main.fadeOut(420, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {

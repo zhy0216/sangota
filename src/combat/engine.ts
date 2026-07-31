@@ -1258,7 +1258,16 @@ export function describeCard(
     .replace(/\{T\}/g, String(T));
 }
 
-/** Compact intent label for the marker above an enemy, e.g. "攻 5×2". */
+/**
+ * Compact intent label for the marker above an enemy, e.g. "攻 5×2".
+ *
+ * A rider on an attack has to name *itself*. The label used to print 「弱」 for
+ * any `status` at all, so 黄巾骑手's 踏阵 (破绽 1) and 吕布's 破军 (破绽 2) both
+ * read as "he is about to cut my damage" when they in fact make the next blow
+ * land harder — the player defends against the wrong thing. `STATUS_META` is
+ * the one place that knows what a status is called, so it is read here rather
+ * than a second table being written down.
+ */
 export function intentLabel(state: CombatState, enemy: EnemyState): string {
   const move = enemy.intent;
   if (!move) return '';
@@ -1266,18 +1275,28 @@ export function intentLabel(state: CombatState, enemy: EnemyState): string {
   // not change which move was picked, or the same seed would play differently
   // depending on a presentation flag.
   if (getEnemy(enemy.defId).hiddenFirstIntent && enemy.actedTurns === 0) return '？';
+
+  // Riders, in the order they matter to a defence decision. `addCards` is the
+  // one that cost the most to miss: 扬尘 / 擂鼓 / 泥雨 / 太平符水 all shovel
+  // cards into the deck and every one of them used to telegraph as a bare hit.
+  const riders: string[] = [];
+  if (move.block) riders.push('守');
+  if (move.status) riders.push(STATUS_META[move.status.status].label);
+  if (move.statusAll) riders.push(STATUS_META[move.statusAll.status].label);
+  if (move.addCards) riders.push(`塞牌 ${move.addCards.count}`);
+  if (move.steal) riders.push(`夺 ${move.steal}`);
+  const tail = riders.length > 0 ? ` · ${riders.join(' · ')}` : '';
+
   if (move.damage) {
     const perHit = clampIncoming(computeAttack(move.damage, enemy, state.player), state.player);
     const hits = move.hits ?? 1;
     const dmg = hits > 1 ? `${perHit}×${hits}` : `${perHit}`;
-    if (move.block) return `攻 ${dmg} · 守`;
-    if (move.status) return `攻 ${dmg} · 弱`;
-    return `攻 ${dmg}`;
+    return `攻 ${dmg}${tail}`;
   }
-  if (move.loseHp) return `伤 ${move.loseHp}`;
-  if (move.summon) return '召';
-  if (move.escape) return '遁';
-  if (move.intent === 'buff') return move.block ? '强化 · 守' : '强化';
-  if (move.intent === 'defend') return '守';
-  return move.label;
+  if (move.loseHp) return `伤 ${move.loseHp}${tail}`;
+  if (move.summon) return `召${tail}`;
+  if (move.escape) return `遁${tail}`;
+  if (move.intent === 'buff') return `强化${tail}`;
+  if (move.intent === 'defend' && move.block) return `守${riders.slice(1).map((r) => ` · ${r}`).join('')}`;
+  return `${move.label}${tail}`;
 }

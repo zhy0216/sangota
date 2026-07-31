@@ -268,9 +268,29 @@ function pushCard(run: RunState, cardId: string, upgraded: number): DeckCard {
 }
 
 /**
+ * No door may thin a deck below this. Nothing in the engine breaks at four
+ * cards, but a deck that cannot fill an opening hand is a run the player cannot
+ * recover, and nothing should be able to sell that.
+ *
+ * It lives here rather than in `shop.ts` because the shop is not the only door:
+ * `EventOutcome.removeCards` reaches `removeCard` through `resolvePending`, and
+ * that path had no floor at all — an event asking for three cards from a
+ * three-card deck emptied it.
+ */
+export const MIN_DECK_SIZE = 4;
+
+/** How many copies may still be shed before the floor is reached. */
+export const removableCount = (run: RunState): number =>
+  Math.max(0, run.deck.length - MIN_DECK_SIZE);
+
+/**
  * The one removal primitive, by uid so the right physical copy goes. 商店弃卡,
  * 营帐弃甲 and 五丈原 all end up here — a curse the player cannot shed is just
  * punishment, so this must exist before any curse is handed out.
+ *
+ * Deliberately *not* floored itself: a caller that means "shed this exact copy"
+ * — undoing a grant, a future 弃甲 — must still be able to. The floor belongs
+ * to the doors the player walks through, and both of them apply it.
  */
 export function removeCard(run: RunState, uid: string): boolean {
   const at = run.deck.findIndex((c) => c.uid === uid);

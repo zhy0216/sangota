@@ -30,6 +30,16 @@ export interface CampfireReport {
   id: CampfireOptionId;
   /** HP that actually landed — 0 for 锻造, and less than the full roll near max. */
   healed: number;
+  /**
+   * What the night was worth before the wound capped it, i.e. `restAmount`.
+   *
+   * Reported rather than left to the view to recompute: the view had
+   * `restGain` — already `min(offered, missing)` and therefore exactly what
+   * `heal` returns — so its 「healed < offered」 test was a tautological false
+   * and the line behind it could never print. A number the room layer knows is
+   * a number the room layer should hand over.
+   */
+  offered: number;
   hp: number;
   maxHp: number;
   /** The copy that was forged, named as it reads *after* the upgrade. */
@@ -163,14 +173,16 @@ export function applyCampfireOption(
       if (id === 'rest') {
         // `heal` clamps, so the report carries what landed rather than what was
         // offered — the result line must not claim 25 when 5 was the whole wound.
-        const healed = heal(run, restAmount(run));
-        return { id, healed, hp: run.hp, maxHp: run.maxHp, card: null };
+        const offered = restAmount(run);
+        const healed = heal(run, offered);
+        return { id, healed, offered, hp: run.hp, maxHp: run.maxHp, card: null };
       }
       const card = target!;
       upgradeCard(run, card.uid);
       return {
         id,
         healed: 0,
+        offered: 0,
         hp: run.hp,
         maxHp: run.maxHp,
         // Read after the upgrade: the name the player is shown is the forged one.

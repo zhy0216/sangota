@@ -8,7 +8,6 @@ import {
   canLeaveCampfire,
   forgeDisabledReason,
   isCampfireSpent,
-  restGain,
   type CampfireOptionId,
   type CampfireReport,
 } from './campfire';
@@ -140,8 +139,7 @@ export class CampfireController implements RoomController {
       return;
     }
     const { host } = this;
-    const gain = restGain(host.run);
-    this.resolve(applyCampfireOption(host.run, host.node.id, 'rest'), gain);
+    this.resolve(applyCampfireOption(host.run, host.node.id, 'rest'));
   }
 
   /**
@@ -169,7 +167,7 @@ export class CampfireController implements RoomController {
           this.showMenu();
           return;
         }
-        this.resolve(applyCampfireOption(host.run, host.node.id, 'smith', { uid }), 0);
+        this.resolve(applyCampfireOption(host.run, host.node.id, 'smith', { uid }));
       },
       onCancel: () => this.showMenu(),
     });
@@ -179,7 +177,7 @@ export class CampfireController implements RoomController {
    * `null` means the pure layer refused — the camp is still unlit, so the menu
    * comes back rather than the room resolving into nothing.
    */
-  private resolve(report: CampfireReport | null, offered: number): void {
+  private resolve(report: CampfireReport | null): void {
     const { host } = this;
     if (!report) {
       this.showMenu();
@@ -194,7 +192,10 @@ export class CampfireController implements RoomController {
       host.floatText(x, y - 40, `+${report.healed}`, 'gold');
       const lines = ['篝火哔剥，血痂渐合。', `体力回复 ${report.healed} 点，今为 ${report.hp} / ${report.maxHp}。`];
       // Only worth saying when the wound was smaller than the night's rest.
-      if (report.healed < offered) lines.push('伤已痊愈，余下的力气便留给明日。');
+      // Both numbers come off the report: the view used to recompute the offer
+      // itself from a helper that was already capped by the wound, which made
+      // this comparison `x < x` and this line unreachable.
+      if (report.healed < report.offered) lines.push('伤已痊愈，余下的力气便留给明日。');
       host.showResult(lines, '离 营');
       return;
     }

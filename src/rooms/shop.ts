@@ -1,9 +1,15 @@
 import { CARD_POOL_BY_RARITY, COLORLESS_POOL, resolveCard } from '../combat/cards';
 import { POTION_POOL_BY_RARITY, getPotion, rollPotion } from '../combat/potions';
 import { getRelic, type RelicTier } from '../combat/relics';
-import { REWARD_RARITIES, rollRelicOfTier, type RewardRarity } from '../combat/rewards';
+import {
+  REWARD_RARITIES,
+  availableRarity,
+  rollRelicOfTier,
+  type RewardRarity,
+} from '../combat/rewards';
 import type { Rng } from '../core/rng';
 import {
+  MIN_DECK_SIZE,
   addCard,
   addGold,
   addPotion,
@@ -128,11 +134,11 @@ export const REMOVAL_STEP = 18;
 /** Removals one 商旅 will perform. The key is numbered so this can grow. */
 export const REMOVALS_PER_SHOP = 1;
 /**
- * The merchant will not thin a deck below this. Nothing in the engine breaks at
- * four cards, but a deck that cannot fill an opening hand is a run the player
- * cannot recover, and no shop should be able to sell that.
+ * The merchant will not thin a deck below this. The floor is defined in
+ * `run.ts` and re-exported here: 弃卡 is one of two doors onto `removeCard` and
+ * both have to answer to the same number.
  */
-export const MIN_DECK_SIZE = 4;
+export { MIN_DECK_SIZE } from '../state/run';
 
 /** Half off, rounded up — the merchant does not deal in halves of a coin. */
 export const discountedPrice = (price: number): number => Math.ceil(price / 2);
@@ -146,22 +152,6 @@ export const isSold = (run: RunState, nodeId: string, slot: ShopSlot): boolean =
   roomCommit(run, nodeId).isDone(slotKey(slot));
 
 // -------------------------------------------------------------------- 进货
-
-/**
- * The first rarity at or below `wanted` with an unsold card in it, then the
- * first above. Walked without drawing: how drained a pool is must never change
- * how many numbers the stream gives up.
- */
-function availableRarity(wanted: RewardRarity, taken: readonly string[]): RewardRarity | null {
-  const has = (r: RewardRarity): boolean =>
-    CARD_POOL_BY_RARITY[r].some((id) => !taken.includes(id));
-  const at = REWARD_RARITIES.indexOf(wanted);
-  for (let i = at; i >= 0; i--) if (has(REWARD_RARITIES[i])) return REWARD_RARITIES[i];
-  for (let i = at + 1; i < REWARD_RARITIES.length; i++) {
-    if (has(REWARD_RARITIES[i])) return REWARD_RARITIES[i];
-  }
-  return null;
-}
 
 const priceIn = (rng: Rng, band: readonly [number, number]): number => rng.range(band[0], band[1]);
 
@@ -180,10 +170,20 @@ function rollShelfCard(rng: Rng, taken: readonly string[]): string | null {
   return pool[at] ?? null;
 }
 
-/** One draw. Falls back to the rarity pools if 无色 stock is ever emptied out. */
+/**
+ * One draw. Falls back to the 常见 pool if 无色 stock is ever emptied out —
+ * the slot going blank would silently shrink the shelf from five cards to four
+ * and nothing on screen would say why.
+ *
+ * The fallback was documented in this comment and not implemented: the `pool`
+ * expression was `colorless.length > 0 ? colorless : []`, which is `colorless`.
+ * Unreachable today (`COLORLESS_POOL` holds five ids and the four slots ahead
+ * of it draw from the rarity pools, which are disjoint from it) and now real.
+ */
 function rollColorlessCard(rng: Rng, taken: readonly string[]): string | null {
   const colorless = COLORLESS_POOL.filter((id) => !taken.includes(id));
-  const pool = colorless.length > 0 ? colorless : [];
+  const fallback = CARD_POOL_BY_RARITY.common.filter((id) => !taken.includes(id));
+  const pool = colorless.length > 0 ? colorless : fallback;
   const at = rng.int(Math.max(1, pool.length));
   return pool[at] ?? null;
 }

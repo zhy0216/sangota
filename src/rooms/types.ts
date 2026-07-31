@@ -1,3 +1,4 @@
+import type { ChestSize } from '../combat/rewards';
 import type { DeckCard } from '../state/run';
 
 /**
@@ -60,11 +61,14 @@ export type ShopSlot =
 // ------------------------------------------------------------------- 宝藏
 
 /**
- * What a chest holds. Phase three only fills `gold`; todo 10 adds the relic and
- * the potion behind it, which is why the two ids are nullable from day one —
- * the save format must not change when they land.
+ * What a chest holds, frozen on first sight. `size` picks the relic's tier
+ * weights and the 丹药 chance; `gold` is the base roll plus the consolation a
+ * dry relic pool owes, so it is what the player banks and not what was printed.
+ * Both ids stay nullable: a chest whose whole ladder is owned holds no relic,
+ * and a 小宝藏 never holds a bottle.
  */
 export interface ChestLoot {
+  size: ChestSize;
   gold: number;
   relicId: string | null;
   potionId: string | null;

@@ -111,6 +111,24 @@ export interface EventDef {
   minRow?: number;
 }
 
+/**
+ * The floor under any option that wounds and then hands the player to a fight,
+ * or that may be taken over and over.
+ *
+ * `applyOutcome` clamps a wound at 1 体力 rather than killing (the defeat
+ * screen belongs to `CombatScene` and the room layer cannot reach it), and that
+ * clamp is a hole in two directions. A repeatable option stops costing anything
+ * at all once the player is pinned at the floor — 山中残兵 could then be farmed
+ * for unbounded 資財 at no price. And an option that ends in a fight could hand
+ * a 1-体力 player to an 精英, which the room layer had carefully avoided doing
+ * itself.
+ *
+ * A quarter of the ceiling, so it scales with 体力上限 relics rather than going
+ * stale the moment one is picked up.
+ */
+export const RISK_FLOOR = (run: RunState): boolean => run.hp > run.maxHp * 0.25;
+export const RISK_FLOOR_TEXT = '伤重难行，此事做不得。';
+
 // -------------------------------------------------------------------- the table
 
 /**
@@ -236,6 +254,8 @@ export const EVENTS: EventDef[] = [
         label: '单刀赴之',
         hint: '先得一件稀有宝物，随即陷入精锐死斗',
         tone: 'danger',
+        requires: RISK_FLOOR,
+        requiresText: RISK_FLOOR_TEXT,
         outcome: {
           text: '礼收下了。酒过三巡，帐后甲叶作响。',
           gainRelic: { tier: 'rare' },
@@ -436,13 +456,24 @@ export const EVENTS: EventDef[] = [
     options: [
       {
         label: '继续搜寻',
-        hint: '四分之一遇伏；否则 资财 +30',
+        hint: '每搜一处 失 5 体力；四分之一遇伏，否则 资财 +30',
         tone: 'danger',
         repeatable: true,
+        requires: RISK_FLOOR,
+        requiresText: RISK_FLOOR_TEXT,
         outcome: {
           text: '',
           branches: [
-            { weight: 75, outcome: { text: '草丛里翻出一只钱袋，还带着体温。', gold: 30 } },
+            // The 5 体力 is what makes this a decision instead of a faucet.
+            // Without it the search was the only *strictly* positive option in
+            // the table: three finds on average is 90 資財 — a third of a run's
+            // whole income — and the ambush that ends it is a normal fight,
+            // which pays coin, a card and a 丹药 roll of its own. Blood is the
+            // one currency the ambush cannot refund.
+            {
+              weight: 75,
+              outcome: { text: '草丛里翻出一只钱袋，还带着体温。', gold: 30, hp: -5 },
+            },
             {
               weight: 25,
               outcome: {

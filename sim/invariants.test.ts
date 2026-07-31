@@ -72,6 +72,22 @@ function assertInvariants(state: CombatState, where: string): void {
     expect(enemy.alive, `${where}: ${enemy.id} escaped but still on the field`).toBe(false);
     expect(enemy.hp, `${where}: ${enemy.id} escaped at 0 hp — that is a death`).toBeGreaterThan(0);
   }
+
+  // …and neither is 分裂. A split parent leaves the field with `alive = false`,
+  // `escaped = false` and HP still on the clock, which is a shape nothing else
+  // in the engine produces. Anything reading "killed" as `!alive` would pay 斩将
+  // for a boss halving itself, so every body in that shape has to be accounted
+  // for by a `split` event naming it as the parent.
+  const splitParents = new Set(
+    state.events.filter((e) => e.t === 'split').map((e) => (e as { parentId: string }).parentId),
+  );
+  for (const enemy of state.enemies) {
+    if (enemy.alive || enemy.escaped || enemy.hp <= 0) continue;
+    expect(
+      splitParents.has(enemy.id),
+      `${where}: ${enemy.id} left the field at ${enemy.hp} hp without dying, escaping or splitting`,
+    ).toBe(true);
+  }
 }
 
 /**

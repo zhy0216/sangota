@@ -103,8 +103,19 @@ function rollRarity(tier: RewardTier, rareBump: number, rng: Rng): RewardRarity 
  * The first rarity at or below `wanted` with an unpicked card in it, then the
  * first above. Stepping down first keeps the fallback from silently *upgrading*
  * a reward — draining the commons should not start handing out rares.
+ *
+ * Walked without drawing: how drained a pool is must never change how many
+ * numbers the stream gives up (R3).
+ *
+ * Exported because 坊市 needs exactly this, against its own shelf rather than
+ * against a reward's picks. It used to carry a second, character-for-character
+ * identical copy — two implementations of one rule, each able to drift from the
+ * other and neither with a test for the fallback at all.
  */
-function availableRarity(wanted: RewardRarity, picked: readonly string[]): RewardRarity | null {
+export function availableRarity(
+  wanted: RewardRarity,
+  picked: readonly string[],
+): RewardRarity | null {
   const has = (r: RewardRarity): boolean =>
     CARD_POOL_BY_RARITY[r].some((id) => !picked.includes(id));
 

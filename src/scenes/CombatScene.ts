@@ -1,9 +1,7 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
-import { Rng } from '../core/rng';
 import { STATUS_META, STATUS_ORDER } from '../combat/cards';
 import { resolveCombatEndHooks } from '../combat/curses';
-import { ENCOUNTERS } from '../combat/enemies';
 import {
   canPlay,
   endPlayerTurn,
@@ -21,8 +19,16 @@ import {
   rollPotion,
   type PotionDef,
 } from '../combat/potions';
-import { relicByBanner, relicModifiers } from '../combat/relics';
+import { getRelic, relicByBanner, relicModifiers, relicText } from '../combat/relics';
 import { rollCardReward } from '../combat/rewards';
+import {
+  bossOfferPending,
+  claimVictoryRelic,
+  ensureBossOffer,
+  ensureEncounter,
+  takeBossRelic,
+  type VictoryRelic,
+} from '../rooms/fight';
 import { stream, streamSeed } from '../rooms/rng';
 import type { CombatEvent, CombatState, EnemyState, Encounter, StatusId } from '../combat/types';
 import {
@@ -40,7 +46,7 @@ import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
-import { bodyStyle, brushStyle, inkButton, paintInkPanel } from '../ui/theme';
+import { bodyStyle, brushStyle, inkButton, inkPanel, paintInkPanel } from '../ui/theme';
 import {
   burst,
   dust,
@@ -127,6 +133,18 @@ export class CombatScene extends Phaser.Scene {
   private state!: CombatState;
   private encounter!: Encounter;
   private nodeType: CombatNodeType = 'monster';
+  /**
+   * A relic an 奇遇 promised for surviving the fight it started (`EventOutcome.
+   * fight.bonusRelic`). Handed over on the victory screen, so declining the
+   * card reward still pays it and losing the fight does not.
+   */
+  private bonusRelic: string | null = null;
+  /**
+   * The map node this fight is being fought on, and the key every stream and
+   * every one-shot payout is addressed by. `'start'` only when a fight is
+   * opened before the player has committed to a node, which the map cannot do.
+   */
+  private nodeId = 'start';
 
   private cardViews = new Map<string, CardView>();
   private enemyViews = new Map<string, EnemyView>();
@@ -142,10 +160,20 @@ export class CombatScene extends Phaser.Scene {
    * camera fade, and the victory overlay stays live and interactive for every
    * one of those frames — without this the player can click a second card, or a
    * card and then 「不取」, and bank both payouts.
+   *
+   * Reset in `init`, not here: Phaser keeps one instance per scene key for the
+   * lifetime of the game and calls `init`/`create` again on every `start`, so a
+   * class-field initialiser runs exactly once — on the *first* fight.
    */
   private claimed = false;
 
-  /** Built on the first hover — most fights never show a status tooltip. */
+  /**
+   * Built on the first hover — most fights never show a status tooltip. All
+   * three are cleared in `init`: `shutdown` destroys every Game Object in the
+   * display list, and a field still pointing at a destroyed `Text` makes the
+   * next fight's first hover call `setText` on a texture whose frame source is
+   * already null.
+   */
   private statusTip: Phaser.GameObjects.Container | null = null;
   private statusTipBg: Phaser.GameObjects.Graphics | null = null;
   private statusTipText: Phaser.GameObjects.Text | null = null;
@@ -170,14 +198,27 @@ export class CombatScene extends Phaser.Scene {
     super('Combat');
   }
 
-  init(data: { nodeType?: CombatNodeType }): void {
+  /**
+   * Every field the scene carries between frames is reset here, including the
+   * ones a class-field initialiser looks like it already handles. Phaser reuses
+   * the instance across `scene.start`, so `init` is the *only* per-fight hook —
+   * a field left out of it keeps the previous fight's value for the rest of the
+   * run. `claimed` left behind froze the second victory screen; the three
+   * tooltip handles left behind pointed at destroyed Game Objects.
+   */
+  init(data: { nodeType?: CombatNodeType; bonusRelic?: string }): void {
     this.nodeType = data?.nodeType ?? 'monster';
+    this.bonusRelic = data?.bonusRelic ?? null;
     this.cardViews.clear();
     this.enemyViews.clear();
     this.selectedUid = null;
     this.selectedPotion = null;
     this.busy = false;
     this.finished = false;
+    this.claimed = false;
+    this.statusTip = null;
+    this.statusTipBg = null;
+    this.statusTipText = null;
     this.currentAttacker = null;
     this.lastEnergy = 0;
     this.tweens.timeScale = 1;
@@ -190,10 +231,13 @@ export class CombatScene extends Phaser.Scene {
     // Two decisions, two streams. They used to share one seed, which meant the
     // encounter pick and the fight's own shuffle read the same numbers — adding
     // a single encounter to a table then reshuffled every opening hand.
-    const nodeId = this.run.currentNodeId ?? 'start';
-    const seed = streamSeed(this.run, nodeId, 'combat');
-    const table = ENCOUNTERS[this.nodeType];
-    this.encounter = stream(this.run, nodeId, 'encounter').pick(table);
+    //
+    // The pick itself belongs to the room layer: it reads and writes
+    // `actCombatCount` / `usedEncounters`, and it has to be frozen on the node
+    // so that a second `create()` reopens the fight the player walked into.
+    this.nodeId = this.run.currentNodeId ?? 'start';
+    const seed = streamSeed(this.run, this.nodeId, 'combat');
+    this.encounter = ensureEncounter(this.run, this.nodeId, this.nodeType);
 
     this.state = startCombat({
       encounter: this.encounter,
@@ -1576,13 +1620,115 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * The fight is over and won. The run is settled exactly once here, then the
+   * screen routes: a 首领 owes the 战利品 chest *before* the ordinary spoils, so
+   * the relic that shapes the next act is chosen while it still can be.
+   */
   private showVictory(): void {
     applyCombatResult(this.run, this.state.player.hp);
     // 贪念 collects here — before the gold roll, so a curse can never eat the
     // reward the player is about to be shown.
     resolveCombatEndHooks(this.state, this.run);
 
-    const rng = new Rng(`${this.run.map.seed}:${this.run.currentNodeId}:reward`);
+    if (this.nodeType === 'boss' && bossOfferPending(this.run, this.nodeId)) {
+      this.showBossChest(() => this.showSpoils());
+      return;
+    }
+    this.showSpoils();
+  }
+
+  /**
+   * 战利品 — three 首领 relics, keep one, or decline for the 宝钥. Drawn as text
+   * rather than as icons on purpose: every 首领 relic carries a downside, and a
+   * choice made off a sigil the player cannot read is not a choice (todo 10).
+   */
+  private showBossChest(done: () => void): void {
+    const offer = ensureBossOffer(this.run, this.nodeId);
+    const layer = this.add.container(0, 0).setDepth(DEPTH.overlay);
+    layer.add(
+      this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 0.92),
+    );
+    layer.add(
+      this.add
+        .text(GAME_WIDTH / 2, 78, '战 利 品', brushStyle(48, C.goldBright))
+        .setOrigin(0.5)
+        .setLetterSpacing(10),
+    );
+    layer.add(
+      this.add
+        .text(GAME_WIDTH / 2, 138, '取其一，余者尽弃。', bodyStyle(16, C.paperDim))
+        .setOrigin(0.5),
+    );
+
+    // Answered once, whichever way: `takeBossRelic` is the gate, and this only
+    // stops a second click from tearing the panel down twice mid-fade.
+    let answered = false;
+    const answer = (relicId: string | null): void => {
+      if (answered) return;
+      answered = true;
+      takeBossRelic(this.run, this.nodeId, relicId);
+      this.relicBar.setRelics(this.run.relics);
+      this.tweens.add({
+        targets: layer,
+        alpha: 0,
+        duration: 220,
+        onComplete: () => {
+          layer.destroy(true);
+          done();
+        },
+      });
+    };
+
+    const spacing = Math.min(400, (GAME_WIDTH - 80) / Math.max(1, offer.length));
+    offer.forEach((relicId, i) => {
+      const def = getRelic(relicId);
+      if (!def) return;
+      const x = GAME_WIDTH / 2 + (i - (offer.length - 1) / 2) * spacing;
+      const card = this.add.container(x, 340);
+      card.add(inkPanel(this, -spacing / 2 + 12, -130, spacing - 24, 260, { alpha: 0.8 }));
+      card.add(
+        this.add.text(0, -104, def.name, brushStyle(26, C.goldBright)).setOrigin(0.5).setLetterSpacing(3),
+      );
+      card.add(
+        this.add
+          .text(0, -62, relicText(def), {
+            ...bodyStyle(14, C.paperDim),
+            align: 'center',
+            wordWrap: { width: spacing - 56 },
+            lineSpacing: 6,
+          })
+          .setOrigin(0.5, 0),
+      );
+      const hit = this.add
+        .zone(0, 0, spacing - 24, 260)
+        .setInteractive({ useHandCursor: true });
+      hit.on('pointerover', () => this.tweens.add({ targets: card, scale: 1.04, duration: 140 }));
+      hit.on('pointerout', () => this.tweens.add({ targets: card, scale: 1, duration: 140 }));
+      hit.on('pointerup', () => answer(relicId));
+      card.add(hit);
+      card.setDepth(DEPTH.overlay + 1);
+      layer.add(card);
+    });
+
+    const decline = inkButton(this, GAME_WIDTH / 2, 578, '不取 · 换取宝钥', {
+      width: 300,
+      height: 54,
+      fontSize: 22,
+      onClick: () => answer(null),
+    });
+    decline.setDepth(DEPTH.overlay + 1);
+    layer.add(decline);
+
+    layer.setAlpha(0);
+    this.tweens.add({ targets: layer, alpha: 1, duration: 320 });
+  }
+
+  private showSpoils(): void {
+    // Every roll on this screen goes through `stream`, never through a
+    // hand-built seed string: the two used to be spelled out here and drifted
+    // from `streamSeed` on the null-node case alone.
+    const rng = stream(this.run, this.nodeId, 'reward');
     const gold = rng.range(this.encounter.goldReward[0], this.encounter.goldReward[1]);
     addGold(this.run, gold);
 
@@ -1592,6 +1738,10 @@ export class CombatScene extends Phaser.Scene {
     // Its own stream, so adding or removing a potion drop can never shift the
     // gold roll or the card picks for a seed that already existed.
     const drop = this.rollPotionDrop();
+    // 精英 drops a relic by tier; an 奇遇 that started this fight may instead
+    // have promised a named one. Its own stream again, and gated on the node so
+    // a scene restart cannot pay it twice.
+    const relic = claimVictoryRelic(this.run, this.nodeId, this.nodeType, this.bonusRelic);
 
     const layer = this.add.container(0, 0).setDepth(DEPTH.overlay);
     layer.add(
@@ -1602,15 +1752,17 @@ export class CombatScene extends Phaser.Scene {
     );
     layer.add(
       this.add
-        .text(GAME_WIDTH / 2, 140, `获得资财 ${gold}　·　体力 ${this.run.hp} / ${this.run.maxHp}`, bodyStyle(17, C.paperDim))
+        .text(GAME_WIDTH / 2, 140, `获得资财 ${gold + (relic?.gold ?? 0)}　·　体力 ${this.run.hp} / ${this.run.maxHp}`, bodyStyle(17, C.paperDim))
         .setOrigin(0.5),
     );
     // A drop pushes the card row's caption down; with no drop the screen keeps
     // the layout it had before potions existed.
     if (drop) this.buildPotionDrop(layer, drop, 196);
+    if (relic) this.buildRelicDrop(layer, relic, drop ? 226 : 196);
+    const captionY = 184 + (drop ? 62 : 0) + (relic ? 52 : 0);
     layer.add(
       this.add
-        .text(GAME_WIDTH / 2, drop ? 246 : 184, '择一牌收入行囊', bodyStyle(15, C.paperFaint))
+        .text(GAME_WIDTH / 2, captionY, '择一牌收入行囊', bodyStyle(15, C.paperFaint))
         .setOrigin(0.5),
     );
 
@@ -1657,6 +1809,48 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({ targets: layer, alpha: 1, duration: 320 });
   }
 
+  // ------------------------------------------------------------- 宝物 drops
+
+  /**
+   * The 精英 / 奇遇 relic line. The relic is already on the run — the room layer
+   * granted it — so this is a receipt, not a button; the bar in the HUD is
+   * refreshed so the new sigil is where the player will look for it next.
+   *
+   * A refused drop still gets a line: silently paying coin for a relic the
+   * player was told to expect reads as the drop having been forgotten.
+   */
+  private buildRelicDrop(
+    layer: Phaser.GameObjects.Container,
+    relic: VictoryRelic,
+    y: number,
+  ): void {
+    if (relic.relicId) {
+      const def = getRelic(relic.relicId);
+      const bar = new RelicBar(this, {
+        x: GAME_WIDTH / 2 - 14,
+        y: y - 14,
+        depth: DEPTH.overlay + 1,
+        tooltipDepth: DEPTH.overlay + 2,
+        size: 28,
+        perRow: 1,
+      });
+      bar.setRelics([relic.relicId]);
+      layer.add(
+        this.add
+          .text(GAME_WIDTH / 2 + 28, y, `得宝物「${def?.name ?? relic.relicId}」`, bodyStyle(16, C.goldBright))
+          .setOrigin(0, 0.5),
+      );
+      this.relicBar.setRelics(this.run.relics);
+      this.relicBar.flash(relic.relicId);
+      return;
+    }
+    layer.add(
+      this.add
+        .text(GAME_WIDTH / 2, y, `库中已无可取之物，折作资财 ${relic.gold}`, bodyStyle(16, C.paperDim))
+        .setOrigin(0.5),
+    );
+  }
+
   // ------------------------------------------------------------- 丹药 drops
 
   /**
@@ -1669,7 +1863,7 @@ export class CombatScene extends Phaser.Scene {
    * the same map always drops the same bottle.
    */
   private rollPotionDrop(): string | null {
-    const rng = new Rng(`${this.run.map.seed}:${this.run.currentNodeId}:potion`);
+    const rng = stream(this.run, this.nodeId, 'potion');
     const chance =
       this.nodeType === 'elite'
         ? POTION_DROP.elite

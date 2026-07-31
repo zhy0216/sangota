@@ -189,7 +189,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
 
   /**
-   * 暴怒 2 from the first bell: every hit that draws blood makes the next one
+   * 暴怒 1 from the first bell: every hit that draws blood makes the next one
    * worse, so the fight rewards big single blows over chip damage — the exact
    * opposite of what 华雄 wants. 血战 only unlocks under half HP, and the same
    * line hands over a lump of 神力, so the back half is a race.
@@ -468,9 +468,14 @@ export const ACT1: EncounterTable = {
 };
 
 /**
- * The flat table the map still reads. Derived from `ACT1` so there is exactly
- * one place a fight is written down; todos/09 is what replaces the read with a
- * per-act `pickEncounter` call and lets this alias go.
+ * Every fight of an act in one flat list per tier, derived from `ACT1` so there
+ * is exactly one place a fight is written down.
+ *
+ * This is a *lookup*, not a draw table: `src/rooms/fight.ts` picks through
+ * `pickEncounter` against `ACT1`, which is what applies the weak/strong split
+ * and the no-repeats rule. Picking uniformly out of this array — which is what
+ * `CombatScene` used to do — silently discards both. todos/09 replaces `ACT1`
+ * with a per-act table and this alias goes with it.
  */
 export const ENCOUNTERS: Record<CombatTier, Encounter[]> = {
   monster: [...ACT1.weak, ...ACT1.strong],
@@ -529,6 +534,19 @@ export function pickEncounter(
 
   const fresh = pool.filter((e) => !opts.used.includes(e.id));
   return rng.pick(fresh.length > 0 ? fresh : pool);
+}
+
+/**
+ * An encounter by id, across both tables — a fight the map cannot open yet is
+ * still a fight the rules layer has to look up. Used to read a materialised
+ * `RoomRecord.combat.encounterId` back, and by the sim to name its cases.
+ */
+export function getEncounter(id: string): Encounter {
+  for (const table of [...Object.values(ENCOUNTERS), ...Object.values(PENDING_ENCOUNTERS)]) {
+    const found = table.find((e) => e.id === id);
+    if (found) return found;
+  }
+  throw new Error(`Unknown encounter id: ${id}`);
 }
 
 export const getEnemy = (id: string): EnemyDef => {

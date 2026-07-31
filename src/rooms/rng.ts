@@ -33,12 +33,12 @@ import type { RunState } from '../state/run';
  * | `combat`     | varies (shuffle / hp / intents — inherently so) |
  * | `reward`     | existing, frozen |
  * | `potion`     | existing, frozen |
- * | `loot`       | 1 now, 7 once todo 10 lands — the gold roll stays first |
+ * | `loot`       | 7 — the frozen gold roll, then `CHEST_EXTRA_DRAWS` |
  * | `shop`       | 31               |
  * | `event`      | 1                |
  * | `eventBranch:{n}` | 1 per branch taken |
- * | `eliteRelic` | 2                |
- * | `bossRelic`  | 6                |
+ * | `eliteRelic` | 2 (`RELIC_ROLL_DRAWS`) |
+ * | `bossRelic`  | 6 (`BOSS_OFFER_DRAWS`) |
  */
 export type Purpose =
   | 'encounter'
@@ -55,9 +55,16 @@ export type Purpose =
 /**
  * The seed string behind a stream. Exposed because `startCombat` wants a seed
  * rather than a generator, and the two must agree byte for byte.
+ *
+ * The run's seed is escaped and the other two fields are not, which is the
+ * asymmetry the format needs. A node id is `row_col` or `boss` and a purpose is
+ * a closed enum — `eventBranch:2` contains the separator on purpose, and its
+ * position is fixed, so it cannot collide with anything. The run seed is the
+ * only field a player could ever type, and `a:b` + node `c` would otherwise
+ * share a stream with seed `a` + node `b:c`.
  */
 export const streamSeed = (run: RunState, nodeId: string, purpose: Purpose): string =>
-  `${run.map.seed}:${nodeId}:${purpose}`;
+  `${run.map.seed.replace(/[\\:]/g, '\\$&')}:${nodeId}:${purpose}`;
 
 export const stream = (run: RunState, nodeId: string, purpose: Purpose): Rng =>
   new Rng(streamSeed(run, nodeId, purpose));

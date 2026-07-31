@@ -396,7 +396,10 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
   curlUp: {
     id: 'curlUp',
     label: '龟缩',
-    desc: '受到伤害时获得等量护甲，随后消失。',
+    // 「攻击」 and not 「伤害」: `resolveDamage` only runs `onAttacked` for
+    // `ctx.isAttack`, so 中毒's tick and 太平符水's `loseHp` go straight through
+    // without waking it. The old wording promised the opposite.
+    desc: '受到攻击而失去体力时，获得等量护甲，随后消失。',
     kind: 'buff',
     color: HUE.curlUp,
     icon: 'status-curlUp',
@@ -413,7 +416,8 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
   angry: {
     id: 'angry',
     label: '暴怒',
-    desc: '每次受到伤害后获得等量【神力】。',
+    // Same correction as 龟缩 above: only an attack that drew blood feeds it.
+    desc: '每次受到攻击而失去体力后，获得等量【神力】。',
     kind: 'buff',
     color: HUE.angry,
     icon: 'status-angry',

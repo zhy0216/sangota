@@ -154,6 +154,77 @@ describe('the event table', () => {
     expect(freebies).toEqual([]);
   });
 
+  it('charges a repeatable option on the branch that pays, not on a sibling', () => {
+    // 山中残兵 passed the whole-option test above and was still a faucet: the
+    // 25% ambush counted as the price of the 75% payout, but an ambush is a
+    // *fight*, and a fight pays 資財, a card and a 丹药 roll of its own. Three
+    // finds on average is 90 資財 out of a room, against ~300 for a whole run.
+    //
+    // A repeatable option is therefore judged branch by branch, and `fight` is
+    // not a price: the player chooses how many times to take it, so anything
+    // net-positive per attempt is unbounded income.
+    const PAYS_COIN = (o: EventOutcome): boolean =>
+      (o.gold ?? 0) > 0 ||
+      (o.maxHp ?? 0) > 0 ||
+      !!o.healToFull ||
+      !!o.gainRelic ||
+      !!o.gainPotion ||
+      !!o.upgradeCards ||
+      !!o.removeCards;
+    const CHARGES_BLOOD = (o: EventOutcome): boolean =>
+      (o.gold ?? 0) < 0 ||
+      !!o.spendAllGold ||
+      (o.hp ?? 0) < 0 ||
+      !!o.hpLossPercent ||
+      (o.maxHp ?? 0) < 0 ||
+      !!o.gainCurse ||
+      !!o.gainCards;
+
+    const faucets: string[] = [];
+    for (const def of EVENTS) {
+      for (const opt of def.options) {
+        if (!opt.repeatable) continue;
+        const parts = opt.outcome.branches?.map((b) => b.outcome) ?? [opt.outcome];
+        for (const part of parts) {
+          if (PAYS_COIN(part) && !CHARGES_BLOOD(part)) faucets.push(`${def.id}:${opt.label}`);
+        }
+      }
+    }
+    expect(faucets).toEqual([]);
+  });
+
+  it('charges a purse it cannot see through spendAllGold, never through negative gold', () => {
+    // `addGold` clamps at zero, so an outcome declaring `gold: -200` against a
+    // 10-資財 purse silently charges 10 and then reports 「资财 -10。」 as if that
+    // had been the price. Nothing in the table does this today; the rule is
+    // written down here so that the first outcome that tries has to either gate
+    // itself with `requires` or use `spendAllGold`, which is honest by design.
+    const unguarded: string[] = [];
+    for (const def of EVENTS) {
+      for (const opt of def.options) {
+        const parts = opt.outcome.branches?.map((b) => b.outcome) ?? [opt.outcome];
+        for (const part of parts) {
+          if ((part.gold ?? 0) < 0 && !opt.requires) unguarded.push(`${def.id}:${opt.label}`);
+        }
+      }
+    }
+    expect(unguarded).toEqual([]);
+  });
+
+  it('gates every option that ends in a fight on being able to survive one', () => {
+    // The room layer clamps a wound at 1 体力 precisely because it cannot show
+    // a defeat screen — and then handed a 1-体力 player to an 精英 through the
+    // back door. Any option that can start a fight has to have a floor.
+    const ungated: string[] = [];
+    for (const def of EVENTS) {
+      for (const opt of def.options) {
+        const parts = opt.outcome.branches?.map((b) => b.outcome) ?? [opt.outcome];
+        if (parts.some((p) => p.fight) && !opt.requires) ungated.push(`${def.id}:${opt.label}`);
+      }
+    }
+    expect(ungated).toEqual([]);
+  });
+
   it('routes curses through gainCurse and never through gainCards', () => {
     // `addCard` throws on a curse, so a table entry that got this wrong would
     // blow up in the player's face rather than in a test.
@@ -251,11 +322,59 @@ describe('ensureEvent', () => {
   });
 
   it('respects minRow', () => {
-    const run = fresh('floors');
-    const id = eventNode(run);
-    run.map.nodes.get(id)!.row = 0;
-    const def = ensureEvent(run, id);
-    expect(def.minRow ?? 0).toBeLessThanOrEqual(0);
+    // Asserting `def.minRow <= row` is the event's own account of itself and
+    // passes against any filter at all, including none. What has to be checked
+    // is the *converse*: an event with a higher floor never turns up below it.
+    for (const def of EVENTS) {
+      const floor = def.minRow ?? 0;
+      if (floor === 0) continue;
+
+      for (let row = 0; row < floor; row++) {
+        for (let s = 0; s < 8; s++) {
+          const run = fresh(`floor-${def.id}-${row}-${s}`);
+          const id = eventNode(run);
+          run.map.nodes.get(id)!.row = row;
+          expect(ensureEvent(run, id).id, `${def.id} on row ${row}`).not.toBe(def.id);
+        }
+      }
+    }
+  });
+
+  it('is an at-or-above gate, not an above gate', () => {
+    // `row >= minRow` becoming `row > minRow` shifts the whole table up a
+    // floor. Every event has to be reachable on its own printed floor.
+    for (const def of EVENTS) {
+      const floor = def.minRow ?? 0;
+      let reached = false;
+      for (let s = 0; s < 80 && !reached; s++) {
+        const run = fresh(`atfloor-${def.id}-${s}`);
+        const id = eventNode(run);
+        run.map.nodes.get(id)!.row = floor;
+        // Narrow the pool to this one event so the sample is not the map's.
+        run.seenEvents = EVENTS.filter((d) => d.id !== def.id).map((d) => d.id);
+        if (ensureEvent(run, id).id === def.id) reached = true;
+      }
+      expect(reached, `${def.id} unreachable on its own floor ${floor}`).toBe(true);
+    }
+  });
+
+  it('keeps 五丈原 and 卧龙岗 off the low floors specifically', () => {
+    // The two the generic loop above would still miss if `eligible` were
+    // rewritten to special-case `once` events: both are `once`, and the
+    // exhausted-pool branch drops `once` entries, so a broken `minRow` on
+    // either was invisible to the fallback test as well.
+    for (const [id, floor] of [
+      ['wuzhangyuan', 8],
+      ['wolonggang', 4],
+    ] as const) {
+      expect(getEvent(id).minRow).toBe(floor);
+      for (let s = 0; s < 40; s++) {
+        const run = fresh(`low-${id}-${s}`);
+        const node = eventNode(run);
+        run.map.nodes.get(node)!.row = 1;
+        expect(ensureEvent(run, node).id).not.toBe(id);
+      }
+    }
   });
 
   it('falls back to 荒径无人 when nothing at all is eligible', () => {
@@ -533,7 +652,7 @@ describe('山中残兵', () => {
     expect(hasEnabledOption(run, id)).toBe(false);
   });
 
-  it('pays 30 per find and fires an ambush about a quarter of the time', () => {
+  it('pays 30 per find, charges 5 体力 for it, and ambushes about a quarter of the time', () => {
     let finds = 0;
     let ambushes = 0;
     for (let i = 0; i < 400; i++) {
@@ -542,15 +661,67 @@ describe('山中残兵', () => {
       if (report.fight) {
         expect(report.fight.tier).toBe('monster');
         expect(report.gold).toBe(0);
+        expect(report.hp).toBe(0);
         ambushes += 1;
       } else {
         expect(report.gold).toBe(30);
+        // The price. Without it this option was the table's one strictly
+        // positive line and the search was free money on a timer.
+        expect(report.hp).toBe(-5);
         finds += 1;
       }
     }
     expect(finds + ambushes).toBe(400);
     expect(ambushes / 400).toBeGreaterThan(0.15);
     expect(ambushes / 400).toBeLessThan(0.36);
+  });
+
+  it('cannot be farmed: every 30 資財 costs 5 体力 off the same purse', () => {
+    // Search a single node until the ambush lands, and hold the two totals
+    // against each other. 90 資財 for nothing was 30% of a run's whole income.
+    let bled = 0;
+    let earned = 0;
+    for (let i = 0; i < 60; i++) {
+      const { run, id } = searchable(`farm-${i}`);
+      const hp0 = run.hp;
+      const gold0 = run.gold;
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const report = chooseOption(run, id, 0);
+        if (!report || report.fight) break;
+      }
+      bled += hp0 - run.hp;
+      earned += run.gold - gold0;
+    }
+    expect(earned).toBeGreaterThan(0);
+    // 30 資財 per 5 体力, exactly, however long the streak ran. Never less:
+    // the 1-体力 clamp would make the last few searches free, which is why the
+    // option is gated above the clamp rather than relying on it.
+    expect(earned / bled).toBe(6);
+  });
+
+  it('bars the search once the purse it is charged against is nearly empty', () => {
+    // The clamp in `applyOutcome` stops a wound at 1 体力, so blood alone is not
+    // a budget: pinned at the floor, a repeatable option costs nothing at all
+    // and pays forever. The gate is what bounds it.
+    const { run, id } = searchable('floor');
+    run.hp = Math.floor(run.maxHp * 0.25);
+    expect(eventOptions(run, id)[0].disabled).toBe(true);
+    expect(chooseOption(run, id, 0)).toBeNull();
+
+    run.hp = run.maxHp;
+    expect(eventOptions(run, id)[0].disabled).toBeUndefined();
+
+    // …and the total take is bounded by 体力 rather than by patience.
+    let earned = 0;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const report = chooseOption(run, id, 0);
+      if (!report || report.fight) break;
+      earned += report.gold;
+    }
+    // ⌈(maxHp − maxHp/4) / 5⌉ finds at 30 資財 each, and a run's whole income
+    // is about 300 — so even the 0.75^n tail cannot buy the shop out.
+    expect(earned).toBeLessThanOrEqual(Math.ceil((run.maxHp * 0.75) / 5) * 30);
+    expect(run.hp).toBeGreaterThan(1);
   });
 });
 
@@ -760,5 +931,226 @@ describe('invariants', () => {
         if (view.disabled) expect(view.disabledReason).toBeTruthy();
       }
     }
+  });
+});
+
+// ---------------------------------------------------------- 未覆盖的三个事件
+
+/**
+ * 官渡焚粮, 醉酒张飞 and the 荒径无人 floor had no test of their own, so every
+ * number on them was free to move: 失 10 体力 → 失 1, 资财 +70 → +700 and a
+ * 常见 relic grant → 稀有 all passed the whole suite.
+ */
+describe('the three events nothing named', () => {
+  const take = (eventId: string, index: number, seed: string): { run: RunState; report: ReturnType<typeof chooseOption> } => {
+    const run = fresh(seed);
+    const id = eventNode(run);
+    pin(run, id, eventId);
+    return { run, report: chooseOption(run, id, index) };
+  };
+
+  it('官渡焚粮 · 举火焚之 costs 10 体力 and pays a 常见 relic', () => {
+    const { run, report } = take('guandufenliang', 0, 'gdfl-0');
+    expect(report!.hp).toBe(-10);
+    expect(report!.relicId).not.toBeNull();
+    expect(RELICS[report!.relicId!].tier).toBe('common');
+    expect(run.relics).toContain(report!.relicId!);
+  });
+
+  it('官渡焚粮 · 尽数运回 pays 70 資財 and inflicts 奢靡', () => {
+    const { run, report } = take('guandufenliang', 1, 'gdfl-1');
+    expect(report!.gold).toBe(70);
+    expect(report!.curseIds).toEqual(['shemi']);
+    expect(run.deck.filter((c) => c.defId === 'shemi')).toHaveLength(1);
+  });
+
+  it('官渡焚粮 · 不敢妄动 moves nothing at all', () => {
+    const { run, report } = take('guandufenliang', 2, 'gdfl-2');
+    expect(report!.gold).toBe(0);
+    expect(report!.hp).toBe(0);
+    expect(report!.relicId).toBeNull();
+    expect(run.deck.some((c) => c.defId === 'shemi')).toBe(false);
+  });
+
+  it('醉酒张飞 heals to full for a 旧伤, or pays 10 体力 for nothing', () => {
+    const wounded = fresh('zjzf-0');
+    const id = eventNode(wounded);
+    pin(wounded, id, 'zuijiuzhangfei');
+    wounded.hp = 20;
+    const drunk = chooseOption(wounded, id, 0)!;
+    expect(wounded.hp).toBe(wounded.maxHp);
+    expect(drunk.curseIds).toEqual(['jiushang']);
+
+    const sober = fresh('zjzf-1');
+    const soberId = eventNode(sober);
+    pin(sober, soberId, 'zuijiuzhangfei');
+    sober.hp = 20;
+    expect(chooseOption(sober, soberId, 1)!.hp).toBe(10);
+    expect(sober.hp).toBe(30);
+    expect(sober.deck.some((c) => c.defId === 'jiushang')).toBe(false);
+  });
+
+  it('荒径无人 pays 25 資財 or nothing, and is never rolled into a node', () => {
+    expect(EVENTS.some((d) => d.id === FALLBACK_EVENT.id)).toBe(false);
+    const run = fresh('floor-event');
+    const id = eventNode(run);
+    roomRecord(run, id, 'event').eventId = FALLBACK_EVENT.id;
+    expect(chooseOption(run, id, 0)!.gold).toBe(25);
+  });
+
+  it('never writes the floor event into seenEvents', () => {
+    // It is not in `EVENTS`, so `eligible` can never filter against it —
+    // recording it only puts an id in the save that nothing will ever read.
+    const run = fresh('floor-seen');
+    run.seenEvents = EVENTS.map((d) => d.id);
+    const id = eventNode(run);
+    run.map.nodes.get(id)!.row = 0;
+    // Row 0 with every non-`once` repeat also spent leaves nothing eligible.
+    run.seenEvents = EVENTS.map((d) => d.id);
+    const before = [...run.seenEvents];
+    ensureEvent(run, id);
+    expect(run.seenEvents).toEqual(before);
+    expect(run.seenEvents).not.toContain(FALLBACK_EVENT.id);
+  });
+});
+
+// --------------------------------------------------- 结算顺序与边界
+
+describe('applyOutcome ordering and boundaries', () => {
+  const only = (outcome: Parameters<typeof applyOutcome>[1], run: RunState) =>
+    applyOutcome(run, outcome, new Rng('outcome'));
+
+  it('spends the purse before it fills it, not after', () => {
+    // 五丈原 charges the purse it *found*. Nothing in the table pairs
+    // `spendAllGold` with positive `gold` yet, so swapping the two lines was
+    // invisible — and the day one is added, the bug is silent money.
+    const run = fresh('order');
+    run.gold = 200;
+    const report = only({ text: '', spendAllGold: true, gold: 30 }, run);
+    expect(run.gold).toBe(30);
+    expect(report.gold).toBe(-170);
+  });
+
+  it('flags lethal on a wound that exactly empties the bar', () => {
+    // `<= 0`, not `< 0`. At the boundary the player watches their 体力 drop to
+    // 1 with no line explaining it.
+    const run = fresh('exact');
+    run.hp = 12;
+    const report = only({ text: '', hp: -12 }, run);
+    expect(report.lethal).toBe(true);
+    expect(run.hp).toBe(1);
+    expect(report.lines).toContain('几乎丧命，只余一息。');
+
+    const survived = fresh('spare');
+    survived.hp = 13;
+    expect(only({ text: '', hp: -12 }, survived).lethal).toBe(false);
+  });
+
+  it('hands over the exact cards an outcome names', () => {
+    // `gainCards.ids` is a real branch that no event uses yet, so the loop over
+    // it could be deleted without a single test noticing.
+    const run = fresh('named-cards');
+    const before = run.deck.length;
+    const report = only({ text: '', gainCards: { ids: ['wenjiu', 'wanren'], upgraded: 1 } }, run);
+    expect(report.cardIds).toEqual(['wenjiu', 'wanren']);
+    expect(run.deck).toHaveLength(before + 2);
+    for (const id of ['wenjiu', 'wanren']) {
+      expect(run.deck.find((c) => c.defId === id)!.upgraded).toBe(1);
+    }
+  });
+
+  it('floors a removal at four cards, the same floor 弃卡 answers to', () => {
+    // `RoomHost.pickCards` only clamps against what is *selectable*, which for
+    // a removal is the whole deck. An outcome asking for three off a
+    // three-card deck emptied it, and the next fight could not deal a hand.
+    const run = fresh('strip');
+    const id = eventNode(run);
+    pin(run, id, 'wuzhangyuan');
+    run.deck = run.deck.slice(0, 5);
+    roomCommit(run, id).mark('pending:remove:99');
+
+    expect(resolvePending(run, id, run.deck.map((c) => c.uid))).toBe(true);
+    expect(run.deck).toHaveLength(4);
+  });
+});
+
+// ------------------------------------------------------------------ 叙述
+
+describe('the narration a player actually reads', () => {
+  it('names the relic it handed over', () => {
+    const run = fresh('narrate-relic');
+    const id = eventNode(run);
+    pin(run, id, 'guandufenliang');
+    const report = chooseOption(run, id, 0)!;
+    expect(report.lines).toContain(`得宝物「${RELICS[report.relicId!].name}」。`);
+  });
+
+  it('calls a wound a wound and a cure a cure', () => {
+    // `report.hp - report.maxHp` with its sign flipped reported 「回复体力 8」
+    // for an 8-体力 wound, and 764 lines of event tests never read a line.
+    const hurt = fresh('narrate-hurt');
+    hurt.hp = 60;
+    const wound = applyOutcome(hurt, { text: '', hp: -8 }, new Rng('n'));
+    expect(wound.lines).toContain('失去体力 8。');
+    expect(wound.lines.join()).not.toContain('回复体力');
+
+    const healed = fresh('narrate-heal');
+    healed.hp = 60;
+    const cure = applyOutcome(healed, { text: '', hp: 8 }, new Rng('n'));
+    expect(cure.lines).toContain('回复体力 8。');
+
+    // A 体力上限 gain heals for what it grants and must be called out once.
+    const grown = fresh('narrate-max');
+    const grow = applyOutcome(grown, { text: '', maxHp: 15 }, new Rng('n'));
+    expect(grow.lines).toContain('体力上限 +15。');
+    expect(grow.lines.join()).not.toContain('回复体力');
+  });
+
+  it('says so when the shelf was bare and coin stood in', () => {
+    const run = fresh('narrate-refused');
+    for (const def of relicsOfTier('common')) addRelic(run, def.id);
+    for (const def of relicsOfTier('uncommon')) addRelic(run, def.id);
+    for (const def of relicsOfTier('rare')) addRelic(run, def.id);
+    const report = applyOutcome(run, { text: '', gainRelic: { tier: 'common' } }, new Rng('n'));
+    expect(report.relicRefused).toBe(true);
+    expect(report.lines).toContain('库中已无可取之物，折作资财。');
+  });
+
+  it('warns that steel is coming', () => {
+    const run = fresh('narrate-fight');
+    const report = applyOutcome(run, { text: '', fight: { tier: 'monster' } }, new Rng('n'));
+    expect(report.lines).toContain('刀兵已至。');
+  });
+});
+
+// ------------------------------------------------------- 打起来就关掉事件
+
+describe('a fight closes the event whichever option started it', () => {
+  it('shuts 山中残兵 down the moment the ambush lands', () => {
+    // 继续搜寻 is `repeatable`, so its commit key is `opt:0#n` and the
+    // resolved test does not match it. Without the explicit `mark(optKey(0))`
+    // the node stays open and the whole room can be farmed again after the
+    // fight the player was just handed.
+    for (let i = 0; i < 200; i++) {
+      const run = fresh(`ambush-${i}`);
+      const id = eventNode(run);
+      pin(run, id, 'shanzhongcanbing');
+      let ambushed = false;
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const report = chooseOption(run, id, 0);
+        if (!report) break;
+        if (report.fight) {
+          ambushed = true;
+          break;
+        }
+      }
+      if (!ambushed) continue;
+      expect(isResolved(run, id), `seed ${i}`).toBe(true);
+      expect(chooseOption(run, id, 0)).toBeNull();
+      expect(chooseOption(run, id, 1)).toBeNull();
+      expect(hasEnabledOption(run, id)).toBe(false);
+      return;
+    }
+    throw new Error('no ambush landed in 200 runs');
   });
 });

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/core/rng';
+import { relicsOfTier } from '../src/combat/relics';
+import { rollChestExtras } from '../src/combat/rewards';
 import { roomCommit, roomRecord } from '../src/rooms/commit';
 import { stream, streamSeed } from '../src/rooms/rng';
 import { ensureLoot, openTreasure } from '../src/rooms/treasure';
-import { startRun, type RunState } from '../src/state/run';
+import { addRelic, startRun, type RunState } from '../src/state/run';
 import { DEFAULT_HERO } from '../src/data/heroes';
 
 /**
@@ -106,6 +108,32 @@ describe('room streams', () => {
     expect(stream(run, 'n7', 'loot').next()).not.toBe(stream(run, 'n8', 'loot').next());
   });
 
+  it('cannot be made to collide by a seed that contains the separator', () => {
+    // `randomSeed()` is base36 so this is unreachable today, but the moment a
+    // 「输入种子」 box exists, seed `a:b` on node `c` and seed `a` on node `b:c`
+    // would share a stream and nothing would say so. The run seed is escaped;
+    // the node id and the purpose are closed vocabularies and are not — a
+    // purpose contains a colon on purpose (`eventBranch:2`).
+    const a = fresh();
+    const b = fresh();
+    a.map.seed = 'a:b';
+    b.map.seed = 'a';
+    expect(streamSeed(a, 'c', 'shop')).not.toBe(streamSeed(b, 'b:c', 'shop'));
+    expect(stream(a, 'c', 'shop').next()).not.toBe(stream(b, 'b:c', 'shop').next());
+
+    // A backslash cannot be used to fake the escape either.
+    const c = fresh();
+    const d = fresh();
+    c.map.seed = 'x\\';
+    d.map.seed = 'x';
+    expect(streamSeed(c, 'n', 'shop')).not.toBe(streamSeed(d, '\\n', 'shop'));
+
+    // And an ordinary seed is still spelled the way every existing save spells
+    // it — escaping must not re-roll a run that already exists.
+    const plain = fresh();
+    expect(streamSeed(plain, 'n7', 'shop')).toBe(`${plain.map.seed}:n7:shop`);
+  });
+
   it('replays a purpose from the run state alone — no stored cursor', () => {
     const run = fresh();
     const once = Array.from({ length: 8 }, () => stream(run, 'n3', 'shop').int(100));
@@ -117,18 +145,33 @@ describe('room streams', () => {
 describe('宝藏', () => {
   it('pays the same coin the pre-room-layer map paid', () => {
     // Byte-compatibility with the roll that used to live in MapScene: the gold
-    // draw is #1 on the `loot` stream, and todo 10 appends behind it.
+    // draw is #1 on the `loot` stream and the six relic/potion draws sit behind
+    // it, so a chest on a given seed still pays the coin it always paid. A dry
+    // relic pool adds its consolation on top, which no fresh run can hit.
     const run = fresh();
     const id = nodeOf(run, 'treasure');
     const legacy = new Rng(`${run.map.seed}:${id}:loot`).range(25, 45);
     expect(ensureLoot(run, id).gold).toBe(legacy);
   });
 
-  it('draws exactly once', () => {
+  it('spends exactly seven draws on the loot stream, whatever the chest holds', () => {
+    // 1 gold + CHEST_EXTRA_DRAWS. Constant by construction (R3): a chest that
+    // found nothing must still burn what a chest that found everything did.
     const run = fresh();
     const rng = stream(run, nodeOf(run, 'treasure'), 'loot');
     rng.range(25, 45);
-    expect(rng.rolls).toBe(1);
+    rollChestExtras(rng, run);
+    expect(rng.rolls).toBe(7);
+
+    // …and again against a run that owns every relic the ladder can reach.
+    const drained = fresh('drained');
+    for (const tier of ['common', 'uncommon', 'rare'] as const) {
+      for (const def of relicsOfTier(tier)) addRelic(drained, def.id);
+    }
+    const dry = stream(drained, nodeOf(drained, 'treasure'), 'loot');
+    dry.range(25, 45);
+    expect(rollChestExtras(dry, drained).relicId).toBeNull();
+    expect(dry.rolls).toBe(7);
   });
 
   it('materialises the loot once and reads it back after', () => {
@@ -136,8 +179,55 @@ describe('宝藏', () => {
     const id = nodeOf(run, 'treasure');
     const first = ensureLoot(run, id);
     expect(ensureLoot(run, id)).toBe(first);
-    expect(first.relicId).toBeNull();
-    expect(first.potionId).toBeNull();
+    expect(['small', 'medium', 'large']).toContain(first.size);
+    // The whole point of the room: a chest on a fresh run holds a relic.
+    expect(first.relicId).not.toBeNull();
+    expect(run.relics).not.toContain(first.relicId!);
+  });
+
+  it('hands over the relic and the bottle it froze', () => {
+    const run = fresh('chest-open');
+    const id = nodeOf(run, 'treasure');
+    const loot = ensureLoot(run, id);
+    const report = openTreasure(run, id)!;
+
+    expect(report.relicId).toBe(loot.relicId);
+    expect(run.relics).toContain(loot.relicId!);
+    if (loot.potionId) {
+      expect(report.potionId).toBe(loot.potionId);
+      expect(run.potions).toContain(loot.potionId);
+    }
+  });
+
+  it('names the bottle it could not fit rather than dropping it silently', () => {
+    // Find a seed whose chest carries a potion, then fill the belt before it
+    // opens: a full belt is a refusal, not a chest that held nothing.
+    let run = fresh('belt-0');
+    let id = nodeOf(run, 'treasure');
+    for (let i = 1; !ensureLoot(run, id).potionId && i < 60; i++) {
+      run = fresh(`belt-${i}`);
+      id = nodeOf(run, 'treasure');
+    }
+    expect(ensureLoot(run, id).potionId).not.toBeNull();
+
+    for (let slot = 0; slot < run.potionSlots; slot++) run.potions[slot] = 'tiejiasan';
+    const report = openTreasure(run, id)!;
+    expect(report.potionRefused).toBe(true);
+    expect(report.potionId).toBeNull();
+  });
+
+  it('pays the size-matched consolation when every shelf is bare', () => {
+    const run = fresh('bare');
+    for (const tier of ['common', 'uncommon', 'rare'] as const) {
+      for (const def of relicsOfTier(tier)) addRelic(run, def.id);
+    }
+    const id = nodeOf(run, 'treasure');
+    const loot = ensureLoot(run, id);
+    expect(loot.relicId).toBeNull();
+    // 25-45 base plus the constant the source owes: 50 / 70 / 90 by size.
+    const owed = { small: 50, medium: 70, large: 90 }[loot.size];
+    expect(loot.gold).toBeGreaterThanOrEqual(25 + owed);
+    expect(loot.gold).toBeLessThanOrEqual(45 + owed);
   });
 
   it('opens once; a second attempt pays nothing and changes nothing', () => {

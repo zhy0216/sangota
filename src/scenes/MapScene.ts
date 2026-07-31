@@ -122,6 +122,12 @@ export class MapScene extends Phaser.Scene {
     this.buildDrawer();
     this.bindCameraControls();
 
+    // `off` first: `Systems.shutdown` clears the four TRANSITION_* events and
+    // nothing else, so the handler registered by the previous `create` is still
+    // attached. Returning from a fight restarts this scene, and without this
+    // every fight added one more `resume()` — nine full `refreshAll()` passes
+    // over ~120 nodes and ~200 edges on the ninth trip back from a room.
+    this.events.off(Phaser.Scenes.Events.WAKE);
     this.events.on(Phaser.Scenes.Events.WAKE, () => this.resume());
 
     this.refreshAll();

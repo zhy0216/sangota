@@ -1,4 +1,4 @@
-import { ENCOUNTERS, PENDING_ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   endPlayerTurn,
   playCard,
@@ -7,7 +7,7 @@ import {
   startCombat,
   usePotion,
 } from '../src/combat/engine';
-import type { CombatEvent, CombatState, Encounter } from '../src/combat/types';
+import type { CombatEvent, CombatState } from '../src/combat/types';
 import type { HeroDef } from '../src/data/heroes';
 import type { DeckCard } from '../src/state/run';
 import type { Policy } from './policy';
@@ -57,15 +57,11 @@ export interface SimResult {
 /**
  * Both tables, on purpose: a fight the map cannot open yet is still a fight the
  * rules layer has to be held to, and `PENDING_ENCOUNTERS` is where 召唤 / 分裂 /
- * 遁走 live until `CombatScene` can draw them.
+ * 遁走 live until `CombatScene` can draw them. The lookup itself lives in
+ * `enemies.ts` beside the tables — the room layer reads a materialised
+ * encounter id back through the same function.
  */
-export function findEncounter(id: string): Encounter {
-  for (const table of [...Object.values(ENCOUNTERS), ...Object.values(PENDING_ENCOUNTERS)]) {
-    const found = table.find((e) => e.id === id);
-    if (found) return found;
-  }
-  throw new Error(`Unknown encounter id: ${id}`);
-}
+export const findEncounter = getEncounter;
 
 export function simulateCombat(opts: SimOptions): SimResult {
   const maxTurns = opts.maxTurns ?? DEFAULT_MAX_TURNS;

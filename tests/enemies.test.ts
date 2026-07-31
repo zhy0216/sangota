@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/core/rng';
-import { ACT1, ENEMIES, getEnemy, pickEncounter } from '../src/combat/enemies';
+import {
+  ACT1,
+  ENCOUNTERS,
+  ENEMIES,
+  PENDING_ENCOUNTERS,
+  getEncounter,
+  getEnemy,
+  pickEncounter,
+} from '../src/combat/enemies';
 import {
   addStatus,
   endPlayerTurn,
@@ -556,11 +564,65 @@ describe('意图不可知', () => {
     boss.intent = def.moves.find((m) => m.id === 'muster')!;
     expect(intentLabel(state, boss)).toBe('召');
 
+    // 遁走 takes 30 資財 with it. Printing a bare 「遁」 told the player the
+    // enemy was leaving and not that it was leaving with their money.
     boss.intent = getEnemy('liukou').moves.find((m) => m.id === 'bolt')!;
-    expect(intentLabel(state, boss)).toBe('遁');
+    expect(intentLabel(state, boss)).toBe('遁 · 夺 30');
 
+    // 太平符水 is 4 直接扣血 *and* a 泥泞 into the discard pile.
     boss.intent = getEnemy('jijiu').moves.find((m) => m.id === 'talisman')!;
-    expect(intentLabel(state, boss)).toBe('伤 4');
+    expect(intentLabel(state, boss)).toBe('伤 4 · 塞牌 1');
+  });
+
+  it('names the status a rider actually applies instead of calling it 弱', () => {
+    // The bug: every `status` rider printed 「弱」. 踏阵 and 破军 both apply
+    // 破绽 — "he is about to make my next wound worse" — and the label said
+    // "he is about to cut my damage", which is the opposite defence.
+    const state = probe(['qishou']);
+    const rider = state.enemies[0];
+    // 黄巾骑手 hides its first intent; this is about the second one onwards.
+    rider.actedTurns = 1;
+
+    rider.intent = getEnemy('qishou').moves.find((m) => m.id === 'trample')!;
+    expect(intentLabel(state, rider)).toBe('攻 7 · 破绽');
+
+    rider.intent = getEnemy('lubu').moves.find((m) => m.id === 'sunder')!;
+    expect(intentLabel(state, rider)).toContain(' · 破绽');
+    expect(intentLabel(state, rider)).not.toContain('弱');
+
+    // A move that really does apply 怯战 still says so.
+    const weakening = getEnemy('huaxiong').moves.find((m) => m.status?.status === 'weak');
+    if (weakening) {
+      rider.intent = weakening;
+      expect(intentLabel(state, rider)).toContain('怯战');
+    }
+  });
+
+  it('telegraphs a card being shovelled into the deck', () => {
+    // 扬尘 / 擂鼓 / 泥雨 all pushed cards into the draw pile and every one of
+    // them displayed as a bare hit.
+    const state = probe(['tieqi']);
+    const enemy = state.enemies[0];
+    enemy.intent = getEnemy('tieqi').moves.find((m) => m.id === 'dust')!;
+    expect(intentLabel(state, enemy)).toContain('塞牌 2');
+
+    enemy.intent = getEnemy('zhangbao').moves.find((m) => m.id === 'mire')!;
+    expect(intentLabel(state, enemy)).toContain('塞牌 2');
+
+    enemy.intent = getEnemy('zhangliang').moves.find((m) => m.id === 'drums')!;
+    expect(intentLabel(state, enemy)).toContain('塞牌 1');
+  });
+
+  it('still marks a defended attack and a group buff', () => {
+    const state = probe(['dongzhuoqinbing']);
+    const enemy = state.enemies[0];
+    const guard = getEnemy('dongzhuoqinbing').moves.find((m) => !!m.damage && !!m.block);
+    if (guard) {
+      enemy.intent = guard;
+      expect(intentLabel(state, enemy)).toMatch(/^攻 \d+ · 守/);
+    }
+    enemy.intent = getEnemy('jijiu').moves.find((m) => m.id === 'preach')!;
+    expect(intentLabel(state, enemy)).toBe('强化 · 神力');
   });
 });
 
@@ -624,8 +686,15 @@ describe('pickEncounter', () => {
       const early = pickEncounter(new Rng(`enc-${s}`), ACT1, 'monster', opts(0));
       expect(weak.has(early.id), `${early.id} is not a weak fight`).toBe(true);
 
-      const late = pickEncounter(new Rng(`enc-${s}`), ACT1, 'monster', opts(ACT1.weakCount));
+      // 3, spelled out. `opts(ACT1.weakCount)` moved the boundary with the
+      // table, so `weakCount: 1` was still "strong after weakCount fights".
+      expect(ACT1.weakCount).toBe(3);
+      const late = pickEncounter(new Rng(`enc-${s}`), ACT1, 'monster', opts(3));
       expect(strong.has(late.id), `${late.id} is not a strong fight`).toBe(true);
+
+      // …and the last weak slot is still weak.
+      const third = pickEncounter(new Rng(`enc-${s}`), ACT1, 'monster', opts(2));
+      expect(weak.has(third.id), `${third.id} is not a weak fight`).toBe(true);
     }
   });
 
@@ -696,5 +765,65 @@ describe('the enemy table holds together', () => {
         expect(ungated[0].maxRepeat, `${def.id}`).toBeUndefined();
       }
     }
+  });
+});
+
+// ------------------------------------------------------------- 遭遇的金币
+
+/**
+ * Every encounter's `goldReward`, as literals.
+ *
+ * The band is the room's whole economic contribution and nothing read it: the
+ * only consumer is `CombatScene`, which no headless test can load, and
+ * `tests/engine.test.ts` stubs it as `[0, 0]`. `m1` at [100, 180] and `b2` at
+ * [8, 11] both passed the entire suite.
+ *
+ * The shop's price table is calibrated against a run banking ~300 資財, and
+ * these eleven rows are where most of that comes from.
+ */
+describe('goldReward', () => {
+  const PRINTED: Record<string, [number, number]> = {
+    m1: [10, 18],
+    m2: [14, 22],
+    m3: [12, 20],
+    m4: [14, 22],
+    m5: [10, 18],
+    m6: [15, 23],
+    m7: [16, 24],
+    m8: [15, 23],
+    m9: [12, 20],
+    m10: [14, 22],
+    m11: [16, 24],
+    e1: [28, 42],
+    e2: [28, 42],
+    e3: [28, 42],
+    b1: [80, 110],
+    b2: [80, 110],
+    b3: [80, 110],
+  };
+
+  it('pays every fight the band printed against it', () => {
+    for (const [id, band] of Object.entries(PRINTED)) {
+      expect(getEncounter(id).goldReward, id).toEqual(band);
+    }
+  });
+
+  it('covers every shipped encounter, so a new fight cannot slip in untested', () => {
+    const shipped = [
+      ...Object.values(ENCOUNTERS).flat(),
+      ...Object.values(PENDING_ENCOUNTERS).flat(),
+    ].map((e) => e.id);
+    expect([...shipped].sort()).toEqual(Object.keys(PRINTED).sort());
+  });
+
+  it('keeps the tiers apart — an elite always outpays a normal fight', () => {
+    const top = (id: string): number => getEncounter(id).goldReward[1];
+    const bottom = (id: string): number => getEncounter(id).goldReward[0];
+    const monsters = Object.values(ENCOUNTERS.monster).map((e) => e.id);
+    const elites = Object.values(ENCOUNTERS.elite).map((e) => e.id);
+    const bosses = Object.values(ENCOUNTERS.boss).map((e) => e.id);
+
+    expect(Math.max(...monsters.map(top))).toBeLessThan(Math.min(...elites.map(bottom)));
+    expect(Math.max(...elites.map(top))).toBeLessThan(Math.min(...bosses.map(bottom)));
   });
 });

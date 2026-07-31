@@ -9,8 +9,10 @@ import {
   eventOptions,
   hasEnabledOption,
   isResolved,
+  pendingPick,
   resolvePending,
   type OutcomeReport,
+  type PendingPick,
 } from './events';
 import type { EventDef } from '../data/events';
 
@@ -48,7 +50,16 @@ export class EventController implements RoomController {
     host.setTitle(this.def.name, this.def.sub);
 
     if (isResolved(host.run, host.node.id)) {
-      // Walked back in. The event is spent; say so rather than re-offering it.
+      // Walked back in. The event is spent — but "spent" and "settled" are not
+      // the same thing: 卧龙岗 charges 12 体力 and 五丈原 the whole purse
+      // *before* the deck grid opens, and `pendingPick` is written to the
+      // ledger precisely so the debt survives the room being rebuilt. Paying
+      // and then showing 「此地之事，已了。」 would pocket it.
+      const owed = pendingPick(host.run, host.node.id);
+      if (owed) {
+        this.collectOwedPick(owed);
+        return;
+      }
       this.done = true;
       host.showResult(['此地之事，已了。'], '离 去');
       return;
@@ -142,7 +153,22 @@ export class EventController implements RoomController {
    * fully-forged cards from locking the room shut.
    */
   private collectPick(report: OutcomeReport): void {
-    const pick = report.pending!;
+    this.openPickGrid(report.pending!, () => this.settle(report));
+  }
+
+  /**
+   * The same grid, opened on re-entry for a pick this node had already paid for
+   * and never collected. There is no report to settle into — the outcome text
+   * was shown on the visit that bought it — so this ends the room outright.
+   */
+  private collectOwedPick(pick: PendingPick): void {
+    this.openPickGrid(pick, () => {
+      this.done = true;
+      this.host.showResult(['旧事已了。'], '离 去');
+    });
+  }
+
+  private openPickGrid(pick: PendingPick, done: () => void): void {
     const forge = pick.kind === 'upgrade';
 
     this.host.pickCards({
@@ -158,7 +184,7 @@ export class EventController implements RoomController {
       onPick: (uids) => {
         resolvePending(this.host.run, this.host.node.id, uids);
         this.host.refreshHud();
-        this.settle(report);
+        done();
       },
     });
   }

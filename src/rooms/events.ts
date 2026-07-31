@@ -10,6 +10,7 @@ import {
   addPotion,
   addRelic,
   heal,
+  removableCount,
   removeCard,
   upgradeCard,
   type RunState,
@@ -145,7 +146,12 @@ export function ensureEvent(run: RunState, nodeId: string): EventDef {
   const def = pool[index] ?? FALLBACK_EVENT;
 
   record.eventId = def.id;
-  if (!run.seenEvents.includes(def.id)) run.seenEvents.push(def.id);
+  // The floor is 「never rolled and never de-duplicated」 by definition — it is
+  // not in `EVENTS`, so `eligible` can never filter against it. Writing it into
+  // `seenEvents` only puts an id in the save that nothing will ever read.
+  if (def.id !== FALLBACK_EVENT.id && !run.seenEvents.includes(def.id)) {
+    run.seenEvents.push(def.id);
+  }
   return def;
 }
 
@@ -372,13 +378,21 @@ export function pendingPick(run: RunState, nodeId: string): PendingPick | null {
  * dropped rather than honoured, and a short list is fine — `RoomHost.pickCards`
  * clamps a request of two against a deck with one upgradable card down to one,
  * and calls back with an empty list when nothing at all qualifies.
+ *
+ * A removal is additionally floored at `MIN_DECK_SIZE`, the same floor 弃卡
+ * answers to. `RoomHost.pickCards` only clamps against how many cards are
+ * *selectable*, which for a removal is the whole deck — so an outcome asking
+ * for three off a three-card deck emptied it and the next fight could not deal
+ * an opening hand.
  */
 export function resolvePending(run: RunState, nodeId: string, uids: string[]): boolean {
   const pick = pendingPick(run, nodeId);
   if (!pick) return false;
   return (
     roomCommit(run, nodeId).once(PENDING_DONE, () => {
-      for (const uid of uids.slice(0, pick.count)) {
+      const allowed =
+        pick.kind === 'remove' ? Math.min(pick.count, removableCount(run)) : pick.count;
+      for (const uid of uids.slice(0, allowed)) {
         if (pick.kind === 'remove') removeCard(run, uid);
         else upgradeCard(run, uid);
       }

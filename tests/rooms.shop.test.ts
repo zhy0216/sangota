@@ -237,11 +237,23 @@ describe('定价', () => {
     }
   });
 
-  it('prices a relic by the tier it actually is, not the tier it was asked for', () => {
+  it('prices a relic inside the printed band for its tier', () => {
+    // Literals, not `RELIC_PRICE[...]`: reading the band back off the table
+    // being tested makes the assertion move with it, and 80-90 → 8-9 passed.
+    const BANDS: Record<string, [number, number]> = {
+      starter: [80, 90],
+      common: [80, 90],
+      uncommon: [140, 165],
+      rare: [190, 225],
+      boss: [230, 270],
+      shop: [170, 200],
+    };
+    expect(RELIC_PRICE).toEqual(BANDS);
+
     for (let i = 0; i < 60; i++) {
       const run = fresh(`relic-price-${i}`);
       for (const offer of ensureStock(run, shopNode(run)).relics) {
-        const [lo, hi] = RELIC_PRICE[getRelic(offer.id)!.tier];
+        const [lo, hi] = BANDS[getRelic(offer.id)!.tier];
         const list = offer.listPrice ?? offer.price;
         expect(list, offer.id).toBeGreaterThanOrEqual(lo);
         expect(list, offer.id).toBeLessThanOrEqual(hi);
@@ -249,12 +261,33 @@ describe('定价', () => {
     }
   });
 
+  it('prices a relic by the tier it actually is, not the tier it was asked for', () => {
+    // The property this test is named after, actually exercised: own every
+    // 常见 relic and the first shelf slot has to degrade. `rollRelicOfTier`
+    // hands back a 罕见, and it must not be sold at the 常见 price.
+    const run = fresh('degraded');
+    for (const def of relicsOfTier('common')) addRelic(run, def.id);
+
+    const first = ensureStock(run, shopNode(run)).relics[0];
+    expect(getRelic(first.id)!.tier).not.toBe('common');
+    const list = first.listPrice ?? first.price;
+    // 罕见 band, spelled out. The 常见 band tops out at 90.
+    expect(list).toBeGreaterThanOrEqual(140);
+    expect(list).toBeLessThanOrEqual(165);
+  });
+
   it('prices a potion by its rarity', () => {
-    expect(POTION_PRICE.common).toEqual([27, 31]);
+    const BANDS: Record<string, [number, number]> = {
+      common: [27, 31],
+      uncommon: [40, 46],
+      rare: [54, 62],
+    };
+    expect(POTION_PRICE).toEqual(BANDS);
+
     for (let i = 0; i < 60; i++) {
       const run = fresh(`potion-price-${i}`);
       for (const offer of ensureStock(run, shopNode(run)).potions) {
-        const [lo, hi] = POTION_PRICE[getPotion(offer.id).rarity];
+        const [lo, hi] = BANDS[getPotion(offer.id).rarity];
         const list = offer.listPrice ?? offer.price;
         expect(list, offer.id).toBeGreaterThanOrEqual(lo);
         expect(list, offer.id).toBeLessThanOrEqual(hi);
@@ -415,12 +448,45 @@ describe('买卖', () => {
     expect(run.potions).toHaveLength(run.potionSlots);
   });
 
-  it('empties out when everything has been bought', () => {
+  it('empties out when everything has been bought, and not one slot before', () => {
     const run = rich('sweep');
     const id = shopNode(run);
+    const slots = slotsOf(run, id);
+    expect(slots.length).toBeGreaterThan(1);
+
     expect(isCleanedOut(run, id)).toBe(false);
-    for (const slot of slotsOf(run, id)) buy(run, id, slot);
+    // `every` and not `some`: the counter is not cleared out because *a* slot
+    // sold. `shopView` shuts the shop down off this, so `some` would close it
+    // after the first purchase.
+    for (const slot of slots.slice(0, -1)) {
+      buy(run, id, slot);
+      expect(isCleanedOut(run, id)).toBe(false);
+    }
+    buy(run, id, slots[slots.length - 1]);
     expect(isCleanedOut(run, id)).toBe(true);
+  });
+
+  it('shows a relic picked up elsewhere as sold rather than as an unaffordable one', () => {
+    // `shelf()` and `buy()` are two answers to one question, and only `buy`'s
+    // half was tested. A greyed tag saying 「资财不足」 over a relic the player
+    // already owns is the disagreement this guards.
+    const run = rich('elsewhere');
+    const id = shopNode(run);
+    const offer = ensureStock(run, id).relics[0];
+
+    const before = shelf(run, id).find((i) => i.slot.kind === 'relic' && i.slot.index === 0)!;
+    expect(before.sold).toBe(false);
+
+    // An 奇遇 hands over the same relic after the shelf froze.
+    addRelic(run, offer.id);
+
+    const after = shelf(run, id).find((i) => i.slot.kind === 'relic' && i.slot.index === 0)!;
+    expect(after.sold).toBe(true);
+    expect(after.blocked).toBeNull();
+    // …and the counter refuses it without charging.
+    const gold = run.gold;
+    expect(buy(run, id, { kind: 'relic', index: 0 })).toBe('sold');
+    expect(run.gold).toBe(gold);
   });
 
   it('leaves the run untouched when a purchase is refused', () => {
@@ -510,6 +576,7 @@ describe('弃卡', () => {
       expect(buyRemoval(run, id, run.deck[0].uid)).toBe(true);
     }
     expect(prices.length).toBeGreaterThanOrEqual(2);
+    expect(prices[0]).toBe(52);
     for (let i = 1; i < prices.length; i++) expect(prices[i]).toBe(prices[i - 1] + 18);
   });
 
@@ -536,12 +603,24 @@ describe('弃卡', () => {
   });
 
   it('will not thin a deck below four cards', () => {
+    // Four, spelled out. `slice(0, MIN_DECK_SIZE)` made the setup move with the
+    // constant, so `MIN_DECK_SIZE = 1` left a one-card deck that was also "at
+    // the floor" and the whole test kept passing.
+    expect(MIN_DECK_SIZE).toBe(4);
+
     const run = rich('removal-thin');
     const id = shopNode(run);
-    run.deck = run.deck.slice(0, MIN_DECK_SIZE);
+    run.deck = run.deck.slice(0, 4);
     expect(removalBlocked(run, id)).toBe('牌少不可再弃');
     expect(buyRemoval(run, id, run.deck[0].uid)).toBe(false);
-    expect(run.deck).toHaveLength(MIN_DECK_SIZE);
+    expect(run.deck).toHaveLength(4);
+
+    // Five cards: one may go, and then the floor bites.
+    const spare = rich('removal-five');
+    const spareId = shopNode(spare);
+    spare.deck = spare.deck.slice(0, 5);
+    expect(buyRemoval(spare, spareId, spare.deck[0].uid)).toBe(true);
+    expect(spare.deck).toHaveLength(4);
   });
 });
 

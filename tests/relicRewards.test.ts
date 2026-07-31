@@ -4,6 +4,7 @@ import { ENCOUNTERS } from '../src/combat/enemies';
 import {
   BASE_ENERGY,
   HAND_SIZE,
+  addStatus,
   drawCards,
   endPlayerTurn,
   playCard,
@@ -210,6 +211,25 @@ describe('rollRelic · 掉落分布', () => {
     expect(d.uncommon).toBeLessThan(36);
     expect(d.rare).toBeGreaterThan(14);
     expect(d.rare).toBeLessThan(20);
+  });
+
+  it('lands an 奇遇 on 60 / 30 / 10, within 3 points', () => {
+    // The one row with no distribution test: it was covered only by "sums to
+    // 100" and "never a 坊市 relic", and reversing it to 10/30/60 satisfies
+    // both. An 奇遇 that promises 「一件普通宝物」 handing out 稀有 six times in
+    // ten is a different event.
+    const d = tierSpread('event', 3000, 'event-dist');
+    expect(d.common).toBeGreaterThan(57);
+    expect(d.common).toBeLessThan(63);
+    expect(d.uncommon).toBeGreaterThan(27);
+    expect(d.uncommon).toBeLessThan(33);
+    expect(d.rare).toBeGreaterThan(7);
+    expect(d.rare).toBeLessThan(13);
+  });
+
+  it('gives 首领 and 坊市 exactly one tier each', () => {
+    expect(tierSpread('boss', 600, 'boss-dist').boss).toBe(100);
+    expect(tierSpread('shop', 600, 'shop-dist').shop).toBe(100);
   });
 
   /** The 验收标准 asks for 200 rolls; the shape has to survive that sample too. */
@@ -455,21 +475,36 @@ describe('rollChestExtras · 宝藏', () => {
     const { sizes, potions } = chests(3000, 'contents');
     expect(potions.small).toBe(0);
 
+    // Literals. Reading the target back off `CHEST_POTION_CHANCE` made the
+    // window travel with the table: 40 → 0 and 60 → 100 both passed.
+    expect(CHEST_POTION_CHANCE).toEqual({ small: 0, medium: 40, large: 60 });
     const rate = (size: ChestSize): number => (potions[size] / sizes[size]) * 100;
-    expect(rate('medium')).toBeGreaterThan(CHEST_POTION_CHANCE.medium - 5);
-    expect(rate('medium')).toBeLessThan(CHEST_POTION_CHANCE.medium + 5);
-    expect(rate('large')).toBeGreaterThan(CHEST_POTION_CHANCE.large - 6);
-    expect(rate('large')).toBeLessThan(CHEST_POTION_CHANCE.large + 6);
+    expect(rate('medium')).toBeGreaterThan(35);
+    expect(rate('medium')).toBeLessThan(45);
+    expect(rate('large')).toBeGreaterThan(54);
+    expect(rate('large')).toBeLessThan(66);
   });
 
   it('pays the size-matched consolation when the pool is dry', () => {
+    // The whole table as literals: `toBe(RELIC_MISS_GOLD[...])` moved with it,
+    // and boss 120 → 12 and event 40 → 400 both went unnoticed.
+    expect(RELIC_MISS_GOLD).toEqual({
+      elite: 60,
+      chestSmall: 40,
+      chestMedium: 60,
+      chestLarge: 90,
+      boss: 120,
+      shop: 60,
+      event: 40,
+    });
+    const OWED: Record<ChestSize, number> = { small: 40, medium: 60, large: 90 };
+
     const drained = own(run('chest-dry-gold'), 'common', 'uncommon', 'rare');
     const rng = new Rng('chest-dry-gold');
     for (let i = 0; i < 60; i++) {
       const loot = rollChestExtras(rng, drained);
       expect(loot.relicId).toBeNull();
-      expect(loot.gold).toBe(RELIC_MISS_GOLD[CHEST_RELIC_SOURCE[loot.size]]);
-      expect(loot.gold).toBeGreaterThan(0);
+      expect(loot.gold).toBe(OWED[loot.size]);
     }
   });
 
@@ -558,7 +593,7 @@ describe('同一 seed 完全可复现', () => {
 
 describe('新增遗物 · 罕见', () => {
   it('羽扇 opens the fight with 1 神力', () => {
-    expect(stacks(bench(['yushan']).player, 'strength')).toBe(RELICS.yushan.value);
+    expect(stacks(bench(['yushan']).player, 'strength')).toBe(1);
     expect(stacks(bench([]).player, 'strength')).toBe(0);
   });
 
@@ -568,7 +603,7 @@ describe('新增遗物 · 罕见', () => {
 
     state.discardPile.push(...state.drawPile.splice(0));
     drawCards(state, 1);
-    expect(state.player.hp).toBe(40 + (RELICS.mumaliu.value ?? 0));
+    expect(state.player.hp).toBe(43);
 
     state.player.hp = state.player.maxHp;
     state.discardPile.push(...state.drawPile.splice(0));
@@ -604,18 +639,54 @@ describe('新增遗物 · 罕见', () => {
 
 describe('新增遗物 · 稀有', () => {
   it('藤甲 lays 3 armour at the start of every turn', () => {
+    // 3, spelled out. The title said 3 and the assertion said
+    // `RELICS.tengjia.value`, so 3 → 12 rewrote both at once.
     const state = bench(['tengjia']);
-    expect(state.player.block).toBe(RELICS.tengjia.value);
+    expect(state.player.block).toBe(3);
 
     state.player.block = 99;
     startPlayerTurn(state);
-    expect(state.player.block).toBe(RELICS.tengjia.value);
+    expect(state.player.block).toBe(3);
+  });
+
+  it('藤甲 armour is not scaled by 力竭, because it is not card armour', () => {
+    // 约定 4 and the design note on 虎符 — 「a tax on 【技】 armour and not on
+    // 藤甲 or 玄武甲」 — both rest entirely on the `'relic'` source argument, and
+    // only the comment was holding it: swapping it for `'card'` broke nothing
+    // in 1200 tests. 虎符's own 力竭 lands *after* 藤甲's block on the same
+    // turn-start, so the stack is put on by hand here to make the two meet.
+    const taxed = bench(['tengjia']);
+    taxed.player.block = 0;
+    addStatus(taxed, taxed.player, 'frail', 1);
+    startPlayerTurn(taxed);
+    expect(stacks(taxed.player, 'frail')).toBe(1);
+    // Full 3, not floor(3 × 0.75) = 2.
+    expect(taxed.player.block).toBe(3);
+
+    // Card armour under the same stack *is* taxed, which is the contrast that
+    // makes the assertion above mean something: 铁壁 5 → 3.
+    const carded = bench([], 'tiebi');
+    carded.player.block = 0;
+    addStatus(carded, carded.player, 'frail', 1);
+    playCard(carded, carded.hand[0]);
+    expect(carded.player.block).toBe(3);
+  });
+
+  it('虎符 taxes 【技】 armour and hands over its 神力', () => {
+    const state = bench(['hufu'], 'tiebi');
+    expect(stacks(state.player, 'strength')).toBe(2);
+    expect(stacks(state.player, 'frail')).toBe(1);
+    state.player.block = 0;
+    playCard(state, state.hand[0]);
+    expect(state.player.block).toBe(3);
   });
 
   it('古锭刀 adds its damage to every 攻 card, on the face and on the enemy', () => {
     const state = bench(['gudingdao']);
-    const bonus = RELICS.gudingdao.value ?? 0;
-    expect(previewValues(state, resolveCard('pikan', 0)).D).toBe(6 + bonus);
+    // 2, spelled out.
+    const bonus = 2;
+    expect(RELICS.gudingdao.value).toBe(bonus);
+    expect(previewValues(state, resolveCard('pikan', 0)).D).toBe(8);
 
     const enemy = state.enemies[0];
     let hp = enemy.hp;
@@ -645,14 +716,16 @@ describe('新增遗物 · 稀有', () => {
     expect(state.hand).toHaveLength(held - 4);
     expect(state.relicCounters.sunzibingfa).toBe(4);
 
+    expect(RELICS.sunzibingfa.value).toBe(2);
     playCard(state, state.hand[0], state.enemies[0].id);
-    expect(state.hand).toHaveLength(held - 5 + (RELICS.sunzibingfa.value ?? 0));
+    expect(state.hand).toHaveLength(held - 5 + 2);
     expect(state.relicCounters.sunzibingfa).toBe(0);
   });
 
   it('七星灯 burns only below half health', () => {
     const state = bench(['qixingdeng']);
-    const value = RELICS.qixingdeng.value ?? 0;
+    const value = 4;
+    expect(RELICS.qixingdeng.value).toBe(value);
 
     state.player.hp = state.player.maxHp;
     startPlayerTurn(state);
@@ -671,12 +744,12 @@ describe('新增遗物 · 稀有', () => {
 
 describe('新增遗物 · 首领', () => {
   it('方天画戟 pays damage on every attack and takes half the coin', () => {
-    const bonus = RELICS.fangtianhuaji.value ?? 0;
+    expect(RELICS.fangtianhuaji.value).toBe(3);
     const state = bench(['fangtianhuaji']);
     const enemy = state.enemies[0];
     const hp = enemy.hp;
     playCard(state, state.hand[0], enemy.id);
-    expect(hp - enemy.hp).toBe(6 + bonus);
+    expect(hp - enemy.hp).toBe(9);
 
     const r = run('halved');
     r.gold = 0;
