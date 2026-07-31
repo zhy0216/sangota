@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { ROOM_META } from '../map/roomMeta';
 import type { MapNode, RoomType } from '../map/types';
+import { CampfireController } from '../rooms/campfireView';
 import { roomCommit, type RoomCommit } from '../rooms/commit';
 import type { PickRequest, RoomOptionView } from '../rooms/types';
 import { ShopController } from '../rooms/shopView';
@@ -89,6 +90,7 @@ export interface RoomController {
  * one line here.
  */
 const CONTROLLERS: Partial<Record<RoomType, () => RoomController>> = {
+  rest: () => new CampfireController(),
   shop: () => new ShopController(),
   treasure: () => new TreasureController(),
 };
