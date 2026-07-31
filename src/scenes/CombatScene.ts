@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { STATUS_META, STATUS_ORDER } from '../combat/cards';
 import { resolveCombatEndHooks } from '../combat/curses';
-import { intentKindOf, intentLabel } from '../combat/intent';
+import { incomingIsLethal, intentOf, totalIncomingDamage } from '../combat/intent';
 import {
   canPlay,
   endPlayerTurn,
@@ -31,7 +31,14 @@ import {
   type VictoryRelic,
 } from '../rooms/fight';
 import { stream, streamSeed } from '../rooms/rng';
-import type { CombatEvent, CombatState, EnemyState, Encounter, StatusId } from '../combat/types';
+import type {
+  CombatEvent,
+  CombatState,
+  EnemyState,
+  Encounter,
+  IntentMark,
+  StatusId,
+} from '../combat/types';
 import {
   addCard,
   addGold,
@@ -45,6 +52,8 @@ import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid
 import { CARD_W, CardView } from '../ui/CardView';
 import type { ActorView, EnemyView, EnemyViewParts } from '../ui/actorView';
 import { EnemyRoster } from '../ui/EnemyRoster';
+import { stageChange, type StageChange } from '../ui/enemyStage';
+import { drawGlyph, intentBadge, intentKey, markColor, markGlyph } from '../ui/intentIcons';
 import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
@@ -88,6 +97,17 @@ const DEPTH = {
  * rather than across the bottom edge where it would sit under the cards.
  */
 const POTION_BELT = { x: 40, y: 190 };
+
+/**
+ * Intent badge geometry. The headline pill is a fixed height so a line of three
+ * enemies reads as a row; the riders hang off its bottom-right corner in a
+ * shorter pill, one size down, because they qualify the headline rather than
+ * competing with it.
+ */
+const INTENT_H = 40;
+const INTENT_ICON = 24;
+const INTENT_MARK_H = 22;
+const INTENT_MARK_ICON = 14;
 
 const DRAW_PILE = { x: 62, y: 682 };
 const DISCARD_PILE = { x: GAME_WIDTH - 62, y: 682 };
@@ -167,6 +187,11 @@ export class CombatScene extends Phaser.Scene {
   private statusTip: Phaser.GameObjects.Container | null = null;
   private statusTipBg: Phaser.GameObjects.Graphics | null = null;
   private statusTipText: Phaser.GameObjects.Text | null = null;
+
+  /** 「← 12」 beside the player's block badge: what the field will land next turn. */
+  private incomingText!: Phaser.GameObjects.Text;
+  /** The 「+?」 tail, in its own colour — see `buildPlayer`. */
+  private incomingHidden!: Phaser.GameObjects.Text;
 
   private energyText!: Phaser.GameObjects.Text;
   private energyMaxText!: Phaser.GameObjects.Text;
@@ -379,6 +404,20 @@ export class CombatScene extends Phaser.Scene {
       .text(PLAYER_X, BASELINE_Y + 66, this.run.hero.name, brushStyle(18, C.paperDim))
       .setOrigin(0.5)
       .setDepth(DEPTH.actorUi);
+
+    // 本回合入伤, opposite the block badge and on the same line as it: armour on
+    // the left of the bar, the wound it has to answer on the right.
+    //
+    // The information is public — every badge on screen already says it — so
+    // adding it up for the player costs no difficulty and removes the single
+    // commonest way to die, which is arithmetic.
+    const x = this.playerView.barWidth / 2 + 20;
+    this.incomingText = this.add.text(x, 22, '', brushStyle(21, C.paperDim)).setOrigin(0, 0.5);
+    // A second label because 「12+?」 must not be one colour: the 12 is a
+    // promise and the ? is an admission, and painting them alike would make the
+    // total look complete when it is not.
+    this.incomingHidden = this.add.text(x, 22, '', brushStyle(21, C.paperFaint)).setOrigin(0, 0.5);
+    this.playerView.ui.add([this.incomingText, this.incomingHidden]);
   }
 
   /**
@@ -390,11 +429,16 @@ export class CombatScene extends Phaser.Scene {
     const base = this.makeActorView(x, enemy.art, enemy.height, false, 140, enemy.hp);
 
     // Intent marker, pinned above the sprite but never under the top HUD.
+    // Everything the badge is made of is a child of this container, so the
+    // roster moves the whole thing with one tween and destroys it with one call.
     const intentY = Math.max(Math.min(-enemy.height - 30, -70), -(BASELINE_Y - 42));
     const intent = this.add.container(x, BASELINE_Y + intentY).setDepth(DEPTH.actorUi);
     const intentBg = this.add.graphics();
-    const intentText = this.add.text(0, 0, '', brushStyle(19, C.paper)).setOrigin(0.5);
-    intent.add([intentBg, intentText]);
+    const intentIcon = this.add.graphics();
+    const intentText = this.add.text(0, 0, '', brushStyle(21, C.paper)).setOrigin(1, 0.5);
+    const intentMarks = this.add.container(0, 0);
+    const intentHit = this.add.zone(0, 0, 80, INTENT_H).setInteractive();
+    intent.add([intentBg, intentIcon, intentText, intentMarks, intentHit]);
 
     // Held, not `setName`d: a label found through `getByName` can be faded but
     // never moved with the body and never destroyed with it.
@@ -409,17 +453,29 @@ export class CombatScene extends Phaser.Scene {
       .setDepth(DEPTH.actors);
     hit.setInteractive({ useHandCursor: true });
 
-    return {
+    const view: EnemyViewParts = {
       ...base,
       enemy,
       intent,
       intentBg,
+      intentIcon,
       intentText,
+      intentMarks,
+      intentHit,
       nameText,
       hit,
       hitWidth,
-      lastIntentLabel: '',
+      intentKey: '',
     };
+
+    // The pointer is only *one* caller of the tooltip — todos/24 wants the same
+    // panel off a keyboard cursor — so the hover handler does nothing but ask
+    // for it. Read at hover time rather than captured, because the telegraph
+    // changes under the badge every turn.
+    intentHit.on('pointerover', () => this.showIntentTip(view));
+    intentHit.on('pointerout', () => this.hideStatusTip());
+
+    return view;
   }
 
   private buildEnemies(): void {
@@ -1190,6 +1246,9 @@ export class CombatScene extends Phaser.Scene {
         const view = this.roster.get(ev.enemyId);
         if (view) {
           this.currentAttacker = view;
+          // The 致死 pulse is an endless yoyo on the same property this is
+          // about to tween; left running, the badge would never finish leaving.
+          this.tweens.killTweensOf(view.intent);
           // Wind-up: lean away from the player, and pop the intent badge out.
           this.tweens.add({
             targets: view.container,
@@ -1288,13 +1347,230 @@ export class CombatScene extends Phaser.Scene {
         break;
       }
 
-      // todos/15 (泳道 S) fills in `summon`, `split`, `escape` and `shout`.
-      // Every one of them needs the roster above, and none of them may be left
-      // on `default` — a body that joins or leaves without an animation is the
-      // reason five encounters are still fenced out of the map.
-      default:
+      case 'summon':
+        await this.playSummon(ev);
+        break;
+
+      case 'split':
+        await this.playSplit(ev);
+        break;
+
+      case 'escape':
+        await this.playEscape(ev);
+        break;
+
+      case 'shout': {
+        // A threshold line — 「困兽犹斗！」, 「化身千万！」 — over the enemy's own
+        // head, in brush script rather than as a damage number, because it is
+        // speech. Held long enough to be read before the split it announces.
+        const view = this.roster.get(ev.enemyId);
+        const x = view ? view.container.x : GAME_WIDTH / 2;
+        const height = view ? view.height : 240;
+        popText(this, x, BASELINE_Y - height - 74, ev.text, {
+          color: C.cinnabarBright,
+          size: 30,
+          drift: 26,
+        });
+        screenPulse(this, GAME_WIDTH, GAME_HEIGHT, C.cinnabar, 0.1, 420);
+        await this.wait(520);
+        break;
+      }
+
+      case 'draw':
+      case 'discard':
+        // Both are already drawn: `syncHand` deals new views out of the draw
+        // pile and flies departing ones to the discard, off the state's own
+        // arrays. There is nothing left for an event to animate.
         break;
     }
+  }
+
+  // ------------------------------------------------------- 敌阵的增减
+
+  /**
+   * Build the bodies a change calls for, retire the ones it drops, and re-form
+   * the line if it grew.
+   *
+   * Every caller goes through here so that the three rules in `stageChange`
+   * hold in one place: a corpse is never dropped, a runaway always is, and the
+   * line only ever re-slots when it got longer. Newborns are hidden rather than
+   * scaled — the roster owns `crowdScale`, and a second tween on the same
+   * property would fight it.
+   */
+  private async applyStage(change: StageChange, spawnX: number): Promise<EnemyView[]> {
+    const born: EnemyView[] = [];
+    for (const id of change.add) {
+      const enemy = this.state.enemies.find((e) => e.id === id);
+      if (!enemy) continue;
+      const view = this.addEnemyView(enemy, spawnX);
+      view.container.setAlpha(0).setY(BASELINE_Y + 24);
+      view.ui.setAlpha(0);
+      view.nameText.setAlpha(0);
+      view.intent.setAlpha(0);
+      born.push(view);
+    }
+    for (const id of change.drop) this.removeEnemyView(id);
+    // Awaited: a hit zone still travelling is a click that lands on nothing.
+    if (change.relayout) await this.relayoutEnemies(true);
+    return born;
+  }
+
+  /** Fade newborns up on the spot the roster just walked them to. */
+  private async raise(born: EnemyView[]): Promise<void> {
+    born.forEach((view, i) => {
+      const delay = i * 60;
+      this.time.delayedCall(delay, () => dust(this, view.container.x, BASELINE_Y + 2, 1));
+      this.tweens.add({
+        targets: view.container,
+        alpha: 1,
+        y: BASELINE_Y,
+        delay,
+        duration: 180,
+        ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: [view.ui, view.nameText, view.intent],
+        alpha: 1,
+        delay,
+        duration: 180,
+      });
+    });
+    if (born.length > 0) await this.wait(180 + born.length * 60 + 120);
+  }
+
+  /**
+   * 召唤. The summoner leans into the call, the line opens up to make room, and
+   * only then do the new bodies rise out of the dust at its feet.
+   *
+   * `summonEnemies` has already appended them to `state.enemies` and already
+   * rolled their intents, so the next `refreshBars` telegraphs them with no
+   * further help from here.
+   */
+  private async playSummon(ev: Extract<CombatEvent, { t: 'summon' }>): Promise<void> {
+    const summoner = this.roster.get(ev.enemyId);
+    if (summoner) {
+      this.tweens.add({
+        targets: summoner.container,
+        x: summoner.baseX - 22,
+        duration: 110,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+      });
+    }
+    await this.wait(220);
+
+    const change = stageChange(ev);
+    if (!change) return;
+    const born = await this.applyStage(change, summoner?.baseX ?? GAME_WIDTH / 2);
+    await this.raise(born);
+    this.refreshBars();
+  }
+
+  /**
+   * 分裂. The parent does **not** die — `splitEnemy` emits no `death` event on
+   * purpose, because a split must not pay 斩将 or any other kill trigger — so
+   * this is the only thing that ever takes its body off the screen. Before the
+   * roster's `remove`, that sprite stood there for the rest of the fight; it is
+   * the whole reason 张宝 was fenced out of the map.
+   *
+   * Deliberately not the death animation: no ink splash (that is blood), no
+   * topple. Two mirrored after-images tear away from a body that collapses
+   * inward — the read is 「it became two」, not 「it fell」.
+   */
+  private async playSplit(ev: Extract<CombatEvent, { t: 'split' }>): Promise<void> {
+    const parent = this.roster.get(ev.parentId);
+    const anchor = parent?.baseX ?? GAME_WIDTH / 2;
+
+    if (parent) {
+      parent.hit.disableInteractive();
+      this.tweens.killTweensOf(parent.sprite);
+
+      for (const dir of [-1, 1]) {
+        const echo = this.add
+          .image(parent.container.x, BASELINE_Y, parent.sprite.texture.key)
+          .setOrigin(0.5, 1)
+          .setScale(parent.sprite.scaleX * parent.crowdScale, parent.sprite.scaleY * parent.crowdScale)
+          .setFlipX(dir < 0)
+          .setTintFill(0xdcefff)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setAlpha(0.55)
+          .setDepth(DEPTH.actors + 1);
+        this.tweens.add({
+          targets: echo,
+          x: parent.container.x + dir * 90,
+          alpha: 0,
+          duration: 320,
+          ease: 'Quad.easeOut',
+          onComplete: () => echo.destroy(),
+        });
+      }
+
+      screenPulse(this, GAME_WIDTH, GAME_HEIGHT, 0xdcefff, 0.12, 320);
+      this.tweens.add({
+        targets: parent.container,
+        scaleX: 0.04,
+        alpha: 0,
+        duration: 320,
+        ease: 'Quad.easeIn',
+      });
+      this.tweens.add({
+        targets: [parent.ui, parent.nameText, parent.intent],
+        alpha: 0,
+        duration: 220,
+      });
+      await this.wait(320);
+    }
+
+    const change = stageChange(ev);
+    if (!change) return;
+    const born = await this.applyStage(change, anchor);
+    await this.raise(born);
+    screenPulse(this, GAME_WIDTH, GAME_HEIGHT, C.paper, 0.08, 300);
+    this.refreshBars();
+  }
+
+  /**
+   * 遁走. Must be tellable apart from a death at a glance, because the two pay
+   * out differently: a kill drops loot and fires 枭首令, a thief who got away
+   * drops nothing and keeps the purse it just lifted.
+   *
+   * So: a death topples backwards into an ink splash; this slides off the right
+   * edge on its own feet, upright, trailing dust. And the body is *destroyed*
+   * rather than left as a corpse — the frozen sprite that used to stay behind
+   * is the other half of why 流寇 was fenced out of the map.
+   */
+  private async playEscape(ev: Extract<CombatEvent, { t: 'escape' }>): Promise<void> {
+    const view = this.roster.get(ev.targetId);
+    if (view) {
+      view.hit.disableInteractive();
+      this.tweens.killTweensOf(view.sprite);
+      dust(this, view.container.x, BASELINE_Y + 2, -1);
+      popText(this, view.container.x, BASELINE_Y - view.height - 40, '遁走', {
+        color: C.paperDim,
+        size: 27,
+        drift: 34,
+      });
+      this.tweens.add({
+        targets: view.container,
+        x: GAME_WIDTH + 240,
+        y: BASELINE_Y + 26,
+        alpha: 0,
+        duration: 420,
+        ease: 'Quad.easeIn',
+      });
+      this.tweens.add({
+        targets: [view.ui, view.nameText, view.intent],
+        alpha: 0,
+        duration: 260,
+      });
+      await this.wait(440);
+    }
+
+    const change = stageChange(ev);
+    if (!change) return;
+    // No re-slot: the survivors hold their ground. See `StageChange.relayout`.
+    await this.applyStage(change, 0);
+    this.refreshBars();
   }
 
   private async playDamage(ev: Extract<CombatEvent, { t: 'damage' }>): Promise<void> {
@@ -1454,12 +1730,39 @@ export class CombatScene extends Phaser.Scene {
     this.paintBlock(this.playerView, this.state.player.block);
     this.paintStatuses(this.playerView, this.state.player.statuses);
 
+    // Computed once for the whole line: the pulse warns about the *sum* of what
+    // is telegraphed, so every badge on a lethal board pulses together.
+    const lethal = incomingIsLethal(this.state);
     for (const view of this.roster.all()) {
       if (!view.enemy.alive) continue;
       this.paintBlock(view, view.enemy.block);
       this.paintStatuses(view, view.enemy.statuses);
-      this.paintIntent(view);
+      this.paintIntent(view, lethal);
     }
+    this.paintIncoming();
+  }
+
+  /**
+   * 「← 12」 or 「← 12+?」 beside the player's block badge.
+   *
+   * The unknown enemies are counted but never added in. `totalIncomingDamage`
+   * is the same function the sim's threat policy reads, so the number the
+   * player is shown and the number a simulated player defends against cannot
+   * drift apart.
+   */
+  private paintIncoming(): void {
+    const { known, hiddenCount } = totalIncomingDamage(this.state);
+    const show = this.state.phase === 'player' && (known > 0 || hiddenCount > 0);
+    this.incomingText.setVisible(show);
+    this.incomingHidden.setVisible(show);
+    if (!show) return;
+
+    this.incomingText.setText(`← ${known}`);
+    // Red only once the armour on hand stops covering it — a total the player
+    // has already answered is information, not a warning.
+    this.incomingText.setColor(css(known > this.state.player.block ? C.cinnabarBright : C.paperDim));
+    this.incomingHidden.setText(hiddenCount > 0 ? '+?' : '');
+    this.incomingHidden.setX(this.incomingText.x + this.incomingText.width + 2);
   }
 
   /** Cheap repaint — safe to drive from a tween's onUpdate. */
@@ -1557,6 +1860,32 @@ export class CombatScene extends Phaser.Scene {
   /** Rules text for the hovered chip, floated above it. */
   private showStatusTip(x: number, y: number, id: StatusId, count: number): void {
     const meta = STATUS_META[id];
+    this.showTip(x, y, `【${meta.label}】${count}`, meta.desc, meta.color);
+  }
+
+  /**
+   * The招式 behind the hovered badge, in full.
+   *
+   * Kept off the pointer handler on purpose: the panel is asked for, never
+   * triggered. todos/24's keyboard cursor is the second caller, and a tooltip
+   * whose only entry point is `pointerover` is one that cannot be reached
+   * without a mouse.
+   */
+  private showIntentTip(view: EnemyViewParts): void {
+    if (!view.enemy.alive || this.finished) return;
+    const display = intentOf(this.state, view.enemy);
+    if (!display || !view.intent.visible) return;
+    this.showTip(
+      view.intent.x,
+      view.intent.y - INTENT_H / 2,
+      display.tooltip.title,
+      display.tooltip.body,
+      intentBadge(display).color,
+    );
+  }
+
+  /** One ink panel, shared by every hover in the fight. */
+  private showTip(x: number, y: number, title: string, body: string, border: number): void {
     if (!this.statusTip) {
       const bg = this.add.graphics();
       const text = this.add.text(0, 0, '', {
@@ -1573,11 +1902,11 @@ export class CombatScene extends Phaser.Scene {
     }
 
     const text = this.statusTipText!;
-    text.setText(`【${meta.label}】${count}\n${meta.desc}`);
+    text.setText(`${title}\n${body}`);
     const w = text.width + 24;
     const h = text.height + 20;
     text.setPosition(-w / 2 + 12, -h + 10);
-    paintInkPanel(this.statusTipBg!, -w / 2, -h, w, h, { border: meta.color });
+    paintInkPanel(this.statusTipBg!, -w / 2, -h, w, h, { border });
 
     // Clamped so a chip at the screen edge doesn't push its tip off-canvas.
     this.statusTip!.setPosition(Phaser.Math.Clamp(x, w / 2 + 8, GAME_WIDTH - w / 2 - 8), y - 16);
@@ -1588,45 +1917,112 @@ export class CombatScene extends Phaser.Scene {
     this.statusTip?.setVisible(false);
   }
 
-  private paintIntent(view: EnemyView): void {
-    const text = intentLabel(this.state, view.enemy);
-    view.intentText.setText(text);
+  /**
+   * The intent badge: a glyph, the number it will actually land, and one small
+   * rider per thing the move does besides.
+   *
+   * All of it is Graphics — nothing here is a bitmap — so it stays sharp at any
+   * `RENDER_SCALE`. `lethal` is passed in rather than read off this enemy alone
+   * because the warning that matters is 「the *field* kills you this turn」: a
+   * player dying to three 4-damage hits died to arithmetic, not to a big number.
+   */
+  private paintIntent(view: EnemyView, lethal: boolean): void {
+    const display = intentOf(this.state, view.enemy);
+    if (!display) {
+      view.intent.setVisible(false);
+      return;
+    }
+    const badge = intentBadge(display);
 
-    // Colour off the *derived* kind — `EnemyMove.intent` is gone, and it was
-    // wrong on two rows while it existed. todos/16 replaces the whole badge.
-    const move = view.enemy.intent;
-    const kind = move ? intentKindOf(this.state, view.enemy, move) : 'special';
-    const color = move?.damage
-      ? C.cinnabarBright
-      : kind === 'buff' || kind === 'defend-buff'
-        ? C.goldBright
-        : C.jade;
-    view.intentText.setColor('#' + color.toString(16).padStart(6, '0'));
+    // Headline: glyph on the left, number on the right, sized as one unit.
+    const iconW = badge.glyph === 'unknown' ? 0 : INTENT_ICON * badge.scale;
+    view.intentText.setText(badge.text).setColor(css(badge.color));
+    const textW = badge.text ? view.intentText.width : 0;
+    const gap = iconW > 0 && textW > 0 ? 7 : 0;
+    const inner = iconW + gap + textW;
 
-    const w = view.intentText.width + 26;
-    const h = 34;
+    view.intentIcon.clear();
+    if (iconW > 0) drawGlyph(view.intentIcon, badge.glyph, iconW, badge.color);
+    view.intentIcon.setPosition(-inner / 2 + iconW / 2, 0);
+    view.intentText.setPosition(inner / 2, 1);
+
+    const w = inner + 26;
+    const marksW = this.paintIntentMarks(view, badge.marks);
+
     view.intentBg.clear();
     view.intentBg.fillStyle(C.inkDeep, 0.92);
-    view.intentBg.fillRoundedRect(-w / 2, -h / 2, w, h, 4);
-    view.intentBg.lineStyle(1.5, color, 0.85);
-    view.intentBg.strokeRoundedRect(-w / 2, -h / 2, w, h, 4);
+    view.intentBg.fillRoundedRect(-w / 2, -INTENT_H / 2, w, INTENT_H, 4);
+    if (marksW > 0) {
+      // A second, shorter pill tucked under the right-hand corner. Overlapped
+      // by 2 px so the pair reads as one badge with a tail rather than as two.
+      view.intentBg.fillRoundedRect(
+        w / 2 - marksW,
+        INTENT_H / 2 - 2,
+        marksW,
+        INTENT_MARK_H,
+        4,
+      );
+      view.intentMarks.setPosition(w / 2 - marksW + 7, INTENT_H / 2 + INTENT_MARK_H / 2 - 2);
+    }
+    // 致死 draws its own border: thicker, cinnabar, and pulsing below.
+    view.intentBg.lineStyle(lethal ? 2.5 : 1.5, lethal ? C.cinnabarBright : badge.color, lethal ? 1 : 0.85);
+    view.intentBg.strokeRoundedRect(-w / 2, -INTENT_H / 2, w, INTENT_H, 4);
+
+    // Hover target over both pills. `Zone.setSize` resizes the input hit area
+    // with the object, which is the whole reason the target is a Zone.
+    view.intentHit
+      .setSize(Math.max(w, marksW), INTENT_H + (marksW > 0 ? INTENT_MARK_H : 0))
+      .setPosition(0, marksW > 0 ? (INTENT_MARK_H - 2) / 2 : 0);
     view.intent.setVisible(this.state.phase === 'player');
 
-    // Announce a newly telegraphed move rather than silently swapping the text.
-    if (text !== view.lastIntentLabel) {
-      view.lastIntentLabel = text;
-      this.tweens.killTweensOf(view.intent);
-      view.intent.setScale(0.5).setAlpha(0);
-      this.tweens.add({
-        targets: view.intent,
-        scale: 1,
-        alpha: 1,
-        duration: 300,
-        ease: 'Back.easeOut',
-      });
-    } else {
-      view.intent.setAlpha(1).setScale(1);
+    // Announce a telegraph that actually changed — see `EnemyViewParts.intentKey`.
+    const key = `${intentKey(display)}|${lethal}`;
+    if (key === view.intentKey) return;
+    view.intentKey = key;
+
+    this.tweens.killTweensOf(view.intent);
+    view.intent.setScale(0.5).setAlpha(0);
+    this.tweens.add({
+      targets: view.intent,
+      scale: 1,
+      alpha: 1,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        if (!lethal) return;
+        // Only after the reveal has landed, or the two tweens would fight over
+        // `scale` and the badge would settle at whatever size lost the race.
+        this.tweens.add({
+          targets: view.intent,
+          scale: 1.1,
+          duration: 520,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      },
+    });
+  }
+
+  /** The riders, right-aligned under the headline. Returns the pill's width. */
+  private paintIntentMarks(view: EnemyView, marks: readonly IntentMark[]): number {
+    view.intentMarks.removeAll(true);
+    if (marks.length === 0) return 0;
+
+    let x = 0;
+    for (const mark of marks) {
+      const color = markColor(mark);
+      const icon = this.add.graphics();
+      drawGlyph(icon, markGlyph(mark), INTENT_MARK_ICON, color);
+      icon.setPosition(x + INTENT_MARK_ICON / 2, 0);
+      const count = this.add
+        .text(x + INTENT_MARK_ICON + 2, 1, String(mark.n), bodyStyle(13, color))
+        .setOrigin(0, 0.5);
+      view.intentMarks.add([icon, count]);
+      x += INTENT_MARK_ICON + 2 + count.width + 8;
     }
+    // Trailing gap trimmed, then the pill's own padding on both ends.
+    return x - 8 + 14;
   }
 
   override update(): void {

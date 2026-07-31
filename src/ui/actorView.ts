@@ -13,8 +13,8 @@ import type { EnemyState } from '../combat/types';
  * so an enemy's bar could not be moved after it was made, and the name label
  * was found by `getByName('name-' + id)` — a lookup with no way to destroy the
  * thing it found. A body that joins mid-fight (召唤 / 分裂) could therefore
- * neither be drawn nor cleaned up, which is why five encounters are still
- * fenced off in `PENDING_ENCOUNTERS`.
+ * neither be drawn nor cleaned up, which is why five encounters were fenced off
+ * in `PENDING_ENCOUNTERS` until todos/15 emptied it.
  */
 export interface ActorView {
   container: Phaser.GameObjects.Container;
@@ -47,15 +47,39 @@ export interface ActorView {
 /** Everything an enemy view is, minus what the roster attaches when it lands. */
 export interface EnemyViewParts extends ActorView {
   enemy: EnemyState;
+  /**
+   * The intent badge. Everything below is a *child* of it — including the hit
+   * zone — so the roster moves the whole marker with one tween and destroys it
+   * with one call.
+   */
   intent: Phaser.GameObjects.Container;
+  /** The headline number: `5`, `5×3`, or the brush 「？」. */
   intentText: Phaser.GameObjects.Text;
   intentBg: Phaser.GameObjects.Graphics;
+  /** The headline glyph, filled from `src/ui/intentIcons.ts` on every repaint. */
+  intentIcon: Phaser.GameObjects.Graphics;
+  /** The riders — 护甲 / 增益 / 减益 / 塞牌 / 召唤 / 夺财 — one小 glyph each. */
+  intentMarks: Phaser.GameObjects.Container;
+  /**
+   * Hover target for the badge's tooltip, resized with the badge.
+   *
+   * A Zone rather than the container's own hit area: Containers have no Origin
+   * component, so their hit-area coordinates are not normalised the way a
+   * Zone's are — the same reason `inkButton` puts its target on one.
+   */
+  intentHit: Phaser.GameObjects.Zone;
   /** Held rather than looked up by name, so it can be moved and destroyed. */
   nameText: Phaser.GameObjects.Text;
   hit: Phaser.GameObjects.Zone;
   /** Unscaled width of the hit zone, so crowding can shrink it proportionally. */
   hitWidth: number;
-  lastIntentLabel: string;
+  /**
+   * Signature of the badge as last painted (`intentKey`). The reveal animation
+   * fires off a change in *what the badge says*, not in which move was rolled:
+   * 劈斩 twice running is the same telegraph twice and must not flash, while
+   * 神力 landing between two 劈斩 changes the number and must.
+   */
+  intentKey: string;
 }
 
 export interface EnemyView extends EnemyViewParts {

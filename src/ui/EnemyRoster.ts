@@ -11,14 +11,16 @@ import type { EnemyView, EnemyViewParts } from './actorView';
  * and the screen cannot show: a 召唤 arrives invisible and unclickable, a
  * 分裂 leaves the parent's corpse standing forever (`splitEnemy` deliberately
  * emits no `death`, so `playDeath` never runs), and an enemy that 遁走 freezes
- * mid-stride. Five encounters sit in `PENDING_ENCOUNTERS` for exactly this.
+ * mid-stride. Five encounters were fenced off in `PENDING_ENCOUNTERS` for
+ * exactly this; todos/15 emptied that table and they now ship.
  *
  * This class owns *where* bodies stand and *when* they stop existing. What a
  * body looks like is still the scene's — `build` is handed in, because the
  * palette, the baseline and the sprite bounds all live there.
  *
- * The event handlers that consume 召唤 / 分裂 / 遁走 belong to todos/15 and are
- * deliberately not here: this is the vocabulary they will be written in.
+ * The event handlers that consume 召唤 / 分裂 / 遁走 are the scene's, not this
+ * class's: they decide *what happened* through `src/ui/enemyStage.ts` and then
+ * say it here in this vocabulary.
  */
 
 export interface EnemyRosterOptions {

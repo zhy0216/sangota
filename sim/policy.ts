@@ -44,7 +44,16 @@ export interface Policy {
 
 /**
  * Damage the telegraphed intents will land next turn, statuses folded in.
- * Superseded by todos/16 once the intent system owns this number.
+ *
+ * **Do not replace this with `totalIncomingDamage` from `src/combat/intent.ts`
+ * without re-recording the golden snapshots.** todos/16 landed that function and
+ * the HUD reads it, but the two do not agree and are not meant to: the intent
+ * version is what a *player* is allowed to know, so it withholds a hidden
+ * first-turn telegraph (`hiddenFirstIntent`) and counts `loseHp`, while this one
+ * is what the modelled player *decides* on and has always read every enemy's
+ * `intent` outright. Swapping it changes what `threat` blocks against, which
+ * changes the event stream of all 37 frozen fights. The unification is a
+ * sanctioned re-record commit, not a drive-by.
  */
 export function totalIncomingDamage(state: CombatState): number {
   let total = 0;

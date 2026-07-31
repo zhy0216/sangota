@@ -55,10 +55,11 @@ export interface SimResult {
 }
 
 /**
- * Both tables, on purpose: a fight the map cannot open yet is still a fight the
- * rules layer has to be held to, and `PENDING_ENCOUNTERS` is where 召唤 / 分裂 /
- * 遁走 live until `CombatScene` can draw them. The lookup itself lives in
- * `enemies.ts` beside the tables — the room layer reads a materialised
+ * Every table, on purpose: a fight the map cannot open yet is still a fight the
+ * rules layer has to be held to. `PENDING_ENCOUNTERS` is empty as of todos/15 —
+ * 召唤 / 分裂 / 遁走 all ship — but it stays in the lookup so the next mechanic
+ * that outruns the screen is still simulated while it waits. The lookup itself
+ * lives in `enemies.ts` beside the tables — the room layer reads a materialised
  * encounter id back through the same function.
  */
 export const findEncounter = getEncounter;
