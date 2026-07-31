@@ -24,7 +24,7 @@ so the whole system is testable headlessly」，而且确实如此
 
 - [12 状态库](12-status-library-done.md) 要重写 `computeAttack` 的伤害管线
 - [13 关键词](13-card-keywords-done.md) 要改牌的整个生命周期
-- [15 敌人机制](15-enemy-mechanics.md) 要改意图选择和 move 执行
+- [15 敌人机制](15-enemy-mechanics-done.md) 要改意图选择和 move 执行
 - [19 天命](19-ascension.md) 要在十几个点插入倍率
 - [11 卡池扩容](11-card-rarity-and-rewards-done.md) 要标定 24 张牌的平衡
 
@@ -162,7 +162,7 @@ export interface TierStats {
 3. `sim/policy.ts`：
    - `random`：从可打的牌里随机
    - `greedy`：优先打伤害最高的攻击牌，气不够打防御
-   - `threat`：算 `totalIncomingDamage`（[16 意图](16-intent-system.md)
+   - `threat`：算 `totalIncomingDamage`（[16 意图](16-intent-system-done.md)
      会提供），入伤 > 当前 HP 时优先叠护甲，否则打伤害；
      有斩杀机会时优先斩杀
    README 那张表的两个策略就是后两个，实现要能大致复现那些数字
@@ -217,5 +217,5 @@ export interface TierStats {
 
 被以下条目依赖（它们都是规则重构，没有回归网会静默改坏数值）：
 [11 卡池](11-card-rarity-and-rewards-done.md)、[12 状态库](12-status-library-done.md)、
-[13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics.md)、
+[13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics-done.md)、
 [19 天命](19-ascension.md)、[09 多幕](09-acts-and-progression.md)

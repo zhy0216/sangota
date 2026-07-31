@@ -69,7 +69,7 @@ export type CardKeyword = 'exhaust' | 'ethereal' | 'innate' | 'retain' | 'unplay
 ### 效果扩容
 
 保守地扩，每个新 `kind` 都要能被 [02 药水](02-potions-done.md) 和
-[15 敌人](15-enemy-mechanics.md) 复用：
+[15 敌人](15-enemy-mechanics-done.md) 复用：
 
 ```ts
 export type Effect =

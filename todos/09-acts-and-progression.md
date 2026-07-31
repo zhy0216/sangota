@@ -115,7 +115,7 @@ export interface RunState {
    `src/combat/enemies.ts:97-106` 搬进来并按幕拆分。
    `ENCOUNTERS` 那个全局常量应当删除，避免两处真源。
 3. **新敌人**：第二、三幕各需要 4-5 个普通敌人 + 2-3 个精英 + 3 个 Boss。
-   这是本条目里最大的工作量，见 [15 敌人机制](15-enemy-mechanics.md)——
+   这是本条目里最大的工作量，见 [15 敌人机制](15-enemy-mechanics-done.md)——
    建议先把机制做全，再批量填数据和美术。
 4. Boss 预告：`MapScene` 顶部 Boss 节点旁显示 Boss 名字 + 立绘缩略
    （现在 `MapScene.ts:144` 已经识别 `isBoss` 做了特殊尺寸，在那里加）。
@@ -147,7 +147,7 @@ export interface RunState {
 
 ## 依赖
 
-- [15 敌人机制与敌人库](15-enemy-mechanics.md)——第二三幕的内容主体
+- [15 敌人机制与敌人库](15-enemy-mechanics-done.md)——第二三幕的内容主体
 - [10 遗物奖励](10-relic-rewards-done.md)——Boss 宝箱
 - [22 结算界面](22-run-summary.md)——真结局
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——三幕难度曲线必须靠模拟标定，

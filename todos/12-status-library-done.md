@@ -226,7 +226,7 @@ export interface DamageContext {
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——**强依赖**。这是纯规则重构，
   没有回归测试会静默改坏数值
 - **产出被复用**：[11 卡池扩容](11-card-rarity-and-rewards-done.md)、
-  [13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics.md)
+  [13 关键词](13-card-keywords-done.md)、[15 敌人机制](15-enemy-mechanics-done.md)
   全都建立在状态库上
 
 ## 实现记录

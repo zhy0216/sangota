@@ -35,16 +35,16 @@
 
 | # | 功能 | 缺口规模 |
 |---|---|---|
-| [09](09-acts-and-progression.md) | 多幕结构与推进 | 1 幕 / 原版 4 幕 |
+| [09](09-acts-and-progression.md) ◐ | 多幕结构与推进 | 四幕已通，但事件/商店仍是全局池 |
 | [10](10-relic-rewards-done.md) ✅ | 精英·宝箱·Boss 遗物奖励 | 奖励只有金币和卡 |
 | [11](11-card-rarity-and-rewards-done.md) ✅ | 卡牌稀有度与奖励规则 | 8 张牌等概率 |
 | [12](12-status-library-done.md) ✅ | 状态效果库扩充 | 3 种 / 原版约 50 种 |
 | [13](13-card-keywords-done.md) ✅ | 卡牌关键词机制 | 消耗/虚无/固有/保留/X 费全缺 |
 | [14](14-curses-and-status-cards-done.md) ✅ | 诅咒与状态牌 | 完全缺失，负面构筑压力为 0 |
-| [15](15-enemy-mechanics.md) ◐ | 敌人机制与敌人库 | 15 个敌人定义，其中 6 个未上阵；机制层完成，场景层未接 |
-| [16](16-intent-system.md) | 意图显示系统 | 纯文字，无图标无「未知」 |
-| [17](17-multiple-heroes.md) | 多武将与专属卡池 | 1 个武将 |
-| [18](18-neow-blessing.md) | 开局祝福 | 缺开局分歧 |
+| [15](15-enemy-mechanics-done.md) ✅ | 敌人机制与敌人库 | 32 个敌人，全部上阵；`PENDING_ENCOUNTERS` 已空 |
+| [16](16-intent-system-done.md) ✅ | 意图显示系统 | 九种几何图标 + 总入伤 + 致死预警 |
+| [17](17-multiple-heroes.md) ◐ | 多武将与专属卡池 | 3 个武将；赵云连击数未上 HUD |
+| [18](18-neow-blessing.md) ◐ | 开局祝福 | 四选一已通，读档去重待 08 |
 
 ## 第三梯队 · 系统、体验、可持续性
 
@@ -99,25 +99,54 @@
 - 宝藏的金币是**必给**的（`ensureLoot` 的 `range(25, 45)` 是被冻结的第一次抽取），
   不是设计草案里的「50% 概率附赠」。丹药按尺寸 0/40/60% 是照做的。
 
-### [15 敌人机制](15-enemy-mechanics.md) ◐ — 未归档
+### [15 敌人机制](15-enemy-mechanics-done.md) ✅ — 阶段四归档
 
-规则层做完了，**场景层没接**，所以一半的验收项在真实游戏里看不到。
+场景层补完，`PENDING_ENCOUNTERS` 清空。`CombatScene` 现在处理
+`summon` / `split` / `escape` / `steal` / `shout` 五种事件，
+上台与下台统一由 `src/ui/enemyStage.ts` 判定。
+唯一遗留的数值偏离：管亥的【暴怒】是 1 层，验收标准写的是 +2 —— 这是
+平衡实测后的有意选择，1 层已经让他成为一幕最贵的精英之一。
 
-- `CombatScene` 完全不处理 `summon` / `split` / `escape` / `steal` 四种
-  `CombatEvent`。敌人视图在 `create()` 里一次性建好，运行时新增的身体
-  不可见也不可点；逃跑的敌人会留一帧僵尸立绘；`steal` 事件不会真的扣 `run.gold`。
-- 因此 `PENDING_ENCOUNTERS`（`src/combat/enemies.ts`）把 6 个敌人挡在地图之外：
-  流寇（逃跑/偷钱）、张曼成（召唤）、张宝 + 张宝分身（半血分裂）、
-  西凉铁骑（塞创伤）、董卓亲兵（龟缩）。这些遭遇只有无头模拟、黄金快照和
-  `tests/enemies.test.ts` 在跑，玩家进不去。
-- 对应未达成的验收项：**半血分裂**、**召唤**、**逃跑**、**牌组污染** 四条的
-  场景部分；**龟缩** 的宿主（董卓亲兵）同样不可达。
-- 数值偏离：管亥的【暴怒】是 1 层（每次被打出血 +1 神力），验收标准写的是 +2。
-- 已达成：脚本化（张梁 5 段，`loopFrom: 1`）、意图隐藏（黄巾骑手 `hiddenFirstIntent`）、
-  被动图标 + 悬停说明、同 seed 完全可复现，以及上面四条机制的**引擎实现与测试**。
-- **平衡未回到目标带。** `npm run sim` 自己打印「Outside band」：
-  精英 99-100%（目标 85-95%），Boss 71-86%（目标 45-70%）。新增的精英和 Boss
-  相对现有卡池偏软。
+### [09 多幕](09-acts-and-progression.md) ◐ — 未归档
+
+四幕结构、幕间过场、终章门、跨幕保留都做完了，两条验收未达成：
+
+- **事件池与商店库存没有按幕分池**，仍是全局池。`ActDef` 留了扩展点但没有
+  `eventPool` 字段；要做需要动 `data/events.ts` 与 `rooms/shop.ts`，
+  方向必须保持 `data/acts.ts → combat/enemies.ts` 单向。
+- **「读档能跨幕恢复」无从验证**：[08 存档](08-save-resume.md) 不存在，
+  `run.map` 还是活的 `Map` 对象。跨幕状态本身是可序列化的
+  （`{ act, seed }` 足以重建地图），但没有存档层去证明。
+- 另：**「胜利结算」是占位屏**。`InterludeScene.paintVictory()` 只印体力/资财/
+  牌组三个数，真结算见 [22 结算界面](22-run-summary.md)，入口已经打通
+  （触发条件是 `actExit(run) === 'victory'`）。
+
+### [17 多武将](17-multiple-heroes.md) ◐ — 未归档
+
+赵云与诸葛亮已上，选将、专属卡池、按武将过滤的奖励与商店都做完了。差一条：
+
+- **赵云的连击数没有上战斗 HUD。** `state.attacksThisTurn` 早就存在且在
+  `startPlayerTurn` 归零，缺的只是 `CombatScene` 里的一处读数。
+  没在集成阶段补，是因为 Phaser UI 在 node 下无法测试，
+  盲加不可验证的界面代码是下一个静默 bug 的来源。
+- 另：**没有任何限定武将的可掉落遗物**。`RelicDef.hero` 的钩子在，
+  三件起手遗物走 `tier:'starter'` 永不掉落，但没人用那个钩子发新遗物。
+
+### [18 开局祝福](18-neow-blessing.md) ◐ — 未归档
+
+四选一、二次确认、一次性门、布衣封锁宝物区都做完并接进了游戏
+（`Title → Blessing → Map`）。差一条：
+
+- **「读档后不重复弹祝福」无从验证** —— 同样卡在 08 没有存档系统。
+  `run.blessing.takenId` 就是那个标志，存档层不需要新增字段。
+
+### 平衡：五行仍在带外，且都动不了
+
+`npm run sim` 打印的「Outside band」现在只剩 5 行，全部是**第一幕、且被黄金快照
+锁定**的敌人：张曼成 28-31% 耗血（目标 40-55%）、张梁 73% 胜率、
+张宝 74/82% 胜率（目标 45-70%）、华雄 57-59% 耗血。
+诊断与改法写在 `git log` 里那次平衡提交的正文里，等一次**获准的快照重录**。
+二三幕与终章已经全部回到带内。
 
 ## 建议施工顺序
 

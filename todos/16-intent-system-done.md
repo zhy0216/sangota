@@ -23,7 +23,7 @@ return move.label;
 
 问题：
 
-- `IntentKind`（`src/combat/types.ts:62`）只有 5 种，覆盖不了 [15 敌人机制](15-enemy-mechanics.md)
+- `IntentKind`（`src/combat/types.ts:62`）只有 5 种，覆盖不了 [15 敌人机制](15-enemy-mechanics-done.md)
   要加的召唤/逃跑/塞牌/未知/睡眠
 - `攻 5 · 弱` 这种拼接**丢信息**：上的是怯战还是破绽？几层？
 - 纯文字在 3 个敌人同屏时可读性差（`CombatScene.ts:1079` 附近按意图配色，
@@ -161,6 +161,6 @@ lethal  ≥ 当前 HP（含护甲折算后仍致死）→ 红色脉动警示
 
 ## 依赖
 
-- [15 敌人机制](15-enemy-mechanics.md)——新意图类型的来源
+- [15 敌人机制](15-enemy-mechanics-done.md)——新意图类型的来源
 - [12 状态库](12-status-library-done.md)——tooltip 要描述新状态；
   金蝉脱壳会让「即将致死」判定失效，`tier` 计算要考虑

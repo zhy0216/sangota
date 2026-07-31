@@ -34,10 +34,13 @@ Validated across 400 seeds on every `npm test` (`tests/generateMap.test.ts`): ev
 reachable from floor 1, no crossing edges, fixed floors correct, elite/camp/shop never
 below floor 6, and no restricted type repeating up an edge or between siblings.
 
-**Hero** — 关羽 (Guan Yu), with a title screen card and an in-map drawer (click the HUD
-portrait, `Esc` to close). His passive 青龙偃月 is not special-cased anywhere: it is his
-starter relic 青龙偃月刀 (the first attack card each turn deals +3), and the card face
-shows the boosted number until it is spent.
+**Heroes** — 关羽, 赵云 and 诸葛亮, chosen on the title screen and shown in an in-map
+drawer (click the HUD portrait, `Esc` to close). No hero is special-cased anywhere in the
+engine. A passive is a starter relic — 青龙偃月刀 pays for the turn's *first* attack card
+(+3), 涯角枪 for its *second* (+4), 纶巾 trades a card of hand size for a point of 气 —
+and each hero's card pool reads exactly one number the engine already tracked: 赵云's the
+attack count this turn, 诸葛亮's the size of the exhaust pile. Card faces show the
+boosted number until the bonus is spent.
 
 **Map controls** — wheel or drag to pan, `Space` recenters on your position, hover a
 node for its tooltip, click a lit node to advance.
@@ -385,18 +388,33 @@ shows up immediately once the canvas is pixel-exact.
 
 ## Known gaps
 
-- 奇遇 (events) and 商旅 (shops) still show a placeholder toast. 营帐 heals 30% and
-  宝藏 pays gold, but neither has a real screen yet.
-- One act, one hero. Beating 吕布 ends the map with nothing after it.
-- No save/resume.
-- Relics exist and fire, but only the hero's starter one is ever granted — 药囊, 求贤令,
-  独断 and 歌钵, the four that prove the potion-slot and reward-count modifiers work, are
-  among the ones nothing hands out.
-- Potions drop from fights, but shops and events cannot sell or give them yet.
-- 吕布's win rate against a deck drafted from the expanded pool is 78% on the threat
-  policy, above the 40–75% band todos/11 set for itself. Cause is isolated (see the
-  balance section); nothing has been re-tuned yet.
-- `COLORLESS_POOL` is empty — 无色 cards need the shop (todos/05) to have an entry point.
-- Card upgrades exist as model + card face + `upgradeCard()`, but no screen grants
-  them yet.
-- No sound at all — every beat of combat feel is currently visual only.
+- **No save/resume** (todos/08). Refreshing loses the run, and a run is 40 minutes and
+  up. Two other items below are blocked purely on this one, not on their own work.
+- **Events and shops are one global pool**, not one per act. `ActDef` has the extension
+  point; nothing fills it.
+- **The victory screen is a placeholder.** `InterludeScene.paintVictory()` prints three
+  numbers. The real 结算 is todos/22; its entry point is already wired.
+- **赵云's 连击 count is not on the combat HUD.** The counter itself
+  (`state.attacksThisTurn`) has existed since 阶段三 — what is missing is one readout in
+  `CombatScene`, deliberately not added blind because Phaser UI cannot be tested here.
+- **No hero-locked droppable relics.** `RelicDef.hero` filters correctly and the three
+  starter relics are unobtainable by design, but nothing uses the hook to ship a relic
+  only one general can find.
+- **Five balance rows are out of band, and all five are frozen.** 张曼成 costs 28–31% of
+  a health bar where an elite should cost 40–55%, 张梁 wins 73% of the time and 张宝
+  74/82% against a 45–70% band, and 华雄 costs 57–59%. Every one is a 第一幕 enemy owned
+  by a golden snapshot, so none can move without a sanctioned re-record. Diagnoses are
+  written down; 第二幕 onward is in band.
+- **An engine hang is reachable in normal play.** `playCard` → `pumpEffects` →
+  `applyEffect` → `drawCards` can re-enter unbounded on a deck holding three 观阵, and
+  both existing guards miss it — `maxTurns` is only checked between actions, and
+  `hashState` counts `state.events.length` as progress, so a loop that appends events
+  looks like forward motion forever. A repro seed is recorded at the `GAUNTLETS`
+  declaration in `sim/balance.sim.ts`.
+- **Best-rarity drafting measures worse than uniform drafting** (张辽 16% vs 25%) — the
+  rare cards are either overcosted or unusable by the greedy/threat policies.
+- **Art is placeholder in three places**: 赵云 and 诸葛亮 have no portraits (a
+  procedurally drawn hanging scroll with a seal character stands in at full HiDPI
+  resolution), 25 hero cards have no faces, and 拜别 has no backdrop or 道人 figure.
+  Every one of them falls away automatically once BootScene preloads the real texture.
+- **No sound at all** — every beat of combat feel is currently visual only.

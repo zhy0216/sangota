@@ -143,7 +143,7 @@ export const CURSE_POOL: string[];
 5. 状态牌生成走 [13 关键词](13-card-keywords-done.md) 的
    `{ kind: 'addCard', defId: 'fenying', count: 2, to: 'discard' }`。
 6. **敌人生成状态牌**：`EnemyMove` 需要能塞牌。见
-   [15 敌人机制](15-enemy-mechanics.md)——`EnemyMove` 加
+   [15 敌人机制](15-enemy-mechanics-done.md)——`EnemyMove` 加
    `addCards?: { defId: string; count: number; to: 'draw'|'discard'|'hand' }`。
    典型用法：西凉铁骑的「扬尘」往抽牌堆塞 2 张「创伤」。
 7. **移除手段**：[05 商店](05-shop-done.md) 的弃卡服务是主渠道；
@@ -208,7 +208,7 @@ export const CURSE_POOL: string[];
 ## 仍未做
 
 - **敌人生成状态牌**（步骤 6）：`EnemyMove.addCards` 属于
-  [15 敌人机制](15-enemy-mechanics.md)，这里只备好了 `STATUS_POOL` 和
+  [15 敌人机制](15-enemy-mechanics-done.md)，这里只备好了 `STATUS_POOL` 和
   `{ kind: 'addCard' }` 通路。
 - **移除渠道的界面**（步骤 7）：`removeCard` 有了，商店/营帐/五丈原的屏幕
   分别属于 [05](05-shop-done.md) / [04](04-campfire-done.md) / [06](06-events-done.md)。

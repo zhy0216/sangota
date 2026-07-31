@@ -195,7 +195,7 @@ export interface CardViewOptions {
 - 按 `3` 打出手牌第三张；只有一个敌人时单体牌按数字键直接打出
 - 悬停「破绽」图标出说明，含当前层数
 - 悬停卡面上的「消耗」二字出说明
-- 悬停意图出完整招式描述（[16 意图](16-intent-system.md)）
+- 悬停意图出完整招式描述（[16 意图](16-intent-system-done.md)）
 - 同一时刻只有一个 tooltip；靠右的元素 tooltip 向左展开不出屏
 - 悬停卡片放大且旋转归零，规则文本可读
 - 手牌 10 张时全部可见可点，不互相遮挡关键信息
@@ -206,7 +206,7 @@ export interface CardViewOptions {
 
 - [12 状态库](12-status-library-done.md)——18 种状态的说明是 tooltip 的主要内容
 - [13 关键词](13-card-keywords-done.md)——卡牌关键词的说明
-- [16 意图系统](16-intent-system.md)——意图 tooltip
+- [16 意图系统](16-intent-system-done.md)——意图 tooltip
 - [21 设置](21-settings.md)——共用 `KeyAction` 定义和确认提示开关，
   建议一起做
 - 弱依赖 [07 牌堆查看器](07-deck-viewer-done.md)（overlay 栈的管理）

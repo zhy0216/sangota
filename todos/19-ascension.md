@@ -144,7 +144,7 @@ export interface RunState {
      （按遭遇档位，所以 `StartCombatOptions` 要带 `tier`）
    - `engine.ts` 的 `executeMove`（`engine.ts:190`）：`damageMult`
      （**在 `computeAttack` 之前**乘基础伤害，否则和怯战/破绽的乘法顺序不对）
-   - `intentOf`（[16 意图](16-intent-system.md)）也要乘，否则意图数字和实际不符
+   - `intentOf`（[16 意图](16-intent-system-done.md)）也要乘，否则意图数字和实际不符
    - `MapScene.ts:330` 的营帐：`restHealPercent`（→ [04 营帐](04-campfire-done.md)）
    - `advanceAct`（[09 多幕](09-acts-and-progression.md)）：`actStartHpLossPercent`
    - `startRun`（`src/state/run.ts:22`）：`maxHpMult`、`potionSlots`、

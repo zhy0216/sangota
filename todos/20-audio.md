@@ -169,4 +169,4 @@ export class Audio {
 - [21 设置菜单](21-settings.md)——音量控制的 UI（可以先做一个临时的
   `M` 键静音，不阻塞）
 - 弱依赖 [09 多幕](09-acts-and-progression.md)（每幕独立音乐）
-- 弱依赖 [15 敌人机制](15-enemy-mechanics.md)（每类敌人独立音效）
+- 弱依赖 [15 敌人机制](15-enemy-mechanics-done.md)（每类敌人独立音效）
