@@ -381,10 +381,30 @@ Generated with the `genmedia` CLI (fal.ai): `nano-banana-pro` for the plates,
 with cinnabar and antique gold accents. Source plates are kept in `out/gen/`;
 `public/assets/` holds the downscaled versions the game actually loads.
 
+Everything on screen is generated — all 65 card faces, three heroes in portrait and
+full body, the four room plates, the enemies, the map and the 拜别 screen. Nothing
+falls through to a procedural stand-in any more, though every stand-in is still in
+the code and still takes over for a texture that fails to load.
+
+The shared line alone was not enough to keep 60-odd plates in one style. What holds
+them together is passing an already-shipped plate as a **style reference** to
+`nano-banana-pro/edit` — `cards/pikan.jpg` for every card face, the 关羽 portrait and
+full body for every actor — with the prompt naming the new scene and stating that only
+the palette, brush treatment and framing carry over. Asked for the same style in words
+only, the model drifts pale and draws a torn-paper border around the art, which is
+exactly the wrong thing for a plate that gets cropped into a card window.
+
 Bitmaps are exported for the HiDPI render size, not the design size: the map plate is
 generated at 4K and shipped near 1:1 with its on-screen physical pixels, and the hero
 is exported ~1900px tall for a ~780 design-unit display. Anything softer than that
-shows up immediately once the canvas is pixel-exact.
+shows up immediately once the canvas is pixel-exact. Card faces ship at 480×320 for a
+136×91 design-unit window, and actors keep the canvas sizes the cut-outs already used
+(640×640 portraits, 1060×1900 full bodies) so `spriteBounds` grounds them all alike.
+
+The 拜别 backdrop is composed against the layout rather than cropped to fit it: the
+shrine and moon sit left under 道人, the right half is left empty for the four gift
+rows, and the horizon is placed where `FIGURE_ART_H` puts his feet — so the figure
+stands on the road instead of on the shrine roof.
 
 ## Known gaps
 
@@ -413,8 +433,4 @@ shows up immediately once the canvas is pixel-exact.
   declaration in `sim/balance.sim.ts`.
 - **Best-rarity drafting measures worse than uniform drafting** (张辽 16% vs 25%) — the
   rare cards are either overcosted or unusable by the greedy/threat policies.
-- **Art is placeholder in three places**: 赵云 and 诸葛亮 have no portraits (a
-  procedurally drawn hanging scroll with a seal character stands in at full HiDPI
-  resolution), 25 hero cards have no faces, and 拜别 has no backdrop or 道人 figure.
-  Every one of them falls away automatically once BootScene preloads the real texture.
 - **No sound at all** — every beat of combat feel is currently visual only.

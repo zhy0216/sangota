@@ -6,14 +6,38 @@ import { makeStatusIcons } from '../ui/statusIcons';
 import { bodyStyle, brushStyle } from '../ui/theme';
 
 const ICON_KEYS = ['monster', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'] as const;
+/** Keys match `HeroDef.portraitKey` / `fullKey` minus their prefix. */
+const HERO_KEYS = ['guanyu', 'zhaoyun', 'zhugeliang'] as const;
 const ENEMY_KEYS = ['yellowturban', 'bandit', 'huaxiong', 'lubu'] as const;
 /** Backdrops for the four non-combat rooms — keys match `RoomMeta.plate`. */
 const ROOM_KEYS = ['rest', 'shop', 'event', 'treasure'] as const;
-// Cards with a real painting to load. The 13 from todos/11 have none yet, so
-// they fall through to the procedural plate `makeCardArt` draws in `create`.
+/**
+ * Cards with a real painting to load. Every card in `CARDS` now has one, but
+ * the list stays explicit rather than derived: a key listed here that has no
+ * file takes the loader's error path and gets the `?` placeholder, which would
+ * then shadow the far better procedural plate `makeCardArt` draws in `create`.
+ * A new card therefore lands here only once its art is actually on disk.
+ */
 const CARD_KEYS = [
+  // 关羽 + 通用
   'pikan', 'tiebi', 'tuodao', 'wenjiu', 'wanren',
-  'quedi', 'yiyong', 'baima', 'jieying', 'guanzhen', 'xuzhao',
+  'quedi', 'yiyong', 'baima', 'jieying', 'guanzhen',
+  'xuzhao', 'dandaofuhui', 'huarongdao', 'bingzhudadan', 'yeduchunqiu',
+  'shuiyanqijun', 'zhanyanliang', 'hulaoguan', 'tushanyuesanshi', 'wubaijiaodaoshou',
+  'guaguliaodu', 'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei', 'qingnangshu',
+  'lujiao', 'lijianji', 'dushi', 'bazhentu',
+  // 赵云
+  'tuzhen', 'luema', 'longdan', 'tingqiang', 'qitanpanshe',
+  'kongyingji', 'sanjinsanchu', 'jiejiang', 'xueranzhengpao', 'yishenshidan',
+  'danqijiuzhu', 'lizhanwujiang',
+  // 诸葛亮
+  'yuanrongnu', 'jushou', 'longzhongdui', 'jinnang', 'jiejianzhiji',
+  'jiedongfeng', 'huoji', 'kongchengji', 'qixingdeng', 'muniuliuma',
+  'wolongchushan', 'chushibiao', 'qiqinqizong',
+  // 诅咒与状态牌
+  'tannian', 'jiushang', 'yixin', 'shemi', 'fanshi',
+  'suming', 'fenying', 'chuangshang', 'xuanyun', 'nining',
+  'zui',
 ] as const;
 
 export class BootScene extends Phaser.Scene {
@@ -27,8 +51,10 @@ export class BootScene extends Phaser.Scene {
 
     this.load.setPath('assets');
     this.load.image('map-bg', 'map/map-bg.jpg');
-    this.load.image('hero-guanyu', 'heroes/guanyu-full.png');
-    this.load.image('portrait-guanyu', 'heroes/guanyu-portrait.png');
+    for (const key of HERO_KEYS) {
+      this.load.image(`hero-${key}`, `heroes/${key}-full.png`);
+      this.load.image(`portrait-${key}`, `heroes/${key}-portrait.png`);
+    }
     for (const key of ICON_KEYS) {
       this.load.image(`icon-${key}`, `icons/${key}.png`);
     }
@@ -36,6 +62,9 @@ export class BootScene extends Phaser.Scene {
     for (const key of ROOM_KEYS) {
       this.load.image(`room-${key}`, `rooms/${key}.jpg`);
     }
+    // 拜别 · 出征前夜 — backdrop and the 道人 who offers the blessing.
+    this.load.image('blessing-bg', 'rooms/blessing-bg.jpg');
+    this.load.image('daoren', 'rooms/daoren.png');
     for (const key of ENEMY_KEYS) {
       this.load.image(`enemy-${key}`, `enemies/${key}.png`);
     }

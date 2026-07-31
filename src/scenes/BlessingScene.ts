@@ -14,6 +14,7 @@ import {
 import { getRun, removableCount, type RunState } from '../state/run';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { useDesignSpace } from '../ui/designSpace';
+import { groundSprite } from '../ui/spriteBounds';
 import { bodyStyle, brushStyle, gradientStrip, inkButton, inkPanel } from '../ui/theme';
 import { popText } from '../ui/vfx';
 
@@ -40,6 +41,9 @@ const ROW = { x: 452, y: 132, w: 800, h: 112, gap: 14 } as const;
 
 /** 道人's side of the screen. */
 const FIGURE = { x: 40, y: 96, w: 380, h: 520 } as const;
+
+/** Content height of the 道人 plate — his feet land just above the caption. */
+const FIGURE_ART_H = 300;
 
 const CONFIRM_Y = GAME_HEIGHT - 56;
 
@@ -108,15 +112,29 @@ export class BlessingScene extends Phaser.Scene {
   // ------------------------------------------------------------------ 布景
 
   /**
-   * Night, a hill road, one lamp. Painted rather than loaded: no plate exists
-   * for this screen yet, and a procedural wash is honest about that in a way a
-   * missing-texture checkerboard is not.
+   * Night, a hill road, one lamp. The painted plate is laid out to match the
+   * wash below it — shrine and moon on the left under 道人, the right side left
+   * quiet for the four rows — so the two are interchangeable. The wash stays as
+   * the fallback: it is honest about a missing plate in a way a missing-texture
+   * checkerboard is not.
    */
   private paintBackdrop(): void {
     this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 1)
       .setOrigin(0, 0)
       .setDepth(DEPTH.bg);
+
+    if (this.textures.exists('blessing-bg')) {
+      this.add
+        .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'blessing-bg')
+        .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
+        .setDepth(DEPTH.bg);
+      // The plate is a night scene already; this only seats the rows on it.
+      gradientStrip(this, 0, GAME_HEIGHT - 200, GAME_WIDTH, 200, C.inkDeep, 0, 0.94).setDepth(
+        DEPTH.bg,
+      );
+      return;
+    }
 
     const wash = this.add.graphics().setDepth(DEPTH.bg);
     // A low moon behind the figure, and the ridge line under it.
@@ -153,13 +171,24 @@ export class BlessingScene extends Phaser.Scene {
       .setLetterSpacing(4)
       .setDepth(DEPTH.chrome);
 
-    // 道人. A seal-script watermark stands in until a painting lands, the way
-    // 选将 does for a hero with no portrait yet.
-    this.add
-      .text(FIGURE.x + FIGURE.w / 2, FIGURE.y + 150, '道', brushStyle(260, C.paperFaint))
-      .setOrigin(0.5)
-      .setAlpha(0.18)
-      .setDepth(DEPTH.art);
+    // 道人. Grounded by silhouette like every other cut-out, so the figure's
+    // feet land on the caption rule rather than wherever the plate's transparent
+    // margin happens to end. A seal-script watermark stands in until the
+    // painting lands, the way 选将 does for a hero with no portrait yet.
+    if (this.textures.exists('daoren')) {
+      const feet = this.add
+        .container(FIGURE.x + FIGURE.w / 2, FIGURE.y + FIGURE_ART_H)
+        .setDepth(DEPTH.art);
+      const sprite = this.add.image(0, 0, 'daoren').setOrigin(0.5, 1);
+      groundSprite(this, sprite, FIGURE_ART_H);
+      feet.add(sprite);
+    } else {
+      this.add
+        .text(FIGURE.x + FIGURE.w / 2, FIGURE.y + 150, '道', brushStyle(260, C.paperFaint))
+        .setOrigin(0.5)
+        .setAlpha(0.18)
+        .setDepth(DEPTH.art);
+    }
     this.add
       .text(FIGURE.x + FIGURE.w / 2, FIGURE.y + 320, '云游道人', brushStyle(28, C.paper))
       .setOrigin(0.5)

@@ -4,10 +4,11 @@ import { CARDS, CARD_TYPE_META } from '../combat/cards';
 import { Rng } from '../core/rng';
 
 /**
- * PLACEHOLDER ART — this repo has no art pipeline, so any card whose painting
- * never loaded gets a drawn stand-in under the exact texture key its `CardDef`
- * names. Dropping a real plate into `assets/cards/` and listing it in
- * BootScene's `CARD_KEYS` takes over with no code change here.
+ * PLACEHOLDER ART — a fallback, not the normal path. Every card in `CARDS` now
+ * ships a painting, so this draws nothing on a healthy boot; it exists for the
+ * card whose plate fails to load and for the next card added ahead of its art.
+ * Dropping a real plate into `assets/cards/` and listing it in BootScene's
+ * `CARD_KEYS` takes over with no code change here.
  *
  * The plate is an ink ground under a seeded brush figure tinted by card type,
  * so every card reads as its own picture and the same card looks the same on
