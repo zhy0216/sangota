@@ -10,6 +10,7 @@ import { EventController } from '../rooms/eventView';
 import { ShopController } from '../rooms/shopView';
 import { TreasureController } from '../rooms/treasureView';
 import { getRun, type RunState } from '../state/run';
+import { writeSave } from '../state/save';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, gradientStrip, inkButton, inkPanel } from '../ui/theme';
@@ -272,6 +273,11 @@ export class RoomScene extends Phaser.Scene {
     return () => {
       if (this.leaving) return;
       fn();
+      // 存档 (todos/08) rides the same funnel, for the same reason it exists: a
+      // 商旅 with eight one-shot purchases has no other single point where "the
+      // run just changed" is true. `writeSave` de-duplicates on the payload, so
+      // a button that decided nothing costs one `JSON.stringify` and no write.
+      writeSave(this.run, null);
     };
   }
 
@@ -385,6 +391,11 @@ export class RoomScene extends Phaser.Scene {
     const done = (uids: string[]): void => {
       this.refreshHud();
       req.onPick(uids);
+      // The grid is the one room action that does *not* come through `action`:
+      // `CardGrid` calls back on its own confirm button. 锻造 and 弃卡 are both
+      // paid for by the time this runs, so a reload without it would restore a
+      // run that had spent the 体力 and kept the card.
+      writeSave(this.run, null);
     };
 
     openCardGrid(this, {

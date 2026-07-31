@@ -60,7 +60,7 @@ so the whole system is testable headlessly」，而且确实如此
 | `pickIntent` | `maxRepeat: 2` 的招式不会连续出现第三次 |
 | `previewValues` | 卡面数字 === 实际结算伤害（**这条最重要**，卡面说谎是最糟的 bug） |
 | `generateMap` | 400 个 seed 全部：每个节点可达、无交叉边、房间规则不违反（README 说验证过，把它变成测试） |
-| 存档往返 | `fromSaved(toSaved(run))` 深度相等（[08](08-save-resume.md)） |
+| 存档往返 | `fromSaved(toSaved(run))` 深度相等（[08](08-save-resume-done.md)） |
 
 ### 二层 · 黄金回归（防静默漂移）
 
@@ -156,7 +156,7 @@ export interface TierStats {
    平衡模拟标成长时用例或独立脚本（`tsx`/`vite-node`），
    **不要**混进常规 `test` —— 500×3×3 场跑几十秒，不适合每次保存都跑。
 2. `src/core/rng.ts`：确认所有随机都从这里走。顺便加
-   `getState()` / `fromState()`（[08 存档](08-save-resume.md) 也需要）。
+   `getState()` / `fromState()`（[08 存档](08-save-resume-done.md) 也需要）。
    **审一遍全项目有没有裸 `Math.random()`**——有一处就会破坏可复现性，
    模拟和快照都会失效。
 3. `sim/policy.ts`：

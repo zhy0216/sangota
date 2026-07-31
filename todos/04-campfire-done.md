@@ -103,7 +103,7 @@ export interface RunState {
    然后**禁掉全部选项**（一个营帐只能选一次），显示「离营」按钮回地图。
 6. `run.ts` 记 `node.visited`（已有）之外，还要防「回地图再点进来」——
    现在 `availableNodes`（`run.ts:49-52`）只给 children，已经天然防住了，
-   但存档恢复时要确认营帐是否已消费，见 [08 存档](08-save-resume.md)。
+   但存档恢复时要确认营帐是否已消费，见 [08 存档](08-save-resume-done.md)。
 
 ## 验收标准
 

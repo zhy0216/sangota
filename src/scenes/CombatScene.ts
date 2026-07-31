@@ -37,6 +37,14 @@ import type {
   StatusId,
 } from '../combat/types';
 import { applyCombatResult, getRun, removePotion, type RunState } from '../state/run';
+import {
+  clearSave,
+  combatIsQuiescent,
+  restoreCombat,
+  snapshotCombat,
+  writeSave,
+  type SavedCombat,
+} from '../state/save';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_W, CardView } from '../ui/CardView';
 import type { ActorView, EnemyView, EnemyViewParts } from '../ui/actorView';
@@ -63,6 +71,23 @@ import {
 import { returnToMap } from './nav';
 
 type CombatNodeType = 'monster' | 'elite' | 'boss';
+
+/**
+ * What `scene.start('Combat', …)` may hand over.
+ *
+ * A named type rather than an inline object literal on `init` for a mechanical
+ * reason: `tests/integrity.test.ts` and `tests/rooms.events.test.ts` both read
+ * this scene's `init` body as *source text*, slicing from `init(data:` to the
+ * first `\n  }`. A multi-line parameter type puts a `  }` inside the signature
+ * and truncates the slice to nothing, and all four guards pass vacuously.
+ */
+interface CombatSceneData {
+  nodeType?: CombatNodeType;
+  bonusRelic?: string;
+  nodeId?: string;
+  /** 存档 (todos/08): resume this fight rather than opening a new one. */
+  resume?: SavedCombat;
+}
 
 const BASELINE_Y = 420;
 const PLAYER_X = 244;
@@ -134,6 +159,15 @@ export class CombatScene extends Phaser.Scene {
    * throws — which it did, inside `create()`, with the map already stopped.
    */
   private ledgerId: string | null = null;
+  /**
+   * 存档 (todos/08): the fight this scene is being restored into, or null for a
+   * fight being opened for the first time.
+   *
+   * Consumed by `create` and never read again — it is a *constructor argument*
+   * with nowhere else to live, since `init` is the only per-visit hook Phaser
+   * gives and the state it builds is not wanted until `create`.
+   */
+  private resumeFrom: SavedCombat | null = null;
 
   private cardViews = new Map<string, CardView>();
   /**
@@ -218,7 +252,7 @@ export class CombatScene extends Phaser.Scene {
    * run. `claimed` left behind froze the second victory screen; the three
    * tooltip handles left behind pointed at destroyed Game Objects.
    */
-  init(data: { nodeType?: CombatNodeType; bonusRelic?: string; nodeId?: string }): void {
+  init(data: CombatSceneData): void {
     this.nodeType = data?.nodeType ?? 'monster';
     this.bonusRelic = data?.bonusRelic ?? null;
     // A fight the map opened is ledgered on the map node the player is standing
@@ -241,6 +275,19 @@ export class CombatScene extends Phaser.Scene {
     this.currentAttacker = null;
     this.lastEnergy = 0;
     this.tweens.timeScale = 1;
+
+    // 存档 (todos/08). Applied *after* the defaults rather than folded into
+    // them, so the four lines above keep saying plainly what a fresh fight
+    // does. A resumed fight overrides all four: every one was decided when the
+    // fight opened, and the title screen — which is what starts this scene on a
+    // reload — knows none of them.
+    this.resumeFrom = data?.resume ?? null;
+    if (this.resumeFrom) {
+      this.nodeType = this.resumeFrom.tier;
+      this.bonusRelic = this.resumeFrom.bonusRelic;
+      this.ledgerId = this.resumeFrom.ledgerId;
+      this.theftSeq = this.resumeFrom.theftSeq;
+    }
   }
 
   create(): void {
@@ -256,17 +303,22 @@ export class CombatScene extends Phaser.Scene {
     // so that a second `create()` reopens the fight the player walked into.
     this.nodeId = this.ledgerId ?? this.run.currentNodeId ?? 'start';
     const seed = streamSeed(this.run, this.nodeId, 'combat');
+    // Materialised on first entry and only read back afterwards (R5), which is
+    // what lets a reloaded save reopen *the fight the player walked into* rather
+    // than picking a fresh one out of a pool that has moved on.
     this.encounter = ensureEncounter(this.run, this.nodeId, this.nodeType);
 
-    this.state = startCombat({
-      encounter: this.encounter,
-      deck: this.run.deck,
-      heroName: this.run.hero.name,
-      hp: this.run.hp,
-      maxHp: this.run.maxHp,
-      relics: this.run.relics,
-      seed,
-    });
+    this.state = this.resumeFrom
+      ? restoreCombat(this.resumeFrom)
+      : startCombat({
+          encounter: this.encounter,
+          deck: this.run.deck,
+          heroName: this.run.hero.name,
+          hp: this.run.hp,
+          maxHp: this.run.maxHp,
+          relics: this.run.relics,
+          seed,
+        });
 
     this.buildBackground();
     this.buildPlayer();
@@ -291,6 +343,53 @@ export class CombatScene extends Phaser.Scene {
     this.cameras.main.fadeIn(340, 8, 6, 4);
     this.syncHand();
     this.refresh();
+
+    // 存档 (todos/08). A fight restored on its victory screen goes straight back
+    // to it — settled, so `showVictory` must not settle it a second time (体力 is
+    // idempotent, `resolveCombatEndHooks` is not: 贪念 would collect twice).
+    // Otherwise the fight is simply live again, and the first thing it does is
+    // write itself down, so opening a fight is itself a save point.
+    if (this.state.phase === 'won') {
+      this.finished = true;
+      this.showVictory(true);
+    } else {
+      this.autosave();
+    }
+  }
+
+  // ------------------------------------------------------------- 存档
+
+  /**
+   * Snapshot the fight as it stands. Called after every player action and on the
+   * victory screen, which between them are every moment the run can be left.
+   *
+   * There is no save-scum hole here, and that is not an accident: a reload
+   * replays into the *same* `rngState`, so the shuffle, the intents and the
+   * damage rolls that follow are the ones the player already committed to. Only
+   * their own decisions are theirs to take back, and those they could take back
+   * by not making them.
+   */
+  private saveFight(): void {
+    writeSave(
+      this.run,
+      snapshotCombat(this.state, {
+        tier: this.nodeType,
+        ledgerId: this.ledgerId,
+        bonusRelic: this.bonusRelic,
+        theftSeq: this.theftSeq,
+      }),
+    );
+  }
+
+  /**
+   * The between-actions save. Skips a fight that is mid-resolution — the engine
+   * is holding an effect queue and possibly a `pendingChoice` the player has not
+   * answered — and skips one that is already decided, which `showVictory` and
+   * `showDefeat` own instead.
+   */
+  private autosave(): void {
+    if (this.finished || !combatIsQuiescent(this.state)) return;
+    this.saveFight();
   }
 
   // ------------------------------------------------------------- scaffolding
@@ -885,6 +984,7 @@ export class CombatScene extends Phaser.Scene {
     this.refresh();
     this.busy = false;
     this.checkOutcome();
+    this.autosave();
   }
 
   private discardPotion(slot: number): void {
@@ -893,6 +993,9 @@ export class CombatScene extends Phaser.Scene {
     if (!id) return;
     this.clearSelection();
     this.potionBelt.setPotions(this.run.potions);
+    // Pouring one away costs a resource and resolves nothing, so it never
+    // reaches the action paths above — but it is still a change worth keeping.
+    this.autosave();
     const at = this.potionBelt.slotAt(slot);
     popText(this, at.x + 40, at.y, `弃「${getPotion(id).name}」`, {
       color: C.paperFaint,
@@ -1021,7 +1124,10 @@ export class CombatScene extends Phaser.Scene {
     this.syncHand();
     this.refresh();
     this.busy = false;
+    // After `checkOutcome`, never before: a fight that just ended is `finished`
+    // by then, and `autosave` steps aside for the screen that owns the payout.
     this.checkOutcome();
+    this.autosave();
   }
 
   /**
@@ -1199,6 +1305,7 @@ export class CombatScene extends Phaser.Scene {
 
     this.busy = false;
     this.checkOutcome();
+    this.autosave();
   }
 
   // -------------------------------------------------------------- animation
@@ -2115,12 +2222,24 @@ export class CombatScene extends Phaser.Scene {
    * The fight is over and won. The run is settled exactly once here, then the
    * screen routes: a 首领 owes the 战利品 chest *before* the ordinary spoils, so
    * the relic that shapes the next act is chosen while it still can be.
+   *
+   * `resumed` is the 存档 path (todos/08): the run was settled before the save
+   * was written, so it must not be settled again. 体力 would survive it —
+   * `applyCombatResult` is idempotent — but `resolveCombatEndHooks` is not, and
+   * 贪念 would collect a second time off a body already paid for.
    */
-  private showVictory(): void {
-    applyCombatResult(this.run, this.state.player.hp);
-    // 贪念 collects here — before the gold roll, so a curse can never eat the
-    // reward the player is about to be shown.
-    resolveCombatEndHooks(this.state, this.run);
+  private showVictory(resumed = false): void {
+    if (!resumed) {
+      applyCombatResult(this.run, this.state.player.hp);
+      // 贪念 collects here — before the gold roll, so a curse can never eat the
+      // reward the player is about to be shown.
+      resolveCombatEndHooks(this.state, this.run);
+      // Written *now*, still tagged as a won fight, because the screen the
+      // player is about to see owes them a card and a 首领 relic. Saved as「on
+      // the map」instead, a reload would strand the run on a node whose spoils
+      // are gated `once` and can never be claimed.
+      this.saveFight();
+    }
 
     if (this.nodeType === 'boss' && bossOfferPending(this.run, this.nodeId)) {
       this.showBossChest(() => this.showSpoils());
@@ -2452,6 +2571,10 @@ export class CombatScene extends Phaser.Scene {
 
   private showDefeat(): void {
     applyCombatResult(this.run, 0);
+    // 存档 (todos/08): the run is over the moment 体力 hits zero. Cleared here
+    // rather than on the way to the title so that closing the tab on the 兵败
+    // screen ends the run too — a roguelike may not offer a way back past this.
+    clearSave();
 
     const layer = this.add.container(0, 0).setDepth(DEPTH.overlay);
     layer.add(

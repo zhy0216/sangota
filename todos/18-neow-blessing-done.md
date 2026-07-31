@@ -141,7 +141,7 @@ export interface EventOutcome {
 5. 流程接线：`TitleScene`「出征」（`TitleScene.ts:130`）→
    `HeroSelectScene`（若 [17](17-multiple-heroes.md) 已做）→
    `BlessingScene` → `MapScene`。
-6. **祝福必须在存档之前完成**：[08 存档](08-save-resume.md) 的第一次
+6. **祝福必须在存档之前完成**：[08 存档](08-save-resume-done.md) 的第一次
    autosave 应该在祝福选完之后，否则读档会重新弹祝福（或者要在
    `SavedRun` 里记 `blessingTaken: boolean`）。
 7. 「布衣」这件独特宝物需要遗物系统支持「禁止购买宝物」——
@@ -168,15 +168,23 @@ export interface EventOutcome {
 - [01 遗物](01-relics-done.md) / [02 药水](02-potions-done.md) / [03 升级](03-card-upgrades-done.md)
   / [11 稀有度](11-card-rarity-and-rewards-done.md) / [14 诅咒](14-curses-and-status-cards-done.md)
   ——各类选项的内容来源
-- 顺序上应在 [08 存档](08-save-resume.md) 之前，或同时处理 `blessingTaken` 标志
+- 顺序上应在 [08 存档](08-save-resume-done.md) 之前，或同时处理 `blessingTaken` 标志
 
 ---
 
 ## 阶段五归档 · 一条验收被 08 卡住
 
 十一条验收里十条已核实通过，`tests/blessing.test.ts` 逐条覆盖。
-第十一条「读档后不会重复弹祝福」无从验证——[08 存档](08-save-resume.md)
+第十一条「读档后不会重复弹祝福」无从验证——[08 存档](08-save-resume-done.md)
 不存在。`run.blessing.takenId` 就是那个标志（`blessingTaken(run)` 读它，
 `blessingSettled(run)` 是「已选完且没有欠着的选牌」那道门），
 存档层**不需要新增任何字段**，只要把 `run.blessing` 一并存下来。
 08 落地时回来补这一条。
+
+> **08 已回来补掉（阶段六）。** 预判成立：`SavedRun` 由
+> `Omit<RunState, …>` 推导，`blessing` 整个随存随取，没有新增字段。
+> 「读档后不重复弹祝福」由两半保证：第一次 `writeSave` 就在
+> `BlessingScene.leave()` 里、门是 `blessingSettled`（没选完根本没有档可读），
+> 而 `TitleScene.continueRun` 直接进 `Map` 或 `Combat`、永不进 `Blessing`。
+> 两半都有源码文本测试：`tests/save.test.ts` 的「writes the run for the
+> first time only once 拜别 is settled」与「offers 继续 from the title」。

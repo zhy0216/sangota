@@ -189,6 +189,46 @@ export function getRun(): RunState {
   return active;
 }
 
+/**
+ * The deck-uid cursor, so 存档 can park it and put it back.
+ *
+ * `nextUid` is module state rather than a field of `RunState` on purpose — it is
+ * monotonic and must never be drawn from an `Rng` — but that makes it the one
+ * piece of a run that `JSON.stringify(run)` cannot see. Restored without it, the
+ * counter starts at 0 again and the very next 战利品 card is minted as `d0`,
+ * which the opening deck already holds: `removeCard` and every 选牌 overlay
+ * address a copy *by uid*, so 弃卡 would shed whichever of the two the array
+ * happened to find first.
+ */
+export const uidCursor = (): number => nextUid;
+
+/**
+ * Install a rebuilt run as the active one. The only door 存档 has into this
+ * module's state, and it takes the cursor with it for the reason above.
+ *
+ * Deliberately not `restoreRun(saved)`: rebuilding a `RunState` needs the act
+ * table (`src/data/acts.ts`) to know which map generator an act uses, and that
+ * module already imports this one. The mapping therefore lives in
+ * `src/state/save.ts`, which is a leaf, and this stays a two-line setter.
+ */
+export function adoptRun(run: RunState, cursor: number): RunState {
+  active = run;
+  nextUid = cursor;
+  return run;
+}
+
+/**
+ * Forget the active run without starting another.
+ *
+ * `startRun` is not a substitute: it *generates a map*, which is 第一幕's whole
+ * random stream spent on a run nobody asked for. The title screen needs the
+ * former and not the latter when a save is discarded.
+ */
+export function endRun(): void {
+  active = null;
+  nextUid = 0;
+}
+
 /** Display floor number (1-based). 0 means "not yet entered the map". */
 export function currentFloor(run: RunState): number {
   if (!run.currentNodeId) return 0;

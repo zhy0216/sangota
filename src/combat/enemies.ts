@@ -1,5 +1,5 @@
 import type { Rng } from '../core/rng';
-import type { EnemyDef, Encounter } from './types';
+import type { EnemyDef, EnemyMove, EnemyPhase, Encounter } from './types';
 
 /**
  * 敌军名录 — every enemy is a row, and every behaviour it has is a field of that
@@ -1213,3 +1213,28 @@ export const getEnemy = (id: string): EnemyDef => {
   if (!def) throw new Error(`Unknown enemy id: ${id}`);
   return def;
 };
+
+/**
+ * The move table in force for an enemy standing in `phase`: the named phase it
+ * switched into, or the default. `engine.moveSet` is a one-line wrapper over
+ * this that reads the phase off an `EnemyState`.
+ *
+ * Split out here — beside the table it indexes — rather than left inside the
+ * engine so that 存档 (`src/state/save.ts`) can look a telegraphed move back up
+ * without importing the engine and everything the engine drags in.
+ */
+export const phaseOf = (def: EnemyDef, phase: string | null): EnemyPhase =>
+  (phase ? def.phases?.[phase] : undefined) ?? def;
+
+/**
+ * A telegraphed move, recovered from what a save can hold.
+ *
+ * `EnemyState.intent` is a *reference into the table*, so a save can only carry
+ * its id and must resolve it back through the same phase the enemy is standing
+ * in — a 二阶段 enemy's move ids are not in the default table at all. Null means
+ * the row is gone (a table edited under an old save), which the loader treats as
+ * an incompatible save rather than re-rolling a different intent under a player
+ * who was already shown one.
+ */
+export const moveById = (defId: string, phase: string | null, moveId: string): EnemyMove | null =>
+  phaseOf(getEnemy(defId), phase).moves.find((m) => m.id === moveId) ?? null;

@@ -2,8 +2,17 @@ import Phaser from 'phaser';
 import { C, css, FONT_BRUSH, GAME_HEIGHT, GAME_WIDTH, RENDER_SCALE } from '../config';
 import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../data/heroes';
 import { startRun } from '../state/run';
+import {
+  SAVE_VERSION,
+  clearSave,
+  fromSaved,
+  readSlot,
+  summarise,
+  type SaveSlot,
+} from '../state/save';
 import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
+import { pushOverlay } from '../ui/overlayStack';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
 
 /** Cover-fit an image into a box without distorting it. */
@@ -42,6 +51,15 @@ export class TitleScene extends Phaser.Scene {
   private heroImg!: Phaser.GameObjects.Image;
   private panel!: Phaser.GameObjects.Container;
   private tiles: { hero: HeroDef; paint: (state: 'idle' | 'hover' | 'picked') => void }[] = [];
+
+  /**
+   * 存档 (todos/08). Read once in `create` and repainted from, so the four
+   * outcomes each get their own row of buttons — and so a save that turns out
+   * to be unreadable at the moment it is opened can demote itself to 「损坏」
+   * without the scene being rebuilt.
+   */
+  private slot: SaveSlot = { kind: 'empty' };
+  private actions!: Phaser.GameObjects.Container;
 
   constructor() {
     super('Title');
@@ -114,33 +132,235 @@ export class TitleScene extends Phaser.Scene {
     this.showHero(this.picked, false);
 
     // --- Actions ----------------------------------------------------------
-    const start = inkButton(this, LEFT + 118, 658, '出 征', {
-      width: 236,
-      height: 66,
-      fontSize: 32,
-      onClick: () => this.beginRun(),
-    });
-    start.setAlpha(0);
-    this.tweens.add({ targets: start, alpha: 1, duration: 600, delay: 860 });
+    this.slot = readSlot();
+    this.actions = this.add.container(0, 0);
+    this.buildActions();
 
-    const deck = inkButton(this, LEFT + 358, 658, '初 始 牌 组', {
-      width: 190,
-      height: 52,
-      fontSize: 20,
-      accent: C.jade,
-      onClick: () => this.showDeck(),
-    });
-    deck.setAlpha(0);
-    this.tweens.add({ targets: deck, alpha: 1, duration: 600, delay: 980 });
+    // Bottom-right, out of the way of the 存档 line the action row prints under
+    // 「继续」 — the two used to share the bottom-left corner.
+    this.add
+      .text(GAME_WIDTH - 16, GAME_HEIGHT - 26, 'v0.1 原型 · 三将逐鹿', bodyStyle(12, 0x554d40))
+      .setOrigin(1, 0);
 
-    this.add.text(16, GAME_HEIGHT - 26, 'v0.1 原型 · 三将逐鹿', bodyStyle(12, 0x554d40));
-
-    this.input.keyboard?.on('keydown-ENTER', () => this.beginRun());
+    this.input.keyboard?.on('keydown-ENTER', () => this.onEnter());
     this.input.keyboard?.on('keydown-UP', () => this.step(-1));
     this.input.keyboard?.on('keydown-DOWN', () => this.step(1));
     this.input.keyboard?.on('keydown-LEFT', () => this.step(-1));
     this.input.keyboard?.on('keydown-RIGHT', () => this.step(1));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.applyParallax(p));
+  }
+
+  // ------------------------------------------------------------------ 存档
+
+  /**
+   * The action row, which is four different rows depending on what is in the
+   * slot. Rebuilt rather than toggled so that 「清除」 and a save that fails to
+   * open can both repaint it without touching anything else on the screen.
+   *
+   * 「继续」 is the primary when there is a run to continue: it is the action the
+   * player almost certainly came back for, and 「重新出征」 throws away 40 minutes
+   * of play, so the sizes say which is which before the labels do.
+   */
+  private buildActions(): void {
+    this.actions.removeAll(true);
+    const resumable = this.slot.kind === 'ok';
+
+    const primary = inkButton(
+      this,
+      LEFT + (resumable ? 130 : 118),
+      658,
+      resumable ? '继 续 征 程' : '出 征',
+      {
+        width: resumable ? 260 : 236,
+        height: 66,
+        fontSize: resumable ? 30 : 32,
+        onClick: () => (resumable ? this.continueRun() : this.beginRun()),
+      },
+    );
+    this.actions.add(primary);
+    this.fadeIn(primary, 860);
+
+    if (this.slot.kind === 'ok') {
+      const s = summarise(this.slot.saved);
+      const line = this.add.text(
+        LEFT,
+        698,
+        `${s.actLabel} · 第 ${s.floor} 层　·　${s.heroName}　·　体力 ${s.hp}/${s.maxHp}　·　资财 ${s.gold}　·　牌组 ${s.deckSize}${s.inCombat ? '　·　鏖战中' : ''}`,
+        bodyStyle(13, C.paperFaint),
+      );
+      this.actions.add(line);
+      this.fadeIn(line, 940);
+
+      const again = inkButton(this, 452, 646, '重 新 出 征', {
+        width: 152,
+        height: 50,
+        fontSize: 20,
+        accent: C.cinnabar,
+        onClick: () => this.confirmDiscard(),
+      });
+      this.actions.add(again);
+      this.fadeIn(again, 980);
+    }
+
+    if (this.slot.kind === 'stale' || this.slot.kind === 'broken') {
+      // Neither loaded nor silently dropped (S4): the player is told, and the
+      // only thing that removes it is a button they press themselves.
+      const why =
+        this.slot.kind === 'stale'
+          ? `存档版本不符（v${this.slot.version} → v${SAVE_VERSION}），无法继续。`
+          : '存档已损坏，无法继续。';
+      const line = this.add.text(LEFT, 698, why, bodyStyle(13, C.cinnabarBright));
+      this.actions.add(line);
+      this.fadeIn(line, 940);
+
+      const wipe = inkButton(this, 452, 646, '清 除 存 档', {
+        width: 152,
+        height: 50,
+        fontSize: 20,
+        accent: C.cinnabar,
+        onClick: () => this.discardSave(),
+      });
+      this.actions.add(wipe);
+      this.fadeIn(wipe, 980);
+    }
+
+    // Compact whenever a second button shares the row — 「重新出征」 on a live
+    // save, 「清除存档」 on a stale or broken one. Only an empty slot leaves the
+    // roomy two-button layout.
+    const crowded = this.slot.kind !== 'empty';
+    const deck = inkButton(this, crowded ? 616 : LEFT + 358, crowded ? 646 : 658, '初 始 牌 组', {
+      width: crowded ? 152 : 190,
+      height: crowded ? 50 : 52,
+      fontSize: 20,
+      accent: C.jade,
+      onClick: () => this.showDeck(),
+    });
+    this.actions.add(deck);
+    this.fadeIn(deck, 1020);
+  }
+
+  private fadeIn(obj: Phaser.GameObjects.Container | Phaser.GameObjects.Text, delay: number): void {
+    obj.setAlpha(0);
+    this.tweens.add({ targets: obj, alpha: 1, duration: 600, delay });
+  }
+
+  /** Enter takes the primary action, which is 「继续」 whenever there is one. */
+  private onEnter(): void {
+    if (this.slot.kind === 'ok') this.continueRun();
+    else this.beginRun();
+  }
+
+  private continueRun(): void {
+    if (this.leaving || isCardGridOpen(this)) return;
+    if (this.slot.kind !== 'ok') return;
+    const saved = this.slot.saved;
+
+    try {
+      fromSaved(saved);
+    } catch {
+      // S4: refused, never approximated. The payload parsed and carried the
+      // right version but names something this build has not got — a hero, an
+      // act, a map node. Demote to 「损坏」 and let the player clear it.
+      this.slot = { kind: 'broken' };
+      this.buildActions();
+      return;
+    }
+
+    this.leaving = true;
+    this.cameras.main.fadeOut(420, 8, 6, 4);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      // 拜别 is not on this path: a saved run has already been blessed, and
+      // `run.blessing.takenId` came back with it. Straight to wherever the
+      // player was standing — mid-fight included.
+      if (saved.combat) this.scene.start('Combat', { resume: saved.combat });
+      else this.scene.start('Map');
+    });
+  }
+
+  /**
+   * 「重新出征」 over a live save. One slot and one run in it, so starting a new
+   * one destroys the old one — which is a thing to be asked about, once.
+   */
+  private confirmDiscard(): void {
+    if (this.leaving || isCardGridOpen(this)) return;
+
+    const layer = this.add.container(0, 0);
+    const handle = pushOverlay(this, {
+      id: 'discard-save',
+      dismissable: true,
+      onDismiss: () => {
+        layer.destroy(true);
+      },
+    });
+    layer.setDepth(handle.depth);
+
+    const close = (): void => {
+      handle.release();
+      layer.destroy(true);
+    };
+
+    layer.add(
+      this.add
+        .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 0.86)
+        .setInteractive(),
+    );
+
+    const W = 560;
+    const H = 236;
+    const box = this.add.container((GAME_WIDTH - W) / 2, (GAME_HEIGHT - H) / 2);
+    box.add(inkPanel(this, 0, 0, W, H, { alpha: 0.96 }));
+    box.add(
+      this.add.text(W / 2, 34, '放 弃 当 前 征 程 ？', brushStyle(34, C.paper)).setOrigin(0.5),
+    );
+
+    const s = this.slot.kind === 'ok' ? summarise(this.slot.saved) : null;
+    box.add(
+      this.add
+        .text(
+          W / 2,
+          92,
+          s
+            ? `${s.heroName} · ${s.actLabel}第 ${s.floor} 层 · 体力 ${s.hp}/${s.maxHp}`
+            : '当前存档将被清除。',
+          bodyStyle(17, C.gold),
+        )
+        .setOrigin(0.5),
+    );
+    box.add(
+      this.add
+        .text(W / 2, 124, '存档只有一格，新的一局会把它覆盖，且无法找回。', bodyStyle(13, C.paperFaint))
+        .setOrigin(0.5),
+    );
+
+    box.add(
+      inkButton(this, W / 2 - 108, 186, '仍 要 出 征', {
+        width: 176,
+        height: 52,
+        fontSize: 22,
+        accent: C.cinnabar,
+        onClick: () => {
+          close();
+          this.discardSave();
+          this.beginRun();
+        },
+      }),
+    );
+    box.add(
+      inkButton(this, W / 2 + 108, 186, '再 想 想', {
+        width: 176,
+        height: 52,
+        fontSize: 22,
+        onClick: close,
+      }),
+    );
+
+    layer.add(box);
+  }
+
+  private discardSave(): void {
+    clearSave();
+    this.slot = { kind: 'empty' };
+    this.buildActions();
   }
 
   // ------------------------------------------------------------------ 选将

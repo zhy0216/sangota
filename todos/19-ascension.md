@@ -151,7 +151,7 @@ export interface RunState {
      `startingCurses`
    - `rollCardReward`（[11](11-card-rarity-and-rewards-done.md)）：`rarityWeightMult`
    - `priceOf`（[05 商店](05-shop-done.md)）：`shopPriceMult`
-3. `AscensionProgress` 持久化（localStorage，和 [08 存档](08-save-resume.md)
+3. `AscensionProgress` 持久化（localStorage，和 [08 存档](08-save-resume-done.md)
    分开存——难度进度不该被跑团存档清除影响）。
 4. 选将界面（[17](17-multiple-heroes.md)）加天命选择器：
    左右箭头调级，只能选到 `cleared[heroId] + 1`。

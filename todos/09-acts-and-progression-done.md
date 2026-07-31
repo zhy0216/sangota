@@ -143,7 +143,7 @@ export interface RunState {
 - 第三幕打完、钥匙齐 → 能进终章；钥匙不齐 → 直接胜利结算
 - 终章是固定 3 房间，不是随机地图
 - 跨幕后遗物/丹药/牌组/金币全部保留，体力按 `interActHeal` 变化
-- `RunState.act` 真的会变，且 [08 存档](08-save-resume.md) 能跨幕恢复
+- `RunState.act` 真的会变，且 [08 存档](08-save-resume-done.md) 能跨幕恢复
 
 ## 依赖
 
@@ -189,9 +189,17 @@ export interface RunState {
 
 八条验收里七条已核实通过（见 `tests/acts.test.ts` 的
 「幕表」/「每幕一张地图」/`advanceAct`/「终章的门」四组）。第八条
-「`RunState.act` 真的会变，且 [08 存档](08-save-resume.md) 能跨幕恢复」
+「`RunState.act` 真的会变，且 [08 存档](08-save-resume-done.md) 能跨幕恢复」
 只完成前半：`advanceAct` 是唯一写 `run.act` 的地方且有测试守着，
 但没有存档层去证明后半。**08 落地时必须回来补这半条**——
 跨幕状态本身是可序列化的，`{ act, seed }` 足以重建整幕地图
 （`runSeedOf` / `actSeed` 是那对函数），`run.map` 目前是活的 `Map` 对象，
 序列化时按节点数组存即可。
+
+> **08 已回来补掉（阶段六）。** 后半条现在有测试：
+> `tests/save.test.ts` 的「carries the run across an act boundary」
+> （`advanceAct` 到第二幕后整轮 `toEqual` 往返）和
+> 「reaches 终章, which is built by hand and not generated」（连推到 act 4）。
+> 实现与此处预判的唯一分歧：地图**不按节点数组存**，只存 `mapSeed`，
+> 读档时按 `run.act` 选择 `generateMap` / `generateFinalAct` 重新长出来
+> （`src/state/save.ts` 的 S1），比序列化节点更小也更不易腐。

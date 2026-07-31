@@ -12,6 +12,7 @@ import {
   type BlessingView,
 } from '../rooms/blessing';
 import { getRun, removableCount, type RunState } from '../state/run';
+import { writeSave } from '../state/save';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { useDesignSpace } from '../ui/designSpace';
 import { groundSprite } from '../ui/spriteBounds';
@@ -493,6 +494,11 @@ export class BlessingScene extends Phaser.Scene {
     if (this.leaving || !blessingSettled(this.run)) return;
     this.leaving = true;
     this.input.enabled = false;
+    // 存档 (todos/08). The first write of the run, and it lands here rather than
+    // in `startRun` because the 祝福 can still rewrite the deck, the purse and
+    // 体力上限 — a save taken before it would restore a run that owes a blessing
+    // it has already been given. `blessingSettled` is the gate on both.
+    writeSave(this.run, null);
     this.cameras.main.fadeOut(420, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
       this.scene.start('Map'),

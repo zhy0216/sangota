@@ -165,3 +165,48 @@ README 说已经在 400 个 seed 上验证过，正好。
   ——它们都往 `RunState` 加字段。**建议在这些做完后再做存档**，
   否则字段每加一次就要动一次 `SavedRun` 和版本号。
 - [22 结算界面](22-run-summary.md)——存档清除的时机
+
+---
+
+## 阶段六归档 · 全部验收达成，两处与草案有意分歧
+
+七条验收逐条核实：
+
+1. **走五步刷新后「继续」回到第 5 步，四类资产全对** —— `tests/save.test.ts`
+   「round trip」用 `toEqual` 整轮对比（`playedRun` 正是走五步 + 触碰每一组字段），
+   浏览器端到端也走过：祝福 → 地图 → 战斗 → 战罢 → 领奖 → 回地图，每一站刷新过。
+2. **地图布局与原来完全一致、路径高亮正确** —— 地图不整存，只存 `mapSeed`，
+   读档按 `run.act` 重新生成（S1）；`path` 回放即是重画 `visited`。
+   「regrows the map from the seed rather than storing it」逐节点坐标比对。
+3. **读档后进战斗，敌人 HP 与意图序列一致** —— 战斗 seed 是
+   `streamSeed(run, nodeId, 'combat')`，encounter 冻结在节点台账上（R5）。
+4. **阶段二：战斗第 N 回合刷新精确恢复** —— `snapshotCombat` / `restoreCombat`，
+   RNG 游标一个 32 位字（`rngState`）。单测「comes back identical at turn 3」逐字段比对，
+   「resolves the *same* future」再往后打四回合验证未来也一致；
+   浏览器实测第 2 回合快照与活状态逐字节相同（含手牌顺序与 `rngState`）。
+5. **跑团结束存档清除** —— 兵败在 `showDefeat` 里清（关标签页也算输），
+   凯旋在 `InterludeScene` 判 `victory` 的同一拍清。
+6. **localStorage 禁用不崩** —— `store()` 每次现取现包 try/catch；
+   单测覆盖「不存在」与「每次调用都抛」两种敌意环境。
+7. **手改版本号给明确提示** —— 标题页「存档版本不符（v99 → v1），无法继续」
+   + 「清除存档」按钮，浏览器验证过；解析失败/缺版本号走「已损坏」同款布局。
+
+**与草案的分歧，都记在 `src/state/save.ts` 门口的四条规则里：**
+
+- **`savedAt` 没有做。** 约定 2 全项目禁 `Date.now()`（`tests/integrity.test.ts`
+  「keeps the clock out of every file」），带时间戳的存档字段无法实现（S3）。
+  节流改为按 payload 去重（`lastWritten`），比按时间更准。
+- **战斗中「每次出牌都存」升级为「每次静止点都存」**，且静止的定义收过一次：
+  开场五张 `draw` 事件还没播完时快照**必须**能打（否则战斗开场态永远存不下来，
+  读档会落回已 visited 的节点、整场仗被跳过），唯一的例外是 `steal` ——
+  约定 8 下引擎不碰 `RunState`，没播完的夺财钱还在钱袋里，快照过去等于退款。
+  见 `RUN_SIDE_EVENTS` 与「is quiescent with a presentation backlog」。
+
+**防 save-scum 落在设计方案预判的那条线上**：读档回到同一 `rngState`，
+洗牌、意图、掉落全是玩家已经承诺过的那一串；胜利屏若在领奖前刷新，
+战利品从冻结流重放出同一份（R5），既不重付也不丢失。
+
+**`SavedRun` 由 `Omit<RunState, …>` 推导**——给 `RunState` 加字段而忘了存，
+是 `toSaved` 里的编译错误，不是三周后的坏档。派生字段（`potionSlots` /
+`cardRewardCount`）不存、重算（S2）；`nextUid` 游标随档存取
+（`uidCursor` / `adoptRun`），否则读档后新铸的 `d0` 会和牌组里那张撞 uid。

@@ -83,7 +83,7 @@ export type CardType = 'attack' | 'skill' | 'power' | 'curse' | 'status';
 1. **状态牌不能进 `run.deck`**。战斗结束时 `applyCombatResult`
    （`src/state/run.ts:79-81`）只回写 HP，牌组本来就不受战斗影响——
    所以只要保证「战斗内生成的牌不写回 `run.deck`」就自动成立。
-   但 [08 存档](08-save-resume.md) 的战斗内存档要能序列化这些临时牌。
+   但 [08 存档](08-save-resume-done.md) 的战斗内存档要能序列化这些临时牌。
 2. **诅咒牌不可升级**。`CardDef.upgrade` 缺省即不可升级
    （见 [03 升级](03-card-upgrades-done.md)），刚好对上。营帐锻造的选牌
    界面要把诅咒牌标为 `disabled`。

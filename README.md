@@ -408,8 +408,14 @@ stands on the road instead of on the shrine roof.
 
 ## Known gaps
 
-- **No save/resume** (todos/08). Refreshing loses the run, and a run is 40 minutes and
-  up. Two other items below are blocked purely on this one, not on their own work.
+- ~~No save/resume~~ — **done (todos/08, 阶段六).** One `localStorage` slot, written at
+  every room boundary and at every quiescent moment of a fight; the title screen offers
+  继续 (mid-fight included), asks before overwriting, and refuses stale or broken
+  payloads with a reason instead of silently starting over. The map is regrown from its
+  seed rather than stored, `SavedRun` is derived from `RunState` via `Omit` so a new
+  field is a compile error rather than a lost one, and the draft's `savedAt` field does
+  not exist because 约定 2 bans the clock project-wide. The debts 09 and 18 logged
+  against this item are repaid with tests (`tests/save.test.ts`, 34 of them).
 - **Events and shops are one global pool**, not one per act. `ActDef` has the extension
   point; nothing fills it.
 - **The victory screen is a placeholder.** `InterludeScene.paintVictory()` prints three

@@ -1,6 +1,6 @@
 import { Rng } from '../core/rng';
 import { resolveCard } from './cards';
-import { getEnemy } from './enemies';
+import { getEnemy, phaseOf } from './enemies';
 import { REVIVE_HP, getPotion, type PotionSpecial } from './potions';
 import { fireHook, relicDamageBonus, relicEvent, relicModifiers } from './relics';
 import { STATUS_META, STATUS_ORDER, type BlockSource, type TickPhase } from './statuses';
@@ -161,8 +161,7 @@ function makeEnemy(defId: string, slot: number, rng: Rng): EnemyState {
 }
 
 /** The move table in force: the phase the enemy switched into, or the default. */
-const moveSet = (def: EnemyDef, enemy: EnemyState): EnemyPhase =>
-  (enemy.phase ? def.phases?.[enemy.phase] : undefined) ?? def;
+const moveSet = (def: EnemyDef, enemy: EnemyState): EnemyPhase => phaseOf(def, enemy.phase);
 
 /** Living enemies, the one asking included — 「友军」 in a `MoveCondition`. */
 const allyCount = (state: CombatState): number => aliveEnemies(state).length;

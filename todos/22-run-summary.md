@@ -181,14 +181,14 @@ export function computeScore(run: RunState, victory: boolean): {
 5. `computeScore`：按上表算。`Highlander`（无重复牌）判定要看
    `defId` 去重后长度 === 牌组长度。天命加成最后乘。
 6. `src/state/history.ts`：`Career` 存 localStorage（键与
-   [08 存档](08-save-resume.md) 和 [19 天命进度](19-ascension.md) 分开）。
+   [08 存档](08-save-resume-done.md) 和 [19 天命进度](19-ascension.md) 分开）。
    `records` 只留最近 50 条，避免 localStorage 撑爆
    （localStorage 通常 5MB，一条记录含牌组约 1-2KB，50 条很安全）。
 7. `recordRun` 时同步：
    - `Career.totals` 累计
    - [19 天命](19-ascension.md) 的 `cleared[heroId]`（胜利时）
    - [23 解锁](23-compendium-and-unlocks.md) 的解锁检查
-   - [08 存档](08-save-resume.md) 的 `clear()`
+   - [08 存档](08-save-resume-done.md) 的 `clear()`
 8. **历史记录界面**：标题页加「战史」入口，列出最近 50 局
    （时间/武将/天命/层数/分数/死因），点一条展开完整 `RunRecord`
    （牌组、遗物、路线）。放在 [23 图鉴](23-compendium-and-unlocks.md) 里一起做也行。
@@ -206,13 +206,13 @@ export function computeScore(run: RunState, victory: boolean): {
 - 破纪录时显示「新纪录」标记
 - 战史里能看到最近的局，含牌组和路线
 - 累计统计（总局数、通关数、总时长、最常死于谁）正确累加
-- 跑团结束后 [08 存档](08-save-resume.md) 被清除，标题页不再有「继续」
+- 跑团结束后 [08 存档](08-save-resume-done.md) 被清除，标题页不再有「继续」
 - 事件致死也能正确进入结算界面
 
 ## 依赖
 
 - [09 多幕](09-acts-and-progression-done.md)——胜利条件的定义（打完第三幕还是终章）
 - [07 牌堆查看器](07-deck-viewer-done.md)——牌组展示
-- [08 存档](08-save-resume.md)——结算时清档
+- [08 存档](08-save-resume-done.md)——结算时清档
 - [19 天命](19-ascension.md)——分数加成和通关记录
 - 埋点会碰到 02 / 06 的代码，建议在它们之后做

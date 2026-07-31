@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { actExit, advanceAct, type ActDef } from '../data/acts';
-import { getRun, type RunState } from '../state/run';
+import { endRun, getRun, type RunState } from '../state/run';
+import { clearSave, writeSave } from '../state/save';
 import { useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle } from '../ui/theme';
 
@@ -51,6 +52,18 @@ export class InterludeScene extends Phaser.Scene {
     // it is over. Both look like a card; only one of them touches the run.
     const act = exit === 'victory' ? null : advanceAct(this.run);
     this.destination = act ? 'Map' : 'Title';
+
+    // 存档 (todos/08), immediately and in the same breath as the act change.
+    // `advanceAct` is a one-way door that wipes the room ledger and rebuilds the
+    // map: a save written before it and reloaded after would put the player back
+    // in front of a 首领 whose 战利品 chest is已答, and `advanceAct` throws on the
+    // second pass through. A run that just ended keeps no save at all.
+    if (act) {
+      writeSave(this.run, null);
+    } else {
+      clearSave();
+      endRun();
+    }
 
     this.cameras.main.fadeIn(520, 8, 6, 4);
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 1);

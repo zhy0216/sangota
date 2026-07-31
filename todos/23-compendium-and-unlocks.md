@@ -137,7 +137,7 @@ export interface CustomRunConfig {
 
 1. `src/state/unlocks.ts` + `src/data/unlockTracks.ts`：
    解锁状态 localStorage 持久化（**独立于跑团存档**，见
-   [08 存档](08-save-resume.md)）。初始解锁集合要够大：
+   [08 存档](08-save-resume-done.md)）。初始解锁集合要够大：
    关羽 + 现有 11 张牌的一部分，保证第一局能玩。
 2. **所有随机池抽取加解锁过滤**（漏一处解锁就形同虚设）：
    - `rollCardReward`（[11](11-card-rarity-and-rewards-done.md)）
@@ -168,7 +168,7 @@ export interface CustomRunConfig {
 8. **种子显示**：地图左下已经在显示 seed（README 提到），
    结算界面也要显示，方便玩家分享和复现。加一个「复制种子」按钮。
 9. `TitleScene` 重构：现在 169 行只有一个按钮，要加
-   「继续」（[08](08-save-resume.md)）/「出征」/「典籍」/「战史」
+   「继续」（[08](08-save-resume-done.md)）/「出征」/「典籍」/「战史」
    （[22](22-run-summary.md)）/「自定义」/「设置」（[21](21-settings.md)）。
    竖排在关羽立绘右侧，保持现有的水墨版式。
 

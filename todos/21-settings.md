@@ -18,7 +18,7 @@ const rawScale = ((): number => {
 README 说了后果：「Enlarging the window afterwards falls back to Phaser's
 FIT scaling, so it softens gradually rather than re-laying out mid-run;
 reload to re-sharpen.」——**放大窗口会变模糊，必须刷新页面**。
-一旦有了 [08 存档](08-save-resume.md)，刷新的代价就低了；
+一旦有了 [08 存档](08-save-resume-done.md)，刷新的代价就低了；
 但在设置里给一句提示（或一个「重新加载以适配窗口」按钮）会更好。
 
 按键目前是硬编码散落在各场景：`E` 结束回合、`Esc` 取消/关闭、
@@ -154,7 +154,7 @@ export function onSettingsChange(cb: (s: Settings) => void): () => void;
    （比如他想用丹药）。
 6. **渲染倍率**：改 `config.ts` 的 `rawScale` 让它先读设置
    （`'auto'` 走现有逻辑，数字则直接用）。改完提示「重载后生效」
-   并给一个「立即重载」按钮——有了 [08 存档](08-save-resume.md)
+   并给一个「立即重载」按钮——有了 [08 存档](08-save-resume-done.md)
    重载的代价很低。
 7. 设置面板 UI：全屏 overlay（复用 [07 牌堆查看器](07-deck-viewer-done.md)
    的 overlay 骨架），左侧分组 tab，右侧选项列表。

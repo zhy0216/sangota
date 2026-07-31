@@ -159,7 +159,7 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
 - 商店库存同样按武将过滤
 - 赵云专属遗物只在玩赵云时出现
 - 选将界面能预览初始牌组
-- [08 存档](08-save-resume.md) 能正确恢复武将和独有资源
+- [08 存档](08-save-resume-done.md) 能正确恢复武将和独有资源
 
 ## 依赖
 

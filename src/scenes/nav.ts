@@ -4,6 +4,7 @@ import type { MapNode } from '../map/types';
 import { roomCommit } from '../rooms/commit';
 import { bossOfferPending } from '../rooms/fight';
 import { getRun, type RunState } from '../state/run';
+import { writeSave } from '../state/save';
 import type { MapScene } from './MapScene';
 
 /**
@@ -27,6 +28,13 @@ export function enterRoom(map: MapScene, node: MapNode): void {
     for (const id of fireRunHook(run, 'roomEnter', node.type)) map.relicBar.flash(id);
   });
   map.refreshHud();
+
+  // 存档 (todos/08). Here rather than in `MapScene.onNodeClick` because this is
+  // where the step is *finished*: `travelTo` has run, the node is committed and
+  // 行商符节 has been paid. Saving a beat earlier would restore a run standing on
+  // a node whose entry hooks had not fired, and they are gated `once` — so they
+  // would never fire at all.
+  writeSave(run, null);
 
   switch (node.type) {
     case 'monster':
@@ -79,7 +87,13 @@ export function actCleared(run: RunState): boolean {
  * ever end in one place, and `advanceAct` can only ever be reached one way.
  */
 export function returnToMap(from: Phaser.Scene): void {
-  if (actCleared(getRun())) {
+  const run = getRun();
+  // The single funnel every room and every fight leaves through, so it is also
+  // the one place that can promise "whatever just happened is on disk". A fight
+  // is over by the time this runs, which is what takes `combat` back to null.
+  writeSave(run, null);
+
+  if (actCleared(run)) {
     // A map left asleep under the interlude would wake up still drawing the act
     // that just ended, complete with its stale node views.
     if (from.scene.isSleeping('Map')) from.scene.stop('Map');
