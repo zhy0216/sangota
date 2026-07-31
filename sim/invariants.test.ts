@@ -6,7 +6,7 @@ import {
   startCombat,
 } from '../src/combat/engine';
 import type { CombatState } from '../src/combat/types';
-import { CARD_POOL_BY_RARITY } from '../src/combat/cards';
+import { CARD_POOL_BY_RARITY, COLORLESS_POOL } from '../src/combat/cards';
 import { CURSE_POOL, STATUS_POOL } from '../src/combat/curses';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { newDeckCard, startRun, type DeckCard } from '../src/state/run';
@@ -130,9 +130,16 @@ describe(`combat invariants across ${ENCOUNTERS.length * POLICY_NAMES.length * R
  * cards, six curses and five 状态牌, none of which the fuzz above ever draws.
  * This deck holds one of every one of them, so card minting, 消耗/虚无/保留,
  * unplayable cards and the play-restricting curses all get walked.
+ *
+ * `COLORLESS_POOL` is in here too. Those five are sold only in 坊市 and so sit
+ * outside `CARD_POOL_BY_RARITY` by design, which means nothing else in the sim
+ * would ever draw them — and they are the only cards that mint 反刺/中毒/重甲.
+ * A card that cannot reach this deck is a card whose combat behaviour is
+ * unfuzzed; any future pool that bypasses the rarity table belongs here as well.
  */
 const KITCHEN_SINK: DeckCard[] = [
   ...Object.values(CARD_POOL_BY_RARITY).flat(),
+  ...COLORLESS_POOL,
   ...CURSE_POOL,
   ...STATUS_POOL,
 ].map((defId) => newDeckCard(defId));
