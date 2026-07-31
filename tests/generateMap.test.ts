@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAP } from '../src/config';
-import { generateMap } from '../src/map/generateMap';
+import { ACT1_LAYOUT, generateMap } from '../src/map/generateMap';
 import type { GameMap, RoomType } from '../src/map/types';
 
 /**
@@ -13,7 +12,9 @@ const SEEDS = 400;
 const seeds = Array.from({ length: SEEDS }, (_, i) => `map-seed-${i}`);
 
 /** Rows whose type the generator overrides wholesale, bypassing the pool rules. */
-const FIXED_ROWS = new Set([0, MAP.treasureRow, MAP.restRow]);
+const TREASURE_ROW = ACT1_LAYOUT.treasureRow!;
+const REST_ROW = ACT1_LAYOUT.restRow!;
+const FIXED_ROWS = new Set([0, TREASURE_ROW, REST_ROW]);
 const RESTRICTED: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'elite']);
 
 /** Node ids reachable by walking children down from the starting floor. */
@@ -44,28 +45,28 @@ function edgesOfRow(map: GameMap, row: number): [number, number][] {
 }
 
 describe(`generateMap over ${SEEDS} seeds`, () => {
-  const maps = seeds.map((s) => generateMap(s));
+  const maps = seeds.map((s) => generateMap(s, ACT1_LAYOUT));
 
   it('reproduces a layout exactly from its seed', () => {
     const shape = (m: GameMap) => [...m.nodes.values()].map((n) => `${n.id}:${n.type}:${n.x}`);
-    expect(shape(generateMap('replay-me'))).toEqual(shape(generateMap('replay-me')));
-    expect(generateMap('replay-me').seed).toBe('replay-me');
+    expect(shape(generateMap('replay-me', ACT1_LAYOUT))).toEqual(shape(generateMap('replay-me', ACT1_LAYOUT)));
+    expect(generateMap('replay-me', ACT1_LAYOUT).seed).toBe('replay-me');
   });
 
   it('mints its own seed when none is given, and reports it', () => {
-    const map = generateMap();
+    const map = generateMap(undefined, ACT1_LAYOUT);
     expect(map.seed).toMatch(/^[0-9a-z]+$/);
-    expect(generateMap(map.seed).byRow).toEqual(map.byRow);
+    expect(generateMap(map.seed, ACT1_LAYOUT).byRow).toEqual(map.byRow);
   });
 
   it('has the right shape: 15 floors plus a boss crown', () => {
     for (const map of maps) {
-      expect(map.rows).toBe(MAP.rows);
-      expect(map.byRow).toHaveLength(MAP.rows);
-      for (let row = 0; row < MAP.rows; row++) expect(map.byRow[row].length).toBeGreaterThan(0);
+      expect(map.rows).toBe(ACT1_LAYOUT.rows);
+      expect(map.byRow).toHaveLength(ACT1_LAYOUT.rows);
+      for (let row = 0; row < ACT1_LAYOUT.rows; row++) expect(map.byRow[row].length).toBeGreaterThan(0);
       const boss = map.nodes.get(map.bossId)!;
       expect(boss.type).toBe('boss');
-      expect(boss.parents.sort()).toEqual([...map.byRow[MAP.rows - 1]].sort());
+      expect(boss.parents.sort()).toEqual([...map.byRow[ACT1_LAYOUT.rows - 1]].sort());
     }
   });
 
@@ -80,7 +81,7 @@ describe(`generateMap over ${SEEDS} seeds`, () => {
 
   it('never crosses two edges on the same floor', () => {
     for (const map of maps) {
-      for (let row = 0; row < MAP.rows - 1; row++) {
+      for (let row = 0; row < ACT1_LAYOUT.rows - 1; row++) {
         const edges = edgesOfRow(map, row);
         for (let i = 0; i < edges.length; i++) {
           for (let j = i + 1; j < edges.length; j++) {
@@ -97,8 +98,8 @@ describe(`generateMap over ${SEEDS} seeds`, () => {
   it('pins the fixed floors: combat, treasure, camp', () => {
     for (const map of maps) {
       for (const id of map.byRow[0]) expect(map.nodes.get(id)!.type).toBe('monster');
-      for (const id of map.byRow[MAP.treasureRow]) expect(map.nodes.get(id)!.type).toBe('treasure');
-      for (const id of map.byRow[MAP.restRow]) expect(map.nodes.get(id)!.type).toBe('rest');
+      for (const id of map.byRow[TREASURE_ROW]) expect(map.nodes.get(id)!.type).toBe('treasure');
+      for (const id of map.byRow[REST_ROW]) expect(map.nodes.get(id)!.type).toBe('rest');
     }
   });
 
@@ -108,12 +109,12 @@ describe(`generateMap over ${SEEDS} seeds`, () => {
         if (node.id === map.bossId) continue;
         if (RESTRICTED.has(node.type)) {
           expect(node.row, `${map.seed} ${node.id} is ${node.type}`).toBeGreaterThanOrEqual(
-            MAP.minAdvancedRow,
+            ACT1_LAYOUT.minAdvancedRow,
           );
         }
       }
       // A camp one floor under the guaranteed pre-boss camp is wasted.
-      for (const id of map.byRow[MAP.restRow - 1]) {
+      for (const id of map.byRow[REST_ROW - 1]) {
         expect(map.nodes.get(id)!.type).not.toBe('rest');
       }
     }

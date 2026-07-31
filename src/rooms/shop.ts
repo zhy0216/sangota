@@ -1,6 +1,6 @@
-import { CARD_POOL_BY_RARITY, COLORLESS_POOL, resolveCard } from '../combat/cards';
+import { COLORLESS_POOL, poolFor, resolveCard } from '../combat/cards';
 import { POTION_POOL_BY_RARITY, getPotion, rollPotion } from '../combat/potions';
-import { getRelic, type RelicTier } from '../combat/relics';
+import { getRelic, relicModifiers, type RelicTier } from '../combat/relics';
 import {
   REWARD_RARITIES,
   availableRarity,
@@ -159,13 +159,13 @@ const priceIn = (rng: Rng, band: readonly [number, number]): number => rng.range
  * Two draws: the rarity, then the pick. The pick is spent against an empty pool
  * too, which is the only reason a slot may come back null.
  */
-function rollShelfCard(rng: Rng, taken: readonly string[]): string | null {
+function rollShelfCard(rng: Rng, run: RunState, taken: readonly string[]): string | null {
   const wanted = rng.weighted(
     REWARD_RARITIES,
     REWARD_RARITIES.map((r) => SHOP_CARD_WEIGHTS[r]),
   );
-  const rarity = availableRarity(wanted, taken);
-  const pool = rarity ? CARD_POOL_BY_RARITY[rarity].filter((id) => !taken.includes(id)) : [];
+  const rarity = availableRarity(run.hero.id, wanted, taken);
+  const pool = rarity ? poolFor(run.hero.id, rarity).filter((id) => !taken.includes(id)) : [];
   const at = rng.int(Math.max(1, pool.length));
   return pool[at] ?? null;
 }
@@ -180,9 +180,9 @@ function rollShelfCard(rng: Rng, taken: readonly string[]): string | null {
  * Unreachable today (`COLORLESS_POOL` holds five ids and the four slots ahead
  * of it draw from the rarity pools, which are disjoint from it) and now real.
  */
-function rollColorlessCard(rng: Rng, taken: readonly string[]): string | null {
+function rollColorlessCard(rng: Rng, run: RunState, taken: readonly string[]): string | null {
   const colorless = COLORLESS_POOL.filter((id) => !taken.includes(id));
-  const fallback = CARD_POOL_BY_RARITY.common.filter((id) => !taken.includes(id));
+  const fallback = poolFor(run.hero.id, 'common').filter((id) => !taken.includes(id));
   const pool = colorless.length > 0 ? colorless : fallback;
   const at = rng.int(Math.max(1, pool.length));
   return pool[at] ?? null;
@@ -214,9 +214,9 @@ export function generateStock(run: RunState, rng: Rng): ShopStock {
   // -- 兵书. Four off the rarity pools, then the 无色 slot.
   const cardIds: (string | null)[] = [];
   for (let i = 0; i < COLORLESS_SLOT; i++) {
-    cardIds.push(rollShelfCard(rng, cardIds.filter((id): id is string => !!id)));
+    cardIds.push(rollShelfCard(rng, run, cardIds.filter((id): id is string => !!id)));
   }
-  cardIds.push(rollColorlessCard(rng, cardIds.filter((id): id is string => !!id)));
+  cardIds.push(rollColorlessCard(rng, run, cardIds.filter((id): id is string => !!id)));
 
   const cards: (ShopCardOffer | null)[] = cardIds.map((defId) => {
     // 无色 stock is priced off its own declared rarity, exactly like the rest.
@@ -280,7 +280,18 @@ export function ensureStock(run: RunState, nodeId: string): ShopStock {
  * the slot is gone from the player's point of view either way. `'poor'` and
  * `'nospace'` are refusals the player can act on, and neither costs a coin.
  */
-export type BuyResult = 'ok' | 'sold' | 'poor' | 'nospace';
+export type BuyResult = 'ok' | 'sold' | 'poor' | 'nospace' | 'forbidden';
+
+/**
+ * 布衣 (todos/18) trades every 宝物 on every counter for a standing +25% on
+ * 资财. Checked here rather than inside the gate: `commit.once` marks its key
+ * on the way in, so a refusal in the body would burn the slot and hand back
+ * nothing.
+ */
+const RELIC_PURCHASE_BARRED = '布衣在身，不购宝物';
+
+export const relicPurchaseBarred = (run: RunState): string | null =>
+  relicModifiers(run.relics).noRelicPurchase ? RELIC_PURCHASE_BARRED : null;
 
 /** What a slot costs, what stands in its way, and how to hand it over. */
 interface Purchase {
@@ -346,6 +357,8 @@ export function buy(run: RunState, nodeId: string, slot: ShopSlot): BuyResult {
   const commit = roomCommit(run, nodeId);
   const key = slotKey(slot);
   if (commit.isDone(key)) return 'sold';
+
+  if (slot.kind === 'relic' && relicPurchaseBarred(run)) return 'forbidden';
 
   const purchase = purchaseAt(run, stock, slot);
   if (!purchase) return 'sold';
@@ -451,11 +464,16 @@ export function shelf(run: RunState, nodeId: string): ShelfItem[] {
     const sold = isSold(run, nodeId, slot) || (slot.kind === 'relic' && hasRelic(run, id));
     const blocked = sold
       ? null
-      : run.gold < price
-        ? '资财不足'
-        : slot.kind === 'potion' && !hasPotionSpace(run)
-          ? '丹药囊已满'
-          : null;
+      : slot.kind === 'relic'
+        ? // Checked ahead of the purse: 「资财不足」 on a counter that would
+          // refuse the sale at any price is the wrong reason to print.
+          (relicPurchaseBarred(run) ??
+          (run.gold < price ? '资财不足' : null))
+        : run.gold < price
+          ? '资财不足'
+          : slot.kind === 'potion' && !hasPotionSpace(run)
+            ? '丹药囊已满'
+            : null;
     items.push({
       slot,
       id,

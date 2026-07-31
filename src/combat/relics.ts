@@ -90,6 +90,11 @@ export interface RelicModifiers {
   cardRewardCount?: number;
   /** 「不取」 pays this much 最大体力 instead of nothing. */
   skipRewardMaxHp?: number;
+  /**
+   * 布衣: the 坊市 will not sell this run a 宝物 at all. Summed with **or**, not
+   * with `+` — one relic forbidding the counter forbids it.
+   */
+  noRelicPurchase?: boolean;
 }
 
 /** Everything a pure damage query may look at. Must not be mutated. */
@@ -104,6 +109,15 @@ export interface RelicDef {
   id: string;
   name: string;
   tier: RelicTier;
+  /**
+   * Hero id this relic belongs to. Absent means anyone may find it.
+   *
+   * Filtered in exactly one place — `unowned` in `rewards.ts` — so a locked
+   * relic is out of every drop, every 首领 offer and every shelf at once.
+   * A hero's *starting* relic is `tier: 'starter'` instead, which no source
+   * rolls at all.
+   */
+  hero?: string;
   /** Icon texture key. The relic bar draws a procedural stand-in until art lands. */
   art: string;
   /** Rules text; `{N}` is replaced with `value`. */
@@ -753,6 +767,8 @@ export interface ResolvedModifiers {
   potionSlots: number;
   cardRewardCount: number;
   skipRewardMaxHp: number;
+  /** True when *any* owned relic forbids buying 宝物 — an or, not a sum. */
+  noRelicPurchase: boolean;
 }
 
 /** Summed static modifiers for a set of relics. Gold multipliers compound. */
@@ -766,6 +782,7 @@ export function relicModifiers(ids: readonly string[]): ResolvedModifiers {
     potionSlots: 0,
     cardRewardCount: 0,
     skipRewardMaxHp: 0,
+    noRelicPurchase: false,
   };
   for (const id of ids) {
     const mods = RELICS[id]?.modifiers;
@@ -778,6 +795,8 @@ export function relicModifiers(ids: readonly string[]): ResolvedModifiers {
     total.potionSlots += mods.potionSlots ?? 0;
     total.cardRewardCount += mods.cardRewardCount ?? 0;
     total.skipRewardMaxHp += mods.skipRewardMaxHp ?? 0;
+    // The one flag among the sums: any relic that forbids the counter wins.
+    total.noRelicPurchase ||= mods.noRelicPurchase ?? false;
   }
   return total;
 }

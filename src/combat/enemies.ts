@@ -19,16 +19,15 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: [42, 50],
     height: 236,
     moves: [
-      { id: 'chop', label: '劈斩', intent: 'attack', damage: 9, weight: 3, maxRepeat: 2 },
+      { id: 'chop', label: '劈斩', damage: 9, weight: 3, maxRepeat: 2 },
       {
         id: 'roar',
         label: '鼓噪',
-        intent: 'buff',
         status: { status: 'strength', amount: 2, to: 'self' },
         weight: 1,
         maxRepeat: 1,
       },
-      { id: 'guard', label: '据守', intent: 'attack-defend', damage: 5, block: 6, weight: 2, maxRepeat: 1 },
+      { id: 'guard', label: '据守', damage: 5, block: 6, weight: 2, maxRepeat: 1 },
     ],
   },
   bandit: {
@@ -38,11 +37,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: [28, 34],
     height: 212,
     moves: [
-      { id: 'slash', label: '双斧', intent: 'attack', damage: 5, hits: 2, weight: 3, maxRepeat: 2 },
+      { id: 'slash', label: '双斧', damage: 5, hits: 2, weight: 3, maxRepeat: 2 },
       {
         id: 'ambush',
         label: '偷袭',
-        intent: 'debuff',
         damage: 4,
         status: { status: 'weak', amount: 1, to: 'player' },
         weight: 2,
@@ -57,12 +55,11 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: [88, 96],
     height: 296,
     moves: [
-      { id: 'cleave', label: '巨斧', intent: 'attack', damage: 15, weight: 3, maxRepeat: 2 },
-      { id: 'sweep', label: '横扫', intent: 'attack', damage: 7, hits: 3, weight: 2, maxRepeat: 1 },
+      { id: 'cleave', label: '巨斧', damage: 15, weight: 3, maxRepeat: 2 },
+      { id: 'sweep', label: '横扫', damage: 7, hits: 3, weight: 2, maxRepeat: 1 },
       {
         id: 'fury',
         label: '怒喝',
-        intent: 'buff',
         block: 8,
         status: { status: 'strength', amount: 3, to: 'self' },
         weight: 1,
@@ -80,12 +77,11 @@ export const ENEMIES: Record<string, EnemyDef> = {
     // hit count are kept modest — +4 strength on a 4-hit move is a 16-damage
     // swing in a single turn, which simulated out to an unwinnable fight.
     moves: [
-      { id: 'ji', label: '方天画戟', intent: 'attack', damage: 16, weight: 3, maxRepeat: 2 },
-      { id: 'storm', label: '戟雨', intent: 'attack', damage: 6, hits: 3, weight: 2, maxRepeat: 1 },
+      { id: 'ji', label: '方天画戟', damage: 16, weight: 3, maxRepeat: 2 },
+      { id: 'storm', label: '戟雨', damage: 6, hits: 3, weight: 2, maxRepeat: 1 },
       {
         id: 'sunder',
         label: '破军',
-        intent: 'debuff',
         damage: 9,
         status: { status: 'vulnerable', amount: 2, to: 'player' },
         weight: 2,
@@ -94,7 +90,6 @@ export const ENEMIES: Record<string, EnemyDef> = {
       {
         id: 'peerless',
         label: '人中吕布',
-        intent: 'buff',
         block: 12,
         status: { status: 'strength', amount: 3, to: 'self' },
         weight: 1,
@@ -121,8 +116,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: [10, 14],
     height: 190,
     moves: [
-      { id: 'hoe', label: '锄戈', intent: 'attack', damage: 4, weight: 3, maxRepeat: 2 },
-      { id: 'huddle', label: '抱团', intent: 'defend', block: 5, weight: 1, maxRepeat: 1 },
+      { id: 'hoe', label: '锄戈', damage: 4, weight: 3, maxRepeat: 2 },
+      { id: 'huddle', label: '抱团', block: 5, weight: 1, maxRepeat: 1 },
     ],
   },
 
@@ -138,13 +133,12 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: [38, 44],
     height: 248,
     moves: [
-      { id: 'staff', label: '杖击', intent: 'attack', damage: 9, weight: 3, maxRepeat: 2 },
+      { id: 'staff', label: '杖击', damage: 9, weight: 3, maxRepeat: 2 },
       {
         // 直接扣血, not an attack: holy water goes past armour, ignores 破绽 and
         // 怯战, and provokes no 反刺 — four points that a shield cannot answer.
         id: 'talisman',
         label: '太平符水',
-        intent: 'debuff',
         loseHp: 4,
         addCards: { defId: 'nining', count: 1, to: 'discard' },
         weight: 3,
@@ -153,7 +147,6 @@ export const ENEMIES: Record<string, EnemyDef> = {
       {
         id: 'preach',
         label: '传道',
-        intent: 'buff',
         statusAll: { status: 'strength', amount: 1 },
         weight: 3,
         maxRepeat: 1,
@@ -175,11 +168,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
     height: 236,
     hiddenFirstIntent: true,
     moves: [
-      { id: 'charge', label: '驰突', intent: 'attack', damage: 4, hits: 3, weight: 3, maxRepeat: 2 },
+      { id: 'charge', label: '驰突', damage: 4, hits: 3, weight: 3, maxRepeat: 2 },
       {
         id: 'trample',
         label: '踏阵',
-        intent: 'debuff',
         damage: 7,
         status: { status: 'vulnerable', amount: 1, to: 'player' },
         weight: 2,
@@ -203,11 +195,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
     passives: { angry: 1 },
     thresholds: [{ percent: 50, gain: { strength: 2 }, shout: '「困兽犹斗！」' }],
     moves: [
-      { id: 'axe', label: '巨斧', intent: 'attack', damage: 13, weight: 3, maxRepeat: 2 },
+      { id: 'axe', label: '巨斧', damage: 13, weight: 3, maxRepeat: 2 },
       {
         id: 'bellow',
         label: '怒吼',
-        intent: 'buff',
         block: 8,
         status: { status: 'strength', amount: 2, to: 'self' },
         weight: 1,
@@ -216,7 +207,6 @@ export const ENEMIES: Record<string, EnemyDef> = {
       {
         id: 'deathfight',
         label: '血战',
-        intent: 'attack',
         damage: 6,
         hits: 2,
         weight: 3,
@@ -249,26 +239,23 @@ export const ENEMIES: Record<string, EnemyDef> = {
       {
         id: 'curse',
         label: '咒水',
-        intent: 'debuff',
         damage: 8,
         status: { status: 'weak', amount: 2, to: 'player' },
       },
-      { id: 'gale', label: '黄风', intent: 'attack', damage: 6, hits: 3 },
+      { id: 'gale', label: '黄风', damage: 6, hits: 3 },
       {
         id: 'sigil',
         label: '符咒',
-        intent: 'buff',
         block: 12,
         status: { status: 'ritual', amount: 1, to: 'self' },
       },
       {
         id: 'drums',
         label: '擂鼓',
-        intent: 'debuff',
         damage: 5,
         addCards: { defId: 'xuanyun', count: 1, to: 'draw' },
       },
-      { id: 'surge', label: '地涌', intent: 'attack', damage: 22 },
+      { id: 'surge', label: '地涌', damage: 22 },
     ],
   },
 
@@ -287,8 +274,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     height: 212,
     script: { order: ['rob', 'rob', 'bolt'], loopFrom: 2 },
     moves: [
-      { id: 'rob', label: '摸金', intent: 'debuff', damage: 8 },
-      { id: 'bolt', label: '遁走', intent: 'escape', steal: 30, escape: true },
+      { id: 'rob', label: '摸金', damage: 8 },
+      { id: 'bolt', label: '遁走', steal: 30, escape: true },
     ],
   },
 
@@ -300,11 +287,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: [38, 46],
     height: 292,
     moves: [
-      { id: 'hack', label: '劈', intent: 'attack', damage: 8, weight: 3, maxRepeat: 2 },
+      { id: 'hack', label: '劈', damage: 8, weight: 3, maxRepeat: 2 },
       {
         id: 'muster',
         label: '聚众',
-        intent: 'summon',
         summon: { defId: 'yellowturban', count: 2 },
         weight: 3,
         maxRepeat: 1,
@@ -313,7 +299,6 @@ export const ENEMIES: Record<string, EnemyDef> = {
       {
         id: 'banner',
         label: '呼旗',
-        intent: 'buff',
         block: 6,
         statusAll: { status: 'strength', amount: 1 },
         weight: 2,
@@ -333,11 +318,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
       { percent: 50, split: { defId: 'zhangbaofenshen', count: 2 }, shout: '「化身千万！」' },
     ],
     moves: [
-      { id: 'heaven', label: '黄天', intent: 'attack', damage: 18, weight: 3, maxRepeat: 2 },
+      { id: 'heaven', label: '黄天', damage: 18, weight: 3, maxRepeat: 2 },
       {
         id: 'mire',
         label: '泥雨',
-        intent: 'debuff',
         damage: 9,
         addCards: { defId: 'nining', count: 2, to: 'draw' },
         weight: 2,
@@ -346,7 +330,6 @@ export const ENEMIES: Record<string, EnemyDef> = {
       {
         id: 'ward',
         label: '符阵',
-        intent: 'buff',
         block: 16,
         status: { status: 'metallicize', amount: 4, to: 'self' },
         weight: 1,
@@ -363,8 +346,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: [1, 1],
     height: 220,
     moves: [
-      { id: 'phantom', label: '幻击', intent: 'attack', damage: 12, weight: 3, maxRepeat: 2 },
-      { id: 'gather', label: '聚形', intent: 'defend', block: 8, weight: 1, maxRepeat: 1 },
+      { id: 'phantom', label: '幻击', damage: 12, weight: 3, maxRepeat: 2 },
+      { id: 'gather', label: '聚形', block: 8, weight: 1, maxRepeat: 1 },
     ],
   },
 
@@ -379,11 +362,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
     height: 244,
     passives: { metallicize: 3 },
     moves: [
-      { id: 'lance', label: '冲阵', intent: 'attack', damage: 13, weight: 3, maxRepeat: 2 },
+      { id: 'lance', label: '冲阵', damage: 13, weight: 3, maxRepeat: 2 },
       {
         id: 'dust',
         label: '扬尘',
-        intent: 'debuff',
         damage: 5,
         addCards: { defId: 'chuangshang', count: 2, to: 'draw' },
         weight: 2,
@@ -404,11 +386,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
     height: 232,
     passives: { curlUp: 8 },
     moves: [
-      { id: 'stab', label: '突刺', intent: 'attack', damage: 10, weight: 3, maxRepeat: 2 },
+      { id: 'stab', label: '突刺', damage: 10, weight: 3, maxRepeat: 2 },
       {
         id: 'parry',
         label: '格挡',
-        intent: 'attack-defend',
         damage: 6,
         block: 6,
         weight: 2,

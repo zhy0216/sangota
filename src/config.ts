@@ -59,9 +59,12 @@ export const css = (n: number): string => '#' + n.toString(16).padStart(6, '0');
 export const FONT_SERIF = '"Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", serif';
 export const FONT_BRUSH = '"Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif';
 
-/** Map layout. 15 floors + a boss crown, 7 lanes, 6 generated paths — StS shape. */
+/**
+ * Map *geometry* — the same for every act. How many floors an act has and where
+ * its fixed rooms sit is per-act instead and travels as an `ActLayout`
+ * (`src/map/generateMap.ts`), because todos/09 gives 第二幕 a different shape.
+ */
 export const MAP = {
-  rows: 15,
   cols: 7,
   paths: 6,
   colSpacing: 148,
@@ -73,9 +76,4 @@ export const MAP = {
   marginTop: 200,
   marginBottom: 150,
   nodeRadius: 34,
-  /** Floors are 0-indexed internally; these are the fixed-type floors. */
-  treasureRow: 8,
-  restRow: 14,
-  /** Elite / rest / shop are locked out below this floor. */
-  minAdvancedRow: 5,
 } as const;

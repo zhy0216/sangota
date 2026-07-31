@@ -625,7 +625,9 @@ export class MapScene extends Phaser.Scene {
     this.deckText.setText(String(run.deck.length));
 
     const floor = currentFloor(run);
-    this.floorText.setText(floor === 0 ? `尚未启程 · 共 ${MAP.rows} 层` : `第 ${floor} / ${MAP.rows} 层`);
+    // The act's own height, not a global: 终章 is three rooms tall.
+    const rows = run.map.rows;
+    this.floorText.setText(floor === 0 ? `尚未启程 · 共 ${rows} 层` : `第 ${floor} / ${rows} 层`);
 
     this.hintText.setText(
       run.currentNodeId === null ? '选择一处起点，踏上征途' : '选择前进的路线',

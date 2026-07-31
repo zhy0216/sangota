@@ -39,6 +39,15 @@ import type { RunState } from '../state/run';
  * | `eventBranch:{n}` | 1 per branch taken |
  * | `eliteRelic` | 2 (`RELIC_ROLL_DRAWS`) |
  * | `bossRelic`  | 6 (`BOSS_OFFER_DRAWS`) |
+ * | `blessing`   | 5 (`BLESSING_DRAWS`) — the 开局祝福 four-up |
+ * | `blessingTake` | whatever the taken outcome declares (branch → relic → potions → cards) |
+ * | `blessingTransform` | 1 per card exchanged |
+ *
+ * The last three are addressed at `RUN_SCOPE` rather than at a node: 开局祝福
+ * happens before the player has stood anywhere. `blessingTake` is physically
+ * separate from `blessing` on purpose — folding them together would mean that
+ * adding a second 「无所求」 option silently re-rolls what every existing seed's
+ * blessing actually paid out.
  */
 export type Purpose =
   | 'encounter'
@@ -50,6 +59,9 @@ export type Purpose =
   | 'event'
   | 'eliteRelic'
   | 'bossRelic'
+  | 'blessing'
+  | 'blessingTake'
+  | 'blessingTransform'
   | `eventBranch:${number}`;
 
 /**
@@ -68,3 +80,18 @@ export const streamSeed = (run: RunState, nodeId: string, purpose: Purpose): str
 
 export const stream = (run: RunState, nodeId: string, purpose: Purpose): Rng =>
   new Rng(streamSeed(run, nodeId, purpose));
+
+/**
+ * The node id run-wide decisions are addressed by. A real node id is `row_col`
+ * or the literal `boss`, so `'run'` cannot collide with one.
+ *
+ * Deliberately *not* a second seed format: `new Rng(`${seed}:blessing`)` would
+ * be a two-field string next to `streamSeed`'s three-field one, and the escape
+ * convention that keeps `a:b` + node `c` apart from `a` + node `b:c` only holds
+ * inside the three-field form.
+ */
+export const RUN_SCOPE = 'run';
+
+/** A stream for a decision the run makes off the map — 开局祝福 and after. */
+export const runStream = (run: RunState, purpose: Purpose): Rng =>
+  stream(run, RUN_SCOPE, purpose);

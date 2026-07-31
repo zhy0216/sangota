@@ -240,32 +240,34 @@ describe('the pool itself', () => {
  * `shop.ts`. Both were uncovered, and either could have drifted from the other.
  */
 describe('availableRarity — degrade first, promote second', () => {
+  /** The pools are per hero now; 关羽 is the one this file's baselines describe. */
+  const HERO = DEFAULT_HERO.id;
   const drain = (...rarities: RewardRarity[]): string[] =>
     rarities.flatMap((r) => CARD_POOL_BY_RARITY[r]);
 
   it('hands back the wanted rarity while it still has anything in it', () => {
-    expect(availableRarity('rare', [])).toBe('rare');
-    expect(availableRarity('uncommon', [])).toBe('uncommon');
-    expect(availableRarity('common', [])).toBe('common');
+    expect(availableRarity(HERO, 'rare', [])).toBe('rare');
+    expect(availableRarity(HERO, 'uncommon', [])).toBe('uncommon');
+    expect(availableRarity(HERO, 'common', [])).toBe('common');
   });
 
   it('steps *down* when the wanted rarity is empty', () => {
     // The stated rule: "draining the commons should not start handing out
     // rares". Walking the ladder upward first passes every other test in the
     // file, because no other test ever empties a pool.
-    expect(availableRarity('rare', drain('rare'))).toBe('uncommon');
-    expect(availableRarity('uncommon', drain('uncommon'))).toBe('common');
+    expect(availableRarity(HERO, 'rare', drain('rare'))).toBe('uncommon');
+    expect(availableRarity(HERO, 'uncommon', drain('uncommon'))).toBe('common');
   });
 
   it('only promotes once everything below is gone too', () => {
-    expect(availableRarity('rare', drain('rare', 'uncommon'))).toBe('common');
-    expect(availableRarity('common', drain('common'))).toBe('uncommon');
-    expect(availableRarity('common', drain('common', 'uncommon'))).toBe('rare');
-    expect(availableRarity('uncommon', drain('uncommon', 'common'))).toBe('rare');
+    expect(availableRarity(HERO, 'rare', drain('rare', 'uncommon'))).toBe('common');
+    expect(availableRarity(HERO, 'common', drain('common'))).toBe('uncommon');
+    expect(availableRarity(HERO, 'common', drain('common', 'uncommon'))).toBe('rare');
+    expect(availableRarity(HERO, 'uncommon', drain('uncommon', 'common'))).toBe('rare');
   });
 
   it('returns null only when every pool is empty', () => {
-    expect(availableRarity('uncommon', drain('common', 'uncommon', 'rare'))).toBeNull();
+    expect(availableRarity(HERO, 'uncommon', drain('common', 'uncommon', 'rare'))).toBeNull();
   });
 
   it('is the same function the 坊市 shelf walks', () => {

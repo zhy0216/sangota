@@ -102,6 +102,31 @@ export function claimVictoryRelic(
 }
 
 /**
+ * 夺财 — the run-side half of an enemy's `steal`.
+ *
+ * 约定 8: the engine never touches `RunState`, so a theft leaves the fight as a
+ * `CombatEvent` and lands here. `index` is *how many thefts this fight has
+ * already reported*, which makes it the idempotency key for free — the same
+ * seed replays the same steals in the same order, so `steal:0` is always the
+ * same theft. A scene restart mid-fight therefore cannot charge twice, and two
+ * thieves in one fight are still charged separately.
+ *
+ * Returns what was actually taken, which may be less than `amount` — `addGold`
+ * floors the purse at zero, and 流寇 asking for 30 off a purse holding 12 takes
+ * 12. The caller prints that number, not the one the move declared.
+ */
+export function payTheft(run: RunState, nodeId: string, index: number, amount: number): number {
+  const take = Math.max(0, amount);
+  return (
+    roomCommit(run, nodeId).once(`steal:${index}`, (): number => {
+      const before = run.gold;
+      addGold(run, -take);
+      return before - run.gold;
+    }) ?? 0
+  );
+}
+
+/**
  * The three 首领 relics on offer, rolled once and then frozen on the run.
  *
  * Parked on `RunState` rather than on the node record because the 战利品 chest

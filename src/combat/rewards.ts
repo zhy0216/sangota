@@ -1,4 +1,4 @@
-import { CARD_POOL_BY_RARITY } from './cards';
+import { poolFor } from './cards';
 import { rollPotion } from './potions';
 import {
   RELIC_DROP_WEIGHTS,
@@ -70,12 +70,12 @@ export function rollCardReward(opts: CardRewardOptions): string[] {
 
   for (let i = 0; i < count; i++) {
     const wanted = rollRarity(tier, run.rareBump, rng);
-    const from = availableRarity(wanted, picked);
+    const from = availableRarity(run.hero.id, wanted, picked);
     // Every pool drained at once: only reachable if the whole card set is
     // smaller than `count`, so returning short beats repeating a card.
     if (!from) break;
 
-    const options = CARD_POOL_BY_RARITY[from].filter((id) => !picked.includes(id));
+    const options = poolFor(run.hero.id, from).filter((id) => !picked.includes(id));
     picked.push(rng.pick(options));
     if (from === 'rare') rolledRare = true;
   }
@@ -107,17 +107,21 @@ function rollRarity(tier: RewardTier, rareBump: number, rng: Rng): RewardRarity 
  * Walked without drawing: how drained a pool is must never change how many
  * numbers the stream gives up (R3).
  *
+ * `heroId` comes first because the pool a rarity resolves against is the
+ * *hero's* — 赵云 draining his commons must not start promoting 关羽's rares.
+ *
  * Exported because 坊市 needs exactly this, against its own shelf rather than
  * against a reward's picks. It used to carry a second, character-for-character
  * identical copy — two implementations of one rule, each able to drift from the
  * other and neither with a test for the fallback at all.
  */
 export function availableRarity(
+  heroId: string,
   wanted: RewardRarity,
   picked: readonly string[],
 ): RewardRarity | null {
   const has = (r: RewardRarity): boolean =>
-    CARD_POOL_BY_RARITY[r].some((id) => !picked.includes(id));
+    poolFor(heroId, r).some((id) => !picked.includes(id));
 
   const at = REWARD_RARITIES.indexOf(wanted);
   for (let i = at; i >= 0; i--) {
@@ -191,7 +195,11 @@ export interface ChestExtras {
 
 /** Relic ids of one tier the run does not already hold. Never re-orders. */
 function unowned(run: RunState, tier: RelicTier, exclude: ReadonlySet<string>): string[] {
+  // The one place a relic's owner is checked. `relicPool` / `rollRelicOfTier` /
+  // `rollBossOffer` / 坊市's `generateStock` all reach the table through here,
+  // so a hero-locked relic (`RelicDef.hero`) is unreachable everywhere at once.
   return relicsOfTier(tier)
+    .filter((def) => !def.hero || def.hero === run.hero.id)
     .map((def) => def.id)
     .filter((id) => !run.relics.includes(id) && !exclude.has(id));
 }

@@ -29,8 +29,25 @@ export const CARD_TYPE_META: Record<CardType, { label: string; color: number }> 
   ...NEGATIVE_TYPE_META,
 };
 
-/** 关羽's own pool. Curses and status cards are merged in below, not here. */
-const HERO_CARDS: Record<string, CardDef> = {
+/**
+ * Stamps every card in a table with the hero it belongs to, so `CardDef.hero`
+ * cannot drift from the table a card is actually declared in. Mutates the
+ * literals at module scope and touches no other table (约定 7).
+ */
+function tagHero(hero: string, table: Record<string, CardDef>): Record<string, CardDef> {
+  for (const def of Object.values(table)) def.hero = hero;
+  return table;
+}
+
+/**
+ * 关羽's own pool. Curses and status cards are merged in below, not here.
+ *
+ * **Declaration order is load-bearing and append-only.** `HERO_CARD_POOLS` is
+ * derived from this table in declaration order, and a 商旅 shelf and a 战斗奖励
+ * both index into those arrays off a seeded roll — re-ordering the table
+ * re-deals every reward in every run that already exists.
+ */
+export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
   // --- Guan Yu's starting deck -------------------------------------------
   pikan: {
     id: 'pikan',
@@ -545,7 +562,7 @@ const HERO_CARDS: Record<string, CardDef> = {
     keywords: ['exhaust'],
     upgrade: { cost: 2 },
   },
-};
+});
 
 /**
  * 无色 — cards no hero starts with and no fight ever offers. The only counter
@@ -563,7 +580,7 @@ const HERO_CARDS: Record<string, CardDef> = {
  * rate only if the fight lasts — 中毒 is the price and the point. 八阵图 pays
  * nothing on the turn it lands. 离间计 buys no damage at all, only a window.
  */
-const COLORLESS_CARDS: Record<string, CardDef> = {
+const COLORLESS_CARDS: Record<string, CardDef> = tagHero('colorless', {
   /** The one out-of-band heal in the game that is not a 丹药 or a campfire. */
   qingnangshu: {
     id: 'qingnangshu',
@@ -663,7 +680,7 @@ const COLORLESS_CARDS: Record<string, CardDef> = {
       effects: [{ kind: 'status', status: 'metallicize', amount: 5, to: 'self' }],
     },
   },
-};
+});
 
 /**
  * Every card the game can name. Curses and status cards live in here so
@@ -671,16 +688,16 @@ const COLORLESS_CARDS: Record<string, CardDef> = {
  * rewards is enforced by rarity, not by a second table.
  */
 export const CARDS: Record<string, CardDef> = {
-  ...HERO_CARDS,
+  ...GUANYU_CARDS,
   ...COLORLESS_CARDS,
   ...CURSES,
   ...STATUS_CARDS,
 };
 
 /**
- * The reward pool, grouped by rarity — `rollCardReward` rolls a tier and then
- * picks inside it, which is the whole mechanism that makes 万人敌 rarer than
- * 白马义从.
+ * A hero's draftable pool, grouped by rarity — `rollCardReward` rolls a tier
+ * and then picks inside it, which is the whole mechanism that makes 万人敌
+ * rarer than 白马义从.
  *
  * Keyed by `Exclude<CardRarity, 'basic'>`, so `rollCardReward` cannot ask for a
  * tier the starters, curses and 状态牌 (all `basic`) live in. The keys are the
@@ -688,31 +705,55 @@ export const CARDS: Record<string, CardDef> = {
  * the actual guarantee that a curse never reaches the deck is `addCard`
  * throwing on one.
  */
-export const CARD_POOL_BY_RARITY: Record<Exclude<CardRarity, 'basic'>, string[]> = {
-  common: [
-    'wenjiu',
-    'quedi',
-    'baima',
-    'jieying',
-    'guanzhen',
-    'xuzhao',
-    'dandaofuhui',
-    'huarongdao',
-    'bingzhudadan',
-    'yeduchunqiu',
-  ],
-  uncommon: [
-    'wanren',
-    'yiyong',
-    'shuiyanqijun',
-    'zhanyanliang',
-    'hulaoguan',
-    'tushanyuesanshi',
-    'wubaijiaodaoshou',
-    'guaguliaodu',
-  ],
-  rare: ['weizhenhuaxia', 'wuguanliujiang', 'shengougaolei'],
+export type CardPools = Record<Exclude<CardRarity, 'basic'>, string[]>;
+
+/**
+ * Derived from a hero's table in declaration order rather than written out a
+ * second time: a hand-kept copy is a second place a card can be forgotten, and
+ * the arrays are indexed by seeded rolls, so a divergence between the two would
+ * silently re-deal old runs instead of failing.
+ */
+export function poolsOf(table: Record<string, CardDef>): CardPools {
+  const pools: CardPools = { common: [], uncommon: [], rare: [] };
+  for (const def of Object.values(table)) {
+    if (def.rarity === 'basic') continue;
+    pools[def.rarity].push(def.id);
+  }
+  return pools;
+}
+
+/**
+ * Every hero's pool, by hero id. 无色 is deliberately absent — those cards are
+ * sold, never drafted, and `availableRarity` walks this table.
+ *
+ * todos/17 adds 赵云 here; a hero missing from the table drafts nothing, which
+ * is loud rather than silently dealing someone else's cards.
+ */
+export const HERO_CARD_POOLS: Record<string, CardPools> = {
+  guanyu: poolsOf(GUANYU_CARDS),
 };
+
+/**
+ * The ids `heroId` may be offered at `rarity`. **The single dealing point** —
+ * `rollCardReward`, the 坊市 shelf and an 奇遇's `gainCards` all come through
+ * here, so a hero can never be handed another hero's card.
+ *
+ * Pool *contents* vary by hero; how many times a stream is pulled does not
+ * (R3, `src/rooms/rng.ts`). An unknown hero gets an empty pool, and every
+ * caller already spends its draw against an empty pool.
+ */
+export const poolFor = (heroId: string, rarity: Exclude<CardRarity, 'basic'>): string[] =>
+  HERO_CARD_POOLS[heroId]?.[rarity] ?? [];
+
+/**
+ * 关羽's pool, under the name it had before heroes had pools of their own.
+ *
+ * Kept because a dozen tests and the sim's card sweep read "the draftable set"
+ * and, with one hero shipping, that is exactly this. **Not** a dealing point:
+ * anything that hands a card to a player must go through `poolFor` with the
+ * run's own hero, or 赵云 will be offered 青龙偃月刀 cards.
+ */
+export const CARD_POOL_BY_RARITY: CardPools = HERO_CARD_POOLS.guanyu;
 
 /**
  * 无色 cards, which only the shop and events deal. Declaration order, and

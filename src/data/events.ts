@@ -74,6 +74,13 @@ export interface EventOutcome {
   /** Opens the deck grid. At most one pick per node — see `resolvePending`. */
   removeCards?: number;
   upgradeCards?: number;
+  /**
+   * 易牌: the picked copies are shed and replaced with random cards of the same
+   * rarity band (`transformRarity` maps 起手牌's `basic` onto `common`, which is
+   * the only rarity a pool can actually deal). No 奇遇 uses it today — 开局祝福
+   * (todos/18) is what it exists for.
+   */
+  transformCards?: number;
   /** Hands the player to `CombatScene`. The room is over either way. */
   fight?: { tier: 'monster' | 'elite'; bonusRelic?: string };
   /**

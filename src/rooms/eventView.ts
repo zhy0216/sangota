@@ -170,13 +170,22 @@ export class EventController implements RoomController {
 
   private openPickGrid(pick: PendingPick, done: () => void): void {
     const forge = pick.kind === 'upgrade';
+    // Three kinds, three sets of words. 易牌 is unreachable from the 奇遇 table
+    // today — 开局祝福 (todos/18) is what asks for it — but a pick that says
+    // 「弃去」 and then hands a card back would be a lie the moment it is.
+    const COPY = {
+      remove: { title: '弃 牌', subtitle: '割爱一张。', verb: '弃去' },
+      upgrade: { title: '精 进', subtitle: '择牌改之。', verb: '精进' },
+      transform: { title: '易 牌', subtitle: '以旧易新，所得难料。', verb: '易去' },
+    } as const;
+    const copy = COPY[pick.kind];
 
     this.host.pickCards({
-      title: forge ? '精 进' : '弃 牌',
-      subtitle: forge ? '择牌改之。' : '割爱一张。',
+      title: copy.title,
+      subtitle: copy.subtitle,
       count: pick.count,
       compareUpgrade: forge,
-      footerHint: forge ? `请择 ${pick.count} 张精进` : `请择 ${pick.count} 张弃去`,
+      footerHint: `请择 ${pick.count} 张${copy.verb}`,
       cancellable: false,
       ...(forge
         ? { disable: (card) => (canUpgrade(card.defId, card.upgraded) ? null : '已至极致') }

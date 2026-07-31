@@ -2,10 +2,10 @@ import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { STATUS_META, STATUS_ORDER } from '../combat/cards';
 import { resolveCombatEndHooks } from '../combat/curses';
+import { intentKindOf, intentLabel } from '../combat/intent';
 import {
   canPlay,
   endPlayerTurn,
-  intentLabel,
   playCard,
   resolveChoice,
   runEnemyTurn,
@@ -26,6 +26,7 @@ import {
   claimVictoryRelic,
   ensureBossOffer,
   ensureEncounter,
+  payTheft,
   takeBossRelic,
   type VictoryRelic,
 } from '../rooms/fight';
@@ -42,6 +43,8 @@ import {
 } from '../state/run';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_W, CardView } from '../ui/CardView';
+import type { ActorView, EnemyView, EnemyViewParts } from '../ui/actorView';
+import { EnemyRoster } from '../ui/EnemyRoster';
 import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
@@ -97,37 +100,6 @@ interface PileCounter {
   value: number;
 }
 
-interface ActorView {
-  container: Phaser.GameObjects.Container;
-  sprite: Phaser.GameObjects.Image;
-  bar: Phaser.GameObjects.Graphics;
-  hpText: Phaser.GameObjects.Text;
-  blockBadge: Phaser.GameObjects.Container;
-  blockText: Phaser.GameObjects.Text;
-  statusRow: Phaser.GameObjects.Container;
-  /** Display height in design units — used to aim effects at the torso. */
-  height: number;
-  barWidth: number;
-  /** Home positions, so lunges and recoils always have something to return to. */
-  baseX: number;
-  spriteBaseX: number;
-  baseScaleY: number;
-  /**
-   * Trailing HP value. Drains a beat behind the real bar so the player can see
-   * how big the hit was after the fact.
-   */
-  ghost: { value: number };
-}
-
-interface EnemyView extends ActorView {
-  enemy: EnemyState;
-  intent: Phaser.GameObjects.Container;
-  intentText: Phaser.GameObjects.Text;
-  intentBg: Phaser.GameObjects.Graphics;
-  hit: Phaser.GameObjects.Zone;
-  lastIntentLabel: string;
-}
-
 export class CombatScene extends Phaser.Scene {
   private run!: RunState;
   private state!: CombatState;
@@ -147,7 +119,13 @@ export class CombatScene extends Phaser.Scene {
   private nodeId = 'start';
 
   private cardViews = new Map<string, CardView>();
-  private enemyViews = new Map<string, EnemyView>();
+  /**
+   * Every enemy on screen. A collection rather than a fixed row: 召唤 and 分裂
+   * add bodies mid-fight and 遁走 takes one away, and none of that can be drawn
+   * by a view built once in `create()`. Rebuilt per fight in `create`, not in
+   * `init` — the previous fight's Game Objects are already destroyed by then.
+   */
+  private roster!: EnemyRoster;
   private playerView!: ActorView;
 
   private selectedUid: string | null = null;
@@ -166,6 +144,18 @@ export class CombatScene extends Phaser.Scene {
    * class-field initialiser runs exactly once — on the *first* fight.
    */
   private claimed = false;
+
+  /**
+   * How many 夺财 events this fight has already paid out. The index is the
+   * idempotency key `payTheft` is addressed by — the same seed replays the same
+   * thefts in the same order, so 「the second theft of this fight」 identifies
+   * one theft for good.
+   *
+   * Reset in `init` and **not** as a class-field initialiser: Phaser keeps one
+   * instance per scene key, so a field initialiser runs once, on the first
+   * fight. `claimed` has already been that bug once.
+   */
+  private theftSeq = 0;
 
   /**
    * Built on the first hover — most fights never show a status tooltip. All
@@ -210,7 +200,10 @@ export class CombatScene extends Phaser.Scene {
     this.nodeType = data?.nodeType ?? 'monster';
     this.bonusRelic = data?.bonusRelic ?? null;
     this.cardViews.clear();
-    this.enemyViews.clear();
+    // The roster is *replaced* in `create`, not cleared here: `shutdown` has
+    // already destroyed every Game Object the old one held, and asking a stale
+    // roster to tidy up would reach into them.
+    this.theftSeq = 0;
     this.selectedUid = null;
     this.selectedPotion = null;
     this.busy = false;
@@ -357,6 +350,7 @@ export class CombatScene extends Phaser.Scene {
     return {
       container,
       sprite,
+      ui,
       bar,
       hpText,
       blockBadge,
@@ -387,52 +381,87 @@ export class CombatScene extends Phaser.Scene {
       .setDepth(DEPTH.actorUi);
   }
 
-  private buildEnemies(): void {
-    const xs = this.enemySlots(this.state.enemies.length);
+  /**
+   * The Game Objects for one enemy, standing at `x`. Handed to `EnemyRoster`,
+   * which decides *where* bodies stand and when they stop existing — this only
+   * decides what one looks like.
+   */
+  private buildEnemyView(enemy: EnemyState, x: number): EnemyViewParts {
+    const base = this.makeActorView(x, enemy.art, enemy.height, false, 140, enemy.hp);
 
-    this.state.enemies.forEach((enemy, i) => {
-      const base = this.makeActorView(xs[i], enemy.art, enemy.height, false, 140, enemy.hp);
+    // Intent marker, pinned above the sprite but never under the top HUD.
+    const intentY = Math.max(Math.min(-enemy.height - 30, -70), -(BASELINE_Y - 42));
+    const intent = this.add.container(x, BASELINE_Y + intentY).setDepth(DEPTH.actorUi);
+    const intentBg = this.add.graphics();
+    const intentText = this.add.text(0, 0, '', brushStyle(19, C.paper)).setOrigin(0.5);
+    intent.add([intentBg, intentText]);
 
-      // Intent marker, pinned above the sprite but never under the top HUD.
-      const intentY = Math.max(Math.min(-enemy.height - 30, -70), -(BASELINE_Y - 42));
-      const intent = this.add.container(xs[i], BASELINE_Y + intentY).setDepth(DEPTH.actorUi);
-      const intentBg = this.add.graphics();
-      const intentText = this.add.text(0, 0, '', brushStyle(19, C.paper)).setOrigin(0.5);
-      intent.add([intentBg, intentText]);
+    // Held, not `setName`d: a label found through `getByName` can be faded but
+    // never moved with the body and never destroyed with it.
+    const nameText = this.add
+      .text(x, BASELINE_Y + 66, enemy.name, brushStyle(18, C.paperDim))
+      .setOrigin(0.5)
+      .setDepth(DEPTH.actorUi);
 
-      this.add
-        .text(xs[i], BASELINE_Y + 66, enemy.name, brushStyle(18, C.paperDim))
-        .setOrigin(0.5)
-        .setDepth(DEPTH.actorUi)
-        .setName(`name-${enemy.id}`);
+    const hitWidth = Math.max(120, contentWidthAt(this, enemy.art, enemy.height));
+    const hit = this.add
+      .zone(x, BASELINE_Y - enemy.height / 2, hitWidth, enemy.height)
+      .setDepth(DEPTH.actors);
+    hit.setInteractive({ useHandCursor: true });
 
-      const hitW = Math.max(120, contentWidthAt(this, enemy.art, enemy.height));
-      const hit = this.add
-        .zone(xs[i], BASELINE_Y - enemy.height / 2, hitW, enemy.height)
-        .setDepth(DEPTH.actors);
-      hit.setInteractive({ useHandCursor: true });
-
-      const view: EnemyView = {
-        ...base,
-        enemy,
-        intent,
-        intentBg,
-        intentText,
-        hit,
-        lastIntentLabel: '',
-      };
-      hit.on('pointerover', () => this.onEnemyOver(view, true));
-      hit.on('pointerout', () => this.onEnemyOver(view, false));
-      hit.on('pointerup', () => this.onEnemyClick(view));
-
-      this.enemyViews.set(enemy.id, view);
-    });
+    return {
+      ...base,
+      enemy,
+      intent,
+      intentBg,
+      intentText,
+      nameText,
+      hit,
+      hitWidth,
+      lastIntentLabel: '',
+    };
   }
 
-  private enemySlots(count: number): number[] {
-    if (count <= 1) return [872];
-    if (count === 2) return [782, 1000];
-    return [712, 880, 1048];
+  private buildEnemies(): void {
+    this.roster = new EnemyRoster(this, {
+      baselineY: BASELINE_Y,
+      depth: { actors: DEPTH.actors, actorUi: DEPTH.actorUi },
+      build: (enemy, x) => this.buildEnemyView(enemy, x),
+      onOver: (view, over) => this.onEnemyOver(view, over),
+      onClick: (view) => this.onEnemyClick(view),
+    });
+    for (const enemy of this.state.enemies) this.addEnemyView(enemy);
+    void this.relayoutEnemies(false);
+  }
+
+  /**
+   * Put a body on screen. `x` is where it *appears* — a summon walks out of its
+   * summoner — and `relayoutEnemies` is what walks it to its slot.
+   *
+   * The engine has already appended the enemy to `state.enemies` and already
+   * rolled its intent, so the next `refreshBars` paints its telegraph with no
+   * further help. todos/15 calls this from the `summon` and `split` handlers.
+   */
+  addEnemyView(enemy: EnemyState, x?: number): EnemyView {
+    return this.roster.add(enemy, x);
+  }
+
+  /** Destroy a body outright — 分裂's parent and 遁走's runaway, never a corpse. */
+  removeEnemyView(id: string): void {
+    this.roster.remove(id);
+  }
+
+  /**
+   * Re-slot the living bodies. Await it: a hit zone still in flight is a click
+   * that lands on nothing.
+   *
+   * Only when the living count *grows*. A death and a 遁走 deliberately leave
+   * the survivors where they are — `EnemyState.slot` exists to keep positions
+   * stable once a body is gone, and sliding the line would move the target out
+   * from under a click already on its way.
+   */
+  private relayoutEnemies(animate: boolean): Promise<void> {
+    return this.roster.layout(animate);
   }
 
   private buildHud(): void {
@@ -1158,7 +1187,7 @@ export class CombatScene extends Phaser.Scene {
         break;
 
       case 'enemyMove': {
-        const view = this.enemyViews.get(ev.enemyId);
+        const view = this.roster.get(ev.enemyId);
         if (view) {
           this.currentAttacker = view;
           // Wind-up: lean away from the player, and pop the intent badge out.
@@ -1243,6 +1272,26 @@ export class CombatScene extends Phaser.Scene {
         break;
       }
 
+      case 'steal': {
+        // 约定 8: the engine never touches `RunState`, so this is where a theft
+        // is actually paid. `theftSeq` is the idempotency key — a fight that is
+        // re-entered cannot be charged twice for the same steal.
+        const paid = payTheft(this.run, this.nodeId, this.theftSeq++, ev.amount);
+        const view = this.roster.get(ev.enemyId);
+        const at = view ? this.torso(view) : { x: PLAYER_X, y: BASELINE_Y - 120 };
+        if (paid > 0) {
+          popText(this, at.x, at.y - 30, `夺 ${paid} 资财`, { color: C.goldBright, size: 27 });
+        } else {
+          popText(this, at.x, at.y - 30, '囊中已空', { color: C.paperFaint, size: 22 });
+        }
+        await this.wait(180);
+        break;
+      }
+
+      // todos/15 (泳道 S) fills in `summon`, `split`, `escape` and `shout`.
+      // Every one of them needs the roster above, and none of them may be left
+      // on `default` — a body that joins or leaves without an animation is the
+      // reason five encounters are still fenced out of the map.
       default:
         break;
     }
@@ -1305,7 +1354,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private async playDeath(id: string): Promise<void> {
-    const view = this.enemyViews.get(id);
+    const view = this.roster.get(id);
     if (!view) return;
 
     view.hit.disableInteractive();
@@ -1335,15 +1384,14 @@ export class CombatScene extends Phaser.Scene {
       alpha: 0,
       duration: 320,
     });
-    const label = this.children.getByName(`name-${id}`);
-    if (label) this.tweens.add({ targets: label, alpha: 0, duration: 320 });
+    this.tweens.add({ targets: view.nameText, alpha: 0, duration: 320 });
 
     await this.wait(420);
   }
 
   private viewOf(id: string): ActorView | undefined {
     if (id === 'player') return this.playerView;
-    return this.enemyViews.get(id);
+    return this.roster.get(id);
   }
 
   private hpOf(id: string): number {
@@ -1406,7 +1454,7 @@ export class CombatScene extends Phaser.Scene {
     this.paintBlock(this.playerView, this.state.player.block);
     this.paintStatuses(this.playerView, this.state.player.statuses);
 
-    for (const view of this.enemyViews.values()) {
+    for (const view of this.roster.all()) {
       if (!view.enemy.alive) continue;
       this.paintBlock(view, view.enemy.block);
       this.paintStatuses(view, view.enemy.statuses);
@@ -1417,7 +1465,7 @@ export class CombatScene extends Phaser.Scene {
   /** Cheap repaint — safe to drive from a tween's onUpdate. */
   private paintHpBars(): void {
     this.paintBar(this.playerView, this.state.player.hp, this.state.player.maxHp, C.blood);
-    for (const view of this.enemyViews.values()) {
+    for (const view of this.roster.all()) {
       if (!view.enemy.alive) continue;
       this.paintBar(view, view.enemy.hp, view.enemy.maxHp, 0x7a2f2f);
     }
@@ -1544,9 +1592,15 @@ export class CombatScene extends Phaser.Scene {
     const text = intentLabel(this.state, view.enemy);
     view.intentText.setText(text);
 
+    // Colour off the *derived* kind — `EnemyMove.intent` is gone, and it was
+    // wrong on two rows while it existed. todos/16 replaces the whole badge.
     const move = view.enemy.intent;
-    const color =
-      move?.damage ? C.cinnabarBright : move?.intent === 'buff' ? C.goldBright : C.jade;
+    const kind = move ? intentKindOf(this.state, view.enemy, move) : 'special';
+    const color = move?.damage
+      ? C.cinnabarBright
+      : kind === 'buff' || kind === 'defend-buff'
+        ? C.goldBright
+        : C.jade;
     view.intentText.setColor('#' + color.toString(16).padStart(6, '0'));
 
     const w = view.intentText.width + 26;

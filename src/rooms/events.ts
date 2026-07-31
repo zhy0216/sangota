@@ -1,5 +1,6 @@
 import type { Rng } from '../core/rng';
-import { getCard, CARD_POOL_BY_RARITY } from '../combat/cards';
+import type { CardRarity } from '../combat/types';
+import { getCard, poolFor } from '../combat/cards';
 import { getPotion, rollPotion } from '../combat/potions';
 import { getRelic } from '../combat/relics';
 import { rollRelicOfTier } from '../combat/rewards';
@@ -26,7 +27,7 @@ import {
 } from '../data/events';
 import { roomCommit, roomRecord } from './commit';
 import { stream } from './rng';
-import type { RoomOptionView } from './types';
+import type { DeckPick, RoomOptionView } from './types';
 
 /**
  * 奇遇 — the rules half. Everything that touches `RunState` for an event is in
@@ -52,10 +53,12 @@ import type { RoomOptionView } from './types';
 
 // ------------------------------------------------------------------- reports
 
-export interface PendingPick {
-  kind: 'remove' | 'upgrade';
-  count: number;
-}
+/**
+ * A deck pick a node still owes. Aliased onto the room layer's shared
+ * `DeckPick` (`./types`) because 开局祝福 parks the identical shape on
+ * `run.blessing` and both go through `applyPick`.
+ */
+export type PendingPick = DeckPick;
 
 /**
  * What actually happened, as opposed to what the table asked for — the relic
@@ -333,7 +336,7 @@ export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): Ou
       addCard(run, id, o.gainCards.upgraded ?? 0);
       report.cardIds.push(id);
     }
-    const pool = CARD_POOL_BY_RARITY[o.gainCards.rarity ?? 'common'];
+    const pool = poolFor(run.hero.id, o.gainCards.rarity ?? 'common');
     for (let i = 0; i < (o.gainCards.count ?? 0); i++) {
       const id = rng.pick(pool);
       addCard(run, id, o.gainCards.upgraded ?? 0);
@@ -350,6 +353,7 @@ export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): Ou
 
   if (o.removeCards) report.pending = { kind: 'remove', count: o.removeCards };
   else if (o.upgradeCards) report.pending = { kind: 'upgrade', count: o.upgradeCards };
+  else if (o.transformCards) report.pending = { kind: 'transform', count: o.transformCards };
   if (o.fight) report.fight = o.fight;
 
   report.gold = run.gold - goldBefore;
@@ -367,38 +371,83 @@ export function pendingPick(run: RunState, nodeId: string): PendingPick | null {
   const committed = run.rooms[nodeId]?.committed ?? [];
   if (committed.includes(PENDING_DONE)) return null;
   for (const key of committed) {
-    const match = /^pending:(remove|upgrade):(\d+)$/.exec(key);
+    const match = /^pending:(remove|upgrade|transform):(\d+)$/.exec(key);
     if (match) return { kind: match[1] as PendingPick['kind'], count: Number(match[2]) };
   }
   return null;
 }
 
-/**
- * Apply the cards the player picked. Extra uids beyond what was asked for are
- * dropped rather than honoured, and a short list is fine — `RoomHost.pickCards`
- * clamps a request of two against a deck with one upgradable card down to one,
- * and calls back with an empty list when nothing at all qualifies.
- *
- * A removal is additionally floored at `MIN_DECK_SIZE`, the same floor 弃卡
- * answers to. `RoomHost.pickCards` only clamps against how many cards are
- * *selectable*, which for a removal is the whole deck — so an outcome asking
- * for three off a three-card deck emptied it and the next fight could not deal
- * an opening hand.
- */
+/** The node half of a deck pick: the one-shot gate, then `applyPick`. */
 export function resolvePending(run: RunState, nodeId: string, uids: string[]): boolean {
   const pick = pendingPick(run, nodeId);
   if (!pick) return false;
   return (
     roomCommit(run, nodeId).once(PENDING_DONE, () => {
-      const allowed =
-        pick.kind === 'remove' ? Math.min(pick.count, removableCount(run)) : pick.count;
-      for (const uid of uids.slice(0, allowed)) {
-        if (pick.kind === 'remove') removeCard(run, uid);
-        else upgradeCard(run, uid);
-      }
+      // The stream is built only for 易牌 — a purpose that draws nothing for
+      // the other two kinds cannot shift anything downstream of it (R3).
+      const rng = pick.kind === 'transform' ? stream(run, nodeId, 'blessingTransform') : undefined;
+      applyPick(run, pick, uids, rng);
       return true;
     }) ?? false
   );
+}
+
+/**
+ * The rarity band a copy is exchanged for. 起手牌 are all `basic` and no pool
+ * has a `basic` key, so without this mapping 易牌 would draw from an empty pool
+ * 100% of the time on turn one of a run.
+ */
+export const transformRarity = (defId: string): Exclude<CardRarity, 'basic'> => {
+  const rarity = getCard(defId).rarity;
+  return rarity === 'basic' ? 'common' : rarity;
+};
+
+/**
+ * Apply a deck pick. **The one implementation** — the node path
+ * (`resolvePending`, gated by `commit.once`) and 开局祝福 (gated by
+ * `run.blessing.pending`) both call it, each carrying its own door.
+ *
+ * Extra uids beyond what was asked for are dropped rather than honoured, and a
+ * short list is fine — `RoomHost.pickCards` clamps a request of two against a
+ * deck with one upgradable card down to one, and calls back with an empty list
+ * when nothing at all qualifies.
+ *
+ * A removal is additionally floored at `MIN_DECK_SIZE`, the same floor 弃卡
+ * answers to. `RoomHost.pickCards` only clamps against how many cards are
+ * *selectable*, which for a removal is the whole deck — so an outcome asking
+ * for three off a three-card deck emptied it and the next fight could not deal
+ * an opening hand. 易牌 is not floored: it hands one back for every one taken.
+ *
+ * `rng` is required for 易牌 and unused otherwise. Exactly one draw per card
+ * transformed, spent against the filtered pool whether or not it had anything
+ * in it (R3) — the same-name exclusion is a *filter*, never a re-roll loop.
+ */
+export function applyPick(
+  run: RunState,
+  pick: PendingPick,
+  uids: readonly string[],
+  rng?: Rng,
+): void {
+  const allowed = pick.kind === 'remove' ? Math.min(pick.count, removableCount(run)) : pick.count;
+  for (const uid of uids.slice(0, allowed)) {
+    if (pick.kind === 'remove') {
+      removeCard(run, uid);
+      continue;
+    }
+    if (pick.kind === 'upgrade') {
+      upgradeCard(run, uid);
+      continue;
+    }
+    const card = run.deck.find((c) => c.uid === uid);
+    if (!card || !rng) continue;
+    const pool = poolFor(run.hero.id, transformRarity(card.defId)).filter(
+      (id) => id !== card.defId,
+    );
+    const at = rng.int(Math.max(1, pool.length));
+    const replacement = pool[at];
+    removeCard(run, uid);
+    if (replacement) addCard(run, replacement);
+  }
 }
 
 // ----------------------------------------------------------------- narration

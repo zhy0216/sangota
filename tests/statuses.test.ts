@@ -53,7 +53,6 @@ function enemyPlays(state: CombatState, move: EnemyMove, enemy: EnemyState = sta
 const attackMove = (damage: number, hits?: number): EnemyMove => ({
   id: 'probe',
   label: '试',
-  intent: 'attack',
   damage,
   hits,
   weight: 1,
@@ -112,7 +111,7 @@ describe('身法 / 力竭', () => {
     const state = bench(cards('pikan', 5));
     const enemy = state.enemies[0];
     addStatus(state, enemy, 'dexterity', 4);
-    enemyPlays(state, { id: 'p', label: '守', intent: 'defend', block: 6, weight: 1 }, enemy);
+    enemyPlays(state, { id: 'p', label: '守', block: 6, weight: 1 }, enemy);
     expect(enemy.block).toBe(10);
   });
 
@@ -461,7 +460,6 @@ describe('断粮 / 束缚', () => {
       enemyPlays(state, {
         id: `apply-${status}`,
         label: status,
-        intent: 'debuff',
         weight: 1,
         status: { status, amount: 1, to: 'player' },
       });

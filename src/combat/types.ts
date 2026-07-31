@@ -59,7 +59,11 @@ export type EffectCondition =
   | { c: 'handEmpty' }
   | { c: 'attackPlayedThisTurn' }
   | { c: 'hpBelow'; percent: number }
-  | { c: 'enemyCountAtLeast'; n: number };
+  | { c: 'enemyCountAtLeast'; n: number }
+  /** 攻 played *before* this card this turn — 赵云's 连击 reads this. */
+  | { c: 'attacksAtLeast'; n: number }
+  /** Cards in the 消耗堆 right now. */
+  | { c: 'exhaustedAtLeast'; n: number };
 
 export type Effect =
   | { kind: 'damage'; amount: number; times?: number }
@@ -84,7 +88,15 @@ export type Effect =
   | { kind: 'shuffleDiscardIn' }
   | { kind: 'conditional'; when: EffectCondition; then: Effect[]; otherwise?: Effect[] }
   /** X-cost: repeats `per` once for every 气 the card actually consumed. */
-  | { kind: 'scaleWithEnergy'; per: Effect[] };
+  | { kind: 'scaleWithEnergy'; per: Effect[] }
+  /**
+   * Repeats `per` once for every 攻 played earlier this turn. The multiplier is
+   * read **once, at enqueue time** (`QueuedStep.attacks`), exactly the way
+   * `scaleWithEnergy` reads the 气 the card spent — re-reading
+   * `state.attacksThisTurn` while the queue drains would let a card count
+   * attacks its own effects had not yet made.
+   */
+  | { kind: 'scaleWithAttacks'; per: Effect[] };
 
 /**
  * Behaviour a curse or status card cannot express as an `Effect`, because it
@@ -114,6 +126,15 @@ export interface CardDef {
   name: string;
   type: CardType;
   rarity: CardRarity;
+  /**
+   * Which hero may be *offered* this card: a hero id, or `'colorless'` for the
+   * 无色 stock no hero drafts. Absent on 诅咒 and 状态牌, which no pool holds.
+   *
+   * Stamped by `cards.ts` from the table a card is declared in rather than
+   * written per card, so a card cannot end up in one hero's table wearing
+   * another hero's tag. `poolFor` is what actually deals them out.
+   */
+  hero?: string;
   /** `X_COST` (-1) means "spend everything", and `scaleWithEnergy` reads it back. */
   cost: number;
   target: TargetMode;
@@ -153,14 +174,58 @@ export interface Combatant {
   statuses: Partial<Record<StatusId, number>>;
 }
 
+/**
+ * What the marker over an enemy's head says it is about to do.
+ *
+ * **Derived, never declared.** `EnemyMove` used to carry an `intent` field and
+ * two rows had it wrong — a move that shoved cards into the deck telegraphed as
+ * a plain hit. The kind is now read off the move's own fields
+ * (`src/combat/intent.ts`), so a table row and its telegraph cannot disagree.
+ *
+ * 'unknown' is the *displayed* kind of a 首回合意图不明 enemy; it never changes
+ * which move was picked.
+ */
 export type IntentKind =
   | 'attack'
+  | 'attack-defend'
+  | 'attack-debuff'
   | 'defend'
+  | 'defend-buff'
   | 'buff'
   | 'debuff'
-  | 'attack-defend'
-  | 'summon'
-  | 'escape';
+  | 'strong-debuff'
+  | 'special'
+  | 'escape'
+  | 'unknown';
+
+/** A rider on an intent — the badges printed beside the headline number. */
+export type IntentMark =
+  | { m: 'block'; n: number }
+  | { m: 'buff'; status: StatusId; n: number }
+  | { m: 'debuff'; status: StatusId; n: number }
+  | { m: 'cards'; n: number }
+  | { m: 'summon'; n: number }
+  | { m: 'steal'; n: number };
+
+/**
+ * Everything the intent marker draws, computed in the pure layer so the sim's
+ * threat policy and the HUD's incoming-damage total read the same number.
+ *
+ * `damage` is per hit and already clamped (金蝉脱壳 shows 1). `loseHp` is the
+ * block-ignoring half — a total that leaves it out under-reports 太平符水.
+ */
+export interface IntentDisplay {
+  kind: IntentKind;
+  damage: number | null;
+  hits: number;
+  loseHp: number | null;
+  /** Severity band, measured against the player's current 体力. */
+  tier: 'none' | 'light' | 'medium' | 'heavy' | 'lethal';
+  marks: readonly IntentMark[];
+  tooltip: { title: string; body: string };
+  /** 首回合意图不明: the fields above are true, but must not be shown. */
+  hidden: boolean;
+}
 
 /**
  * Gate on a single move. Absent means "always on the table", which is what
@@ -184,7 +249,6 @@ export type MoveCondition =
 export interface EnemyMove {
   id: string;
   label: string;
-  intent: IntentKind;
   damage?: number;
   /** Multi-hit attacks show as "N × hits". */
   hits?: number;
@@ -346,6 +410,12 @@ export interface QueuedStep {
   bonus: number;
   /** 气 the card actually spent, which is what `scaleWithEnergy` multiplies by. */
   energy: number;
+  /**
+   * 攻 already played this turn when the card was queued — what
+   * `scaleWithAttacks` multiplies by. Frozen here rather than re-read off
+   * `state` for the same reason `energy` is.
+   */
+  attacks: number;
 }
 
 /**

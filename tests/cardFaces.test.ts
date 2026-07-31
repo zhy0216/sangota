@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, resolveCard } from '../src/combat/cards';
 import { isNegative } from '../src/combat/curses';
+import { intentLabel } from '../src/combat/intent';
 import { ENCOUNTERS } from '../src/combat/enemies';
 import {
   describeCard,
-  intentLabel,
   playCard,
   previewValues,
   startCombat,
@@ -218,7 +218,7 @@ describe('describeCard', () => {
     // And the marker over an enemy telegraphing at an intangible player.
     const marked = bench('pikan', 0, LOADOUTS[0]);
     const enemy = marked.enemies[0];
-    enemy.intent = { id: 'axe', label: '巨斧', intent: 'attack', damage: 30, weight: 1 };
+    enemy.intent = { id: 'axe', label: '巨斧', damage: 30, weight: 1 };
     expect(intentLabel(marked, enemy)).toBe('攻 30');
     marked.player.statuses.intangible = 2;
     expect(intentLabel(marked, enemy)).toBe('攻 1');

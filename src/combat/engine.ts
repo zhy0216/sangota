@@ -495,7 +495,12 @@ export function playCard(state: CombatState, uid: string, targetId?: string): bo
   const bonus = relicDamageBonus(state, def);
   for (const relic of bonus.sources) state.events.push(relicEvent(relic));
 
-  enqueue(state, def.effects, { target, bonus: bonus.amount, energy: spent });
+  enqueue(state, def.effects, {
+    target,
+    bonus: bonus.amount,
+    energy: spent,
+    attacks: state.attacksThisTurn,
+  });
   pumpEffects(state);
 
   /*
@@ -549,7 +554,7 @@ export function usePotion(state: CombatState, potionId: string, targetId?: strin
   if (def.special) applyPotionSpecial(state, def.special);
   // `bonus: 0` deliberately: the relic damage bonus is keyed on 「打出【攻】牌」
   // and a 丹药 is no card, so drinking one must never spend that turn's passive.
-  enqueue(state, def.effects, { target, bonus: 0, energy: 0 });
+  enqueue(state, def.effects, { target, bonus: 0, energy: 0, attacks: state.attacksThisTurn });
   pumpEffects(state);
   checkEnd(state);
   return true;
@@ -606,7 +611,12 @@ export function pumpEffects(state: CombatState): void {
 
 function applyEffect(state: CombatState, step: QueuedStep): void {
   const effect = step.effect;
-  const ctx: StepContext = { target: step.target, bonus: step.bonus, energy: step.energy };
+  const ctx: StepContext = {
+    target: step.target,
+    bonus: step.bonus,
+    energy: step.energy,
+    attacks: step.attacks,
+  };
 
   switch (effect.kind) {
     case 'damage': {
@@ -693,6 +703,15 @@ function applyEffect(state: CombatState, step: QueuedStep): void {
       enqueue(state, repeated, ctx, true);
       break;
     }
+    case 'scaleWithAttacks': {
+      // `step.attacks`, never `state.attacksThisTurn`: the count is the one
+      // frozen when the card was queued, so a card cannot count the attacks
+      // its own effects are in the middle of making.
+      const repeated: Effect[] = [];
+      for (let i = 0; i < step.attacks; i++) repeated.push(...effect.per);
+      enqueue(state, repeated, ctx, true);
+      break;
+    }
   }
 }
 
@@ -723,6 +742,10 @@ function conditionMet(
       return state.player.hp * 100 < state.player.maxHp * cond.percent;
     case 'enemyCountAtLeast':
       return aliveEnemies(state).length >= cond.n;
+    case 'attacksAtLeast':
+      return state.attacksThisTurn >= cond.n;
+    case 'exhaustedAtLeast':
+      return state.exhaustPile.length >= cond.n;
   }
 }
 
@@ -844,7 +867,7 @@ export function computeAttack(base: number, attacker: Combatant, defender: Comba
 }
 
 /** 金蝉脱壳's clamp — applied to every incoming hit, attack or not. */
-function clampIncoming(damage: number, defender: Combatant): number {
+export function clampIncoming(damage: number, defender: Combatant): number {
   for (const id of STATUS_ORDER) {
     const mod = STATUS_META[id].modify;
     if (mod?.slot !== 'clamp') continue;
@@ -1237,6 +1260,11 @@ export function previewValues(
         case 'scaleWithEnergy':
           walk(effect.per, repeat * (def.cost === X_COST ? (state?.energy ?? 0) : def.cost));
           break;
+        case 'scaleWithAttacks':
+          // The face reads the attacks already made this turn — the same count
+          // the card will freeze when it is actually played.
+          walk(effect.per, repeat * (state?.attacksThisTurn ?? 0));
+          break;
         default:
           break;
       }
@@ -1256,47 +1284,4 @@ export function describeCard(
     .replace(/\{D\}/g, String(D))
     .replace(/\{B\}/g, String(B))
     .replace(/\{T\}/g, String(T));
-}
-
-/**
- * Compact intent label for the marker above an enemy, e.g. "攻 5×2".
- *
- * A rider on an attack has to name *itself*. The label used to print 「弱」 for
- * any `status` at all, so 黄巾骑手's 踏阵 (破绽 1) and 吕布's 破军 (破绽 2) both
- * read as "he is about to cut my damage" when they in fact make the next blow
- * land harder — the player defends against the wrong thing. `STATUS_META` is
- * the one place that knows what a status is called, so it is read here rather
- * than a second table being written down.
- */
-export function intentLabel(state: CombatState, enemy: EnemyState): string {
-  const move = enemy.intent;
-  if (!move) return '';
-  // 意图不可知. Read off the *label* alone, deliberately: hiding a telegraph must
-  // not change which move was picked, or the same seed would play differently
-  // depending on a presentation flag.
-  if (getEnemy(enemy.defId).hiddenFirstIntent && enemy.actedTurns === 0) return '？';
-
-  // Riders, in the order they matter to a defence decision. `addCards` is the
-  // one that cost the most to miss: 扬尘 / 擂鼓 / 泥雨 / 太平符水 all shovel
-  // cards into the deck and every one of them used to telegraph as a bare hit.
-  const riders: string[] = [];
-  if (move.block) riders.push('守');
-  if (move.status) riders.push(STATUS_META[move.status.status].label);
-  if (move.statusAll) riders.push(STATUS_META[move.statusAll.status].label);
-  if (move.addCards) riders.push(`塞牌 ${move.addCards.count}`);
-  if (move.steal) riders.push(`夺 ${move.steal}`);
-  const tail = riders.length > 0 ? ` · ${riders.join(' · ')}` : '';
-
-  if (move.damage) {
-    const perHit = clampIncoming(computeAttack(move.damage, enemy, state.player), state.player);
-    const hits = move.hits ?? 1;
-    const dmg = hits > 1 ? `${perHit}×${hits}` : `${perHit}`;
-    return `攻 ${dmg}${tail}`;
-  }
-  if (move.loseHp) return `伤 ${move.loseHp}${tail}`;
-  if (move.summon) return `召${tail}`;
-  if (move.escape) return `遁${tail}`;
-  if (move.intent === 'buff') return `强化${tail}`;
-  if (move.intent === 'defend' && move.block) return `守${riders.slice(1).map((r) => ` · ${r}`).join('')}`;
-  return `${move.label}${tail}`;
 }

@@ -2,9 +2,9 @@ import { canUpgrade, getCard, isNegative } from '../combat/cards';
 import { POTION_DROP, getPotion } from '../combat/potions';
 import { RELICS, relicModifiers } from '../combat/relics';
 import { BASE_CARD_REWARD_COUNT } from '../combat/rewards';
-import { generateMap } from '../map/generateMap';
+import { ACT1_LAYOUT, generateMap } from '../map/generateMap';
 import type { GameMap } from '../map/types';
-import type { RoomRecord } from '../rooms/types';
+import type { DeckPick, RoomRecord } from '../rooms/types';
 import { DEFAULT_HERO, type HeroDef } from '../data/heroes';
 
 /** One physical card in the deck. Upgrades ride on the copy, not on the id. */
@@ -67,8 +67,49 @@ export interface RunState {
   usedEncounters: string[];
   /** The three boss relics on offer, frozen the moment the chest is opened. */
   bossRelicOffer: string[] | null;
-  /** Locked doors this run has the key to. */
+  /**
+   * Locked doors this run has the key to. One key, deliberately: 宝钥 opens the
+   * 终章 and its only source is declining a 首领 relic (`takeBossRelic(..., null)`).
+   * A second colour needs a door and a source, and neither exists.
+   */
   keys: { sapphire: boolean };
+
+  // ------------------------------------------------------------ 开局祝福
+
+  /**
+   * 开局祝福 (todos/18) — null until the 祝福 screen has been entered, and null
+   * forever on a run that predates it.
+   *
+   * Parked on the run rather than on a node ledger because it happens **before
+   * the player has stood anywhere**: `roomRecord(run, 'neow', 'event')` throws
+   * (there is no such node), and `RoomRecord` is a union tagged by *map node
+   * type*, which a blessing does not have.
+   */
+  blessing: BlessingState | null;
+}
+
+/**
+ * The 祝福 the run was offered and what it owes. Ids only — R6 forbids parking
+ * an `Rng` or a cursor in `RunState`, and the same discipline applies to the
+ * objects a table can grow: an outcome stored whole would be a save that
+ * disagrees with the table it came from.
+ */
+export interface BlessingState {
+  /** The four-up, materialised on first sight (R5) and read-only after. */
+  offered: BlessingOffer[];
+  /** The one that was taken. Non-null is the door: a blessing is taken once. */
+  takenId: string | null;
+  /** A deck pick the taken blessing bought and has not been answered yet. */
+  pending: DeckPick | null;
+}
+
+/**
+ * One option on the 祝福 screen. `costId` is set only on the 交易 class, whose
+ * benefit and price are rolled as two independent draws and shown as one line.
+ */
+export interface BlessingOffer {
+  id: string;
+  costId: string | null;
 }
 
 let active: RunState | null = null;
@@ -92,7 +133,7 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState 
     maxHp,
     gold: hero.startingGold,
     act: 1,
-    map: generateMap(seed),
+    map: generateMap(seed, ACT1_LAYOUT),
     deck: hero.startingDeck.map((defId) => newDeckCard(defId)),
     relics,
     relicCounters: {},
@@ -105,7 +146,8 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState 
     path: [],
     // Constants, every one of them: `startRun` must never draw from an Rng.
     // `sim/golden.test.ts` builds its decks through here, and one extra roll
-    // would invalidate all 26 golden snapshots.
+    // would invalidate all 37 golden snapshots. `tests/integrity.test.ts`
+    // checks this as source text — the comment alone was the only guard.
     rooms: {},
     seenEvents: [],
     cardRemovalSurcharge: 0,
@@ -113,6 +155,7 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState 
     usedEncounters: [],
     bossRelicOffer: null,
     keys: { sapphire: false },
+    blessing: null,
   };
   syncPotionSlots(active);
   syncRewardCount(active);
@@ -164,6 +207,32 @@ export function travelTo(run: RunState, nodeId: string): void {
   node.visited = true;
   run.currentNodeId = nodeId;
   run.path.push(nodeId);
+}
+
+/**
+ * Wipe everything an act owns, leaving 体力 / 牌组 / 宝物 / 资财 alone.
+ *
+ * The half of todos/09's `advanceAct` that has nothing to do with which act
+ * comes next, split out so it can be tested on its own and so the act table
+ * (`src/data/acts.ts`) is the only thing 09 has to add on top:
+ * `advanceAct` asserts the 战利品 chest has been answered, calls this, then
+ * bumps `run.act`, builds the new map and pays the 幕间 heal.
+ *
+ * **`rooms` is cleared, not prefixed.** Node ids are `${row}_${col}` plus the
+ * literal `boss`, so every id repeats in the next act. Left in place: a combat
+ * node would read back the *previous* act's `encounterId`, a mismatched ledger
+ * kind would throw the player out of the run outright, and
+ * `bossOfferPending('boss')` would answer false — the 战利品 chest would never
+ * open again. Cross-act history belongs to a field of its own (todos/22), not
+ * to the room ledger.
+ */
+export function clearActProgress(run: RunState): void {
+  run.rooms = {};
+  run.usedEncounters = [];
+  run.actCombatCount = 0;
+  run.bossRelicOffer = null;
+  run.currentNodeId = null;
+  run.path = [];
 }
 
 // ------------------------------------------------------------- run mutations

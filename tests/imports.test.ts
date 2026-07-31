@@ -58,6 +58,12 @@ const ENTRY_POINTS: { path: string; check: (m: Record<string, unknown>) => void 
     check: (m) => expect(m.startCombat).toBeTypeOf('function'),
   },
   {
+    path: '../src/combat/intent',
+    // Sits on the cycle too: it calls back into `engine` for the damage maths
+    // and into `statuses` for the names. Both from inside functions (约定 7).
+    check: (m) => expect(m.intentLabel).toBeTypeOf('function'),
+  },
+  {
     path: '../src/combat/relics',
     check: (m) => expect(Object.keys(m.RELICS as object).length).toBeGreaterThan(0),
   },

@@ -9,11 +9,11 @@ import {
   getEnemy,
   pickEncounter,
 } from '../src/combat/enemies';
+import { intentLabel } from '../src/combat/intent';
 import {
   addStatus,
   endPlayerTurn,
   gainBlock,
-  intentLabel,
   pickIntent,
   resolveDamage,
   runEnemyTurn,

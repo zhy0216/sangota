@@ -112,6 +112,26 @@ describe('determinism', () => {
   it('gives different seeds different streams', () => {
     expect(new Rng('a').next()).not.toBe(new Rng('b').next());
   });
+
+  it('keeps every die out of startRun', () => {
+    // The命门 of all 37 golden snapshots: `sim/golden.test.ts` builds its decks
+    // through `startRun`, and the fights are seeded from streams derived after
+    // it. One extra draw in here shifts every one of them at once, and every
+    // saved run seed with them.
+    //
+    // A comment inside the function was the only thing guarding this. It is
+    // load-bearing enough to be checked as source text: 17 gives heroes their
+    // own decks and 18 hangs a whole screen off the run's opening state, and
+    // both are one「roll a starting relic」away from silently doing it here.
+    const source = read('src/state/run.ts');
+    const at = source.indexOf('export function startRun');
+    expect(at).toBeGreaterThan(-1);
+    // Comments stripped: the note *explaining* the rule says 「one extra roll」.
+    const body = source.slice(at, source.indexOf('\n}', at)).replace(/\/\/.*$/gm, '');
+    for (const forbidden of ['Rng', 'stream(', 'roll', 'randomSeed(']) {
+      expect(body, `startRun must not ${forbidden}`).not.toContain(forbidden);
+    }
+  });
 });
 
 describe('headlessness', () => {

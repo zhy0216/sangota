@@ -29,11 +29,43 @@ const RESTRICTED: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'el
 
 const edgeKey = (row: number, from: number, to: number) => `${row}:${from}>${to}`;
 
-export function generateMap(seedInput?: string): GameMap {
+/**
+ * The shape of one act's map: how tall it is and which floors are fixed.
+ *
+ * Split out of `MAP` (which keeps the geometry — lane count, spacing, jitter)
+ * because todos/09 gives every act its own shape, and the *only* honest way to
+ * express that is to pass it in. A module-level read would silently generate
+ * 第二幕 with 第一幕's floor plan.
+ *
+ * `null` on a fixed row means the act has no such floor at all.
+ */
+export interface ActLayout {
+  rows: number;
+  treasureRow: number | null;
+  restRow: number | null;
+  /** Elite / rest / shop are locked out below this floor. */
+  minAdvancedRow: number;
+}
+
+/**
+ * 第一幕's shape — the numbers that lived in `MAP` before acts existed, moved
+ * verbatim. `startRun` passes this, so **every existing seed generates exactly
+ * the map it always did**; todos/09's `ACTS[1].layout` must keep being this
+ * object, or every 第一幕 in every saved seed changes.
+ */
+export const ACT1_LAYOUT: ActLayout = {
+  rows: 15,
+  treasureRow: 8,
+  restRow: 14,
+  minAdvancedRow: 5,
+};
+
+export function generateMap(seedInput: string | undefined, layout: ActLayout): GameMap {
   const seed = seedInput ?? randomSeed();
   const rng = new Rng(seed);
 
-  const { rows, cols, paths } = MAP;
+  const { rows } = layout;
+  const { cols, paths } = MAP;
   const cells = new Set<string>();
   const edges = new Set<string>();
   /** row -> col -> set of child cols, so we can build the graph after carving. */
@@ -101,7 +133,7 @@ export function generateMap(seedInput?: string): GameMap {
   }
 
   // --- Phase 2: assign room types ------------------------------------------
-  assignRoomTypes(rng, nodes, byRow, rows);
+  assignRoomTypes(rng, nodes, byRow, layout);
 
   // --- Boss crown -----------------------------------------------------------
   const bossId = 'boss';
@@ -136,6 +168,69 @@ export function generateMap(seedInput?: string): GameMap {
 }
 
 /**
+ * 终章 — three rooms in a column, and not one die rolled.
+ *
+ * A generated map is the wrong shape for a finale: the whole point is that
+ * there is no route to choose, so 「精英 → 篝火 → 首领」 is the map. Building it
+ * by hand rather than by seeding a 3-row `generateMap` also keeps it out of the
+ * random stream entirely — the 终章 costs no draws, so unlocking it cannot
+ * shift anything an existing seed does anywhere else.
+ *
+ * Node ids follow the same `row_col` convention every other act uses, and the
+ * boss keeps the literal id `boss`, so the room layer needs no special case.
+ */
+export function generateFinalAct(): GameMap {
+  const rows = 2;
+  const cols = MAP.cols;
+  const mid = (cols - 1) / 2;
+  const order: RoomType[] = ['elite', 'rest'];
+
+  const nodes = new Map<string, MapNode>();
+  const byRow: string[][] = [[], []];
+
+  order.forEach((type, row) => {
+    const id = nodeKey(row, 0);
+    nodes.set(id, {
+      id,
+      row,
+      col: mid,
+      type,
+      x: 0,
+      y: 0,
+      children: [],
+      parents: [],
+      visited: false,
+    });
+    byRow[row].push(id);
+  });
+
+  const bossId = 'boss';
+  nodes.set(bossId, {
+    id: bossId,
+    row: rows,
+    col: mid,
+    type: 'boss',
+    x: 0,
+    y: 0,
+    children: [],
+    parents: [nodeKey(1, 0)],
+    visited: false,
+  });
+  nodes.get(nodeKey(0, 0))!.children.push(nodeKey(1, 0));
+  nodes.get(nodeKey(1, 0))!.parents.push(nodeKey(0, 0));
+  nodes.get(nodeKey(1, 0))!.children.push(bossId);
+
+  const width = MAP.marginX * 2 + (cols - 1) * MAP.colSpacing;
+  const height = MAP.marginTop + MAP.marginBottom + rows * MAP.rowSpacing;
+  for (const node of nodes.values()) {
+    node.x = MAP.marginX + node.col * MAP.colSpacing;
+    node.y = height - MAP.marginBottom - node.row * MAP.rowSpacing;
+  }
+
+  return { seed: 'final', rows, cols, width, height, nodes, byRow, bossId };
+}
+
+/**
  * Pick the next column for a walk, rejecting moves that would visually cross an
  * edge already carved by an earlier path. With ±1 steps the only possible
  * crossing is a direct swap between two neighbouring columns.
@@ -160,9 +255,9 @@ function assignRoomTypes(
   rng: Rng,
   nodes: Map<string, MapNode>,
   byRow: string[][],
-  rows: number,
+  layout: ActLayout,
 ): void {
-  for (let row = 0; row < rows; row++) {
+  for (let row = 0; row < layout.rows; row++) {
     for (const id of byRow[row]) {
       const node = nodes.get(id)!;
 
@@ -170,16 +265,16 @@ function assignRoomTypes(
         node.type = 'monster';
         continue;
       }
-      if (row === MAP.treasureRow) {
+      if (row === layout.treasureRow) {
         node.type = 'treasure';
         continue;
       }
-      if (row === MAP.restRow) {
+      if (row === layout.restRow) {
         node.type = 'rest';
         continue;
       }
 
-      node.type = rollType(rng, node, nodes, byRow);
+      node.type = rollType(rng, node, nodes, byRow, layout);
     }
   }
 }
@@ -189,6 +284,7 @@ function rollType(
   node: MapNode,
   nodes: Map<string, MapNode>,
   byRow: string[][],
+  layout: ActLayout,
 ): RoomType {
   const items = POOL.map((p) => p.type);
   const weights = POOL.map((p) => p.weight);
@@ -197,7 +293,7 @@ function rollType(
   // options so generation can never wedge.
   for (let attempt = 0; attempt < 24; attempt++) {
     const candidate = rng.weighted(items, weights);
-    if (isLegal(candidate, node, nodes, byRow)) return candidate;
+    if (isLegal(candidate, node, nodes, byRow, layout)) return candidate;
   }
   return rng.weighted(['monster', 'event'], [0.7, 0.3]);
 }
@@ -207,13 +303,16 @@ function isLegal(
   node: MapNode,
   nodes: Map<string, MapNode>,
   byRow: string[][],
+  layout: ActLayout,
 ): boolean {
   if (RESTRICTED.has(type)) {
     // Elite / rest / shop are gated behind the early floors.
-    if (node.row < MAP.minAdvancedRow) return false;
+    if (node.row < layout.minAdvancedRow) return false;
 
     // A rest one floor below the guaranteed pre-boss rest is wasted.
-    if (type === 'rest' && node.row === MAP.restRow - 1) return false;
+    if (layout.restRow !== null && type === 'rest' && node.row === layout.restRow - 1) {
+      return false;
+    }
 
     // No repeat straight up an edge.
     for (const parentId of node.parents) {

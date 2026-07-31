@@ -82,6 +82,23 @@ export interface TreasureReport {
   potionRefused: boolean;
 }
 
+// --------------------------------------------------------------- 选牌
+
+/**
+ * What a deck pick that has been paid for but not yet answered is asking for.
+ *
+ * Lives here rather than beside `applyOutcome` because three unrelated places
+ * hold one: an 奇遇's node ledger (`pendingPick`), 开局祝福's `run.blessing`
+ * (todos/18), and the grid that draws either of them. Types only, so none of
+ * them has to import another's module.
+ */
+export type DeckPickKind = 'remove' | 'upgrade' | 'transform';
+
+export interface DeckPick {
+  kind: DeckPickKind;
+  count: number;
+}
+
 // --------------------------------------------------------------- 房间台账
 
 /**
