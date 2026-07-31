@@ -5,6 +5,7 @@ import type { MapNode, RoomType } from '../map/types';
 import { CampfireController } from '../rooms/campfireView';
 import { roomCommit, type RoomCommit } from '../rooms/commit';
 import type { PickRequest, RoomOptionView } from '../rooms/types';
+import { EventController } from '../rooms/eventView';
 import { ShopController } from '../rooms/shopView';
 import { TreasureController } from '../rooms/treasureView';
 import { getRun, type RunState } from '../state/run';
@@ -92,6 +93,7 @@ export interface RoomController {
 const CONTROLLERS: Partial<Record<RoomType, () => RoomController>> = {
   rest: () => new CampfireController(),
   shop: () => new ShopController(),
+  event: () => new EventController(),
   treasure: () => new TreasureController(),
 };
 
