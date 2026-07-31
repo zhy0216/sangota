@@ -1,4 +1,4 @@
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { ENCOUNTERS, PENDING_ENCOUNTERS } from '../src/combat/enemies';
 import {
   endPlayerTurn,
   playCard,
@@ -54,8 +54,13 @@ export interface SimResult {
   aborted: 'turnLimit' | 'noProgress' | null;
 }
 
+/**
+ * Both tables, on purpose: a fight the map cannot open yet is still a fight the
+ * rules layer has to be held to, and `PENDING_ENCOUNTERS` is where 召唤 / 分裂 /
+ * 遁走 live until `CombatScene` can draw them.
+ */
 export function findEncounter(id: string): Encounter {
-  for (const table of Object.values(ENCOUNTERS)) {
+  for (const table of [...Object.values(ENCOUNTERS), ...Object.values(PENDING_ENCOUNTERS)]) {
     const found = table.find((e) => e.id === id);
     if (found) return found;
   }

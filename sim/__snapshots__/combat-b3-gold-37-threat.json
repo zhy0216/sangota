@@ -1,0 +1,832 @@
+{
+  "encounter": "b3",
+  "seed": "gold-37",
+  "policy": "threat",
+  "deck": "wide",
+  "result": {
+    "won": false,
+    "turns": 10,
+    "hpLeft": 0,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "draw",
+      "uid": "d14"
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "draw",
+      "uid": "d19"
+    },
+    {
+      "t": "draw",
+      "uid": "d10"
+    },
+    {
+      "t": "draw",
+      "uid": "d24"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "zhangbao-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d20"
+    },
+    {
+      "t": "discard",
+      "uid": "d10"
+    },
+    {
+      "t": "discard",
+      "uid": "d24"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbao-0",
+      "label": "泥雨"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "draw",
+      "uid": "d15"
+    },
+    {
+      "t": "draw",
+      "uid": "g0"
+    },
+    {
+      "t": "draw",
+      "uid": "d27"
+    },
+    {
+      "t": "draw",
+      "uid": "d13"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 15,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "zhangbao-0",
+      "status": "vulnerable",
+      "amount": 1
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "discard",
+      "uid": "g0"
+    },
+    {
+      "t": "discard",
+      "uid": "d27"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbao-0",
+      "label": "黄天"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 8,
+      "blocked": 10,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "draw",
+      "uid": "d23"
+    },
+    {
+      "t": "draw",
+      "uid": "d21"
+    },
+    {
+      "t": "draw",
+      "uid": "d11"
+    },
+    {
+      "t": "draw",
+      "uid": "d16"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 13,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 8
+    },
+    {
+      "t": "draw",
+      "uid": "d22"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d23"
+    },
+    {
+      "t": "discard",
+      "uid": "d21"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbao-0",
+      "label": "泥雨"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 8,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d18"
+    },
+    {
+      "t": "draw",
+      "uid": "g3"
+    },
+    {
+      "t": "draw",
+      "uid": "d25"
+    },
+    {
+      "t": "draw",
+      "uid": "g2"
+    },
+    {
+      "t": "draw",
+      "uid": "d26"
+    },
+    {
+      "t": "status",
+      "targetId": "zhangbao-0",
+      "status": "weak",
+      "amount": 2
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 4
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "exhaust",
+      "uid": "g3"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "exhaust",
+      "uid": "g2"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d25"
+    },
+    {
+      "t": "discard",
+      "uid": "d26"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbao-0",
+      "label": "符阵"
+    },
+    {
+      "t": "block",
+      "targetId": "zhangbao-0",
+      "amount": 16
+    },
+    {
+      "t": "status",
+      "targetId": "zhangbao-0",
+      "status": "metallicize",
+      "amount": 4
+    },
+    {
+      "t": "block",
+      "targetId": "zhangbao-0",
+      "amount": 4
+    },
+    {
+      "t": "draw",
+      "uid": "g1"
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d18"
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "draw",
+      "uid": "d10"
+    },
+    {
+      "t": "draw",
+      "uid": "d27"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 0,
+      "blocked": 8,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 0,
+      "blocked": 4,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "g1"
+    },
+    {
+      "t": "discard",
+      "uid": "d18"
+    },
+    {
+      "t": "discard",
+      "uid": "d27"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbao-0",
+      "label": "泥雨"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "zhangbao-0",
+      "amount": 4
+    },
+    {
+      "t": "draw",
+      "uid": "d14"
+    },
+    {
+      "t": "draw",
+      "uid": "d19"
+    },
+    {
+      "t": "draw",
+      "uid": "d11"
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "draw",
+      "uid": "g4"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 7,
+      "blocked": 4,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "zhangbao-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbao-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "shout",
+      "enemyId": "zhangbao-0",
+      "text": "「化身千万！」"
+    },
+    {
+      "t": "split",
+      "parentId": "zhangbao-0",
+      "spawned": [
+        "zhangbaofenshen-1",
+        "zhangbaofenshen-2"
+      ]
+    },
+    {
+      "t": "discard",
+      "uid": "d11"
+    },
+    {
+      "t": "discard",
+      "uid": "d12"
+    },
+    {
+      "t": "discard",
+      "uid": "g4"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-1",
+      "label": "聚形"
+    },
+    {
+      "t": "block",
+      "targetId": "zhangbaofenshen-1",
+      "amount": 8
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-2",
+      "label": "幻击"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 12,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d24"
+    },
+    {
+      "t": "draw",
+      "uid": "d26"
+    },
+    {
+      "t": "draw",
+      "uid": "d21"
+    },
+    {
+      "t": "draw",
+      "uid": "d13"
+    },
+    {
+      "t": "draw",
+      "uid": "d17"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbaofenshen-2",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 2
+    },
+    {
+      "t": "exhaust",
+      "uid": "d21"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d24"
+    },
+    {
+      "t": "discard",
+      "uid": "d26"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-1",
+      "label": "幻击"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 7,
+      "blocked": 5,
+      "lethal": false
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-2",
+      "label": "幻击"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 12,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d25"
+    },
+    {
+      "t": "draw",
+      "uid": "d15"
+    },
+    {
+      "t": "draw",
+      "uid": "g5"
+    },
+    {
+      "t": "draw",
+      "uid": "g0"
+    },
+    {
+      "t": "draw",
+      "uid": "d23"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbaofenshen-2",
+      "amount": 12,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "zhangbaofenshen-2",
+      "status": "vulnerable",
+      "amount": 1
+    },
+    {
+      "t": "exhaust",
+      "uid": "g5"
+    },
+    {
+      "t": "exhaust",
+      "uid": "g0"
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d25"
+    },
+    {
+      "t": "discard",
+      "uid": "d23"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-1",
+      "label": "幻击"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 12,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-2",
+      "label": "聚形"
+    },
+    {
+      "t": "block",
+      "targetId": "zhangbaofenshen-2",
+      "amount": 8
+    },
+    {
+      "t": "draw",
+      "uid": "d16"
+    },
+    {
+      "t": "draw",
+      "uid": "d22"
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "g1"
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
+    },
+    {
+      "t": "draw",
+      "uid": "d25"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 8
+    },
+    {
+      "t": "draw",
+      "uid": "d26"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbaofenshen-1",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbaofenshen-2",
+      "amount": 1,
+      "blocked": 8,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "g1"
+    },
+    {
+      "t": "discard",
+      "uid": "d25"
+    },
+    {
+      "t": "discard",
+      "uid": "d26"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-1",
+      "label": "聚形"
+    },
+    {
+      "t": "block",
+      "targetId": "zhangbaofenshen-1",
+      "amount": 8
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-2",
+      "label": "幻击"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 8,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d27"
+    },
+    {
+      "t": "draw",
+      "uid": "d11"
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
+    },
+    {
+      "t": "draw",
+      "uid": "d13"
+    },
+    {
+      "t": "draw",
+      "uid": "d24"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbaofenshen-2",
+      "amount": 8,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d27"
+    },
+    {
+      "t": "discard",
+      "uid": "d24"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "zhangbaofenshen-1",
+      "label": "幻击"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 2,
+      "blocked": 10,
+      "lethal": true
+    }
+  ]
+}

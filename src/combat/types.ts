@@ -153,8 +153,34 @@ export interface Combatant {
   statuses: Partial<Record<StatusId, number>>;
 }
 
-export type IntentKind = 'attack' | 'defend' | 'buff' | 'debuff' | 'attack-defend';
+export type IntentKind =
+  | 'attack'
+  | 'defend'
+  | 'buff'
+  | 'debuff'
+  | 'attack-defend'
+  | 'summon'
+  | 'escape';
 
+/**
+ * Gate on a single move. Absent means "always on the table", which is what
+ * keeps a table with no conditions rolling over exactly the pool it always did.
+ *
+ * 「友军」 counts living enemies *including the mover itself*, so a lone enemy
+ * sits at `alliesAtLeast: 1`.
+ */
+export type MoveCondition =
+  | { c: 'selfHpBelow'; percent: number }
+  | { c: 'selfHpAtLeast'; percent: number }
+  | { c: 'turnAtLeast'; n: number }
+  | { c: 'alliesAtLeast'; n: number }
+  | { c: 'alliesAtMost'; n: number };
+
+/**
+ * One row of an enemy's move table. Everything an enemy can do is a field
+ * here — the engine reads the row and branches on no enemy id, the same
+ * contract `StatusDef` and `CardDef` are held to.
+ */
 export interface EnemyMove {
   id: string;
   label: string;
@@ -164,10 +190,66 @@ export interface EnemyMove {
   hits?: number;
   block?: number;
   status?: { status: StatusId; amount: number; to: 'player' | 'self' };
-  /** Relative pick weight. */
-  weight: number;
+  /** The same status on every living enemy, the mover included. */
+  statusAll?: { status: StatusId; amount: number };
+  /** Straight to the body: ignores 护甲, is not an attack, provokes no 反刺. */
+  loseHp?: number;
+  /** Shoves 状态牌 into the player's piles. Minted, so they die with the fight. */
+  addCards?: { defId: string; count: number; to: 'draw' | 'discard' | 'hand' };
+  /** New enemies appended to `state.enemies`; they act from the *next* turn. */
+  summon?: { defId: string; count: number };
+  /**
+   * 资财 lifted off the run. Reported as a `steal` event and nothing more — the
+   * engine never touches `RunState`, so the scene is what actually pays.
+   */
+  steal?: number;
+  /** Leaves the fight: no death, no kill hooks, no reward. */
+  escape?: boolean;
+  /** Relative pick weight. Defaults to 1, and is ignored while a script runs. */
+  weight?: number;
   /** How many times in a row this move may be chosen. */
   maxRepeat?: number;
+  /** Only selectable while this holds. */
+  when?: MoveCondition;
+}
+
+/**
+ * A fixed rotation. While one is set the weights are not consulted at all and
+ * no die is rolled — which is the point: a telegraphed套路 the player can learn
+ * is a different kind of fight from a weighted roll.
+ *
+ * The index is the enemy's *own* `actedTurns`, never `state.turn`: a summon
+ * that joins on turn 4 starts its script at the beginning, and an enemy that
+ * skipped a turn does not skip a beat.
+ */
+export interface EnemyScript {
+  /** Move ids, in order. */
+  order: string[];
+  /** Where the loop restarts once `order` runs out. Defaults to 0. */
+  loopFrom?: number;
+}
+
+/** An alternate move table an enemy switches into. Same shape as the default. */
+export interface EnemyPhase {
+  moves: EnemyMove[];
+  script?: EnemyScript;
+}
+
+/**
+ * Fires once, the moment the enemy's HP lands at or below `percent` of its
+ * maximum — inside the blow that took it there, so a half-HP transformation is
+ * live before the player's next card, not a turn late.
+ */
+export interface EnemyThreshold {
+  percent: number;
+  /** One-off statuses, e.g. 暴怒 or a lump of 神力. */
+  gain?: Partial<Record<StatusId, number>>;
+  /** Switch to a named entry of `phases`. Restarts that phase's script. */
+  phase?: string;
+  /** Break apart. The parent leaves without dying; children split its HP. */
+  split?: { defId: string; count: number };
+  /** Shown over the enemy's head. */
+  shout?: string;
 }
 
 export interface EnemyDef {
@@ -178,6 +260,16 @@ export interface EnemyDef {
   /** On-screen height in design units. */
   height: number;
   moves: EnemyMove[];
+  /** Statuses the enemy walks in with — 龟缩, 暴怒, 反刺, 蓄势, 重甲… */
+  passives?: Partial<Record<StatusId, number>>;
+  /** Fixed rotation instead of a weighted roll. */
+  script?: EnemyScript;
+  /** Alternate move tables, entered by a threshold's `phase`. */
+  phases?: Record<string, EnemyPhase>;
+  /** HP-line triggers, each firing at most once. */
+  thresholds?: readonly EnemyThreshold[];
+  /** The opening telegraph reads 「？」 until the enemy has acted once. */
+  hiddenFirstIntent?: boolean;
 }
 
 export interface EnemyState extends Combatant {
@@ -186,11 +278,22 @@ export interface EnemyState extends Combatant {
   height: number;
   /** The move that will resolve on the enemy's next turn. */
   intent: EnemyMove | null;
-  /** How many turns in a row `intent` has been repeated. */
+  /** How many times in a row `intent` has been repeated. */
   repeat: number;
   alive: boolean;
   /** Slot index, so the view can keep positions stable after a death. */
   slot: number;
+  /**
+   * Turns this enemy has actually acted on — the script cursor, and what
+   * `hiddenFirstIntent` reads. Not `state.turn`: a summon joins mid-fight.
+   */
+  actedTurns: number;
+  /** Named entry of `EnemyDef.phases` currently in force, or null for the default. */
+  phase: string | null;
+  /** Indices of `EnemyDef.thresholds` already spent. */
+  crossed: number[];
+  /** Left the fight rather than died: no kill hooks, no reward, still a win. */
+  escaped: boolean;
 }
 
 // ------------------------------------------------------------------- combat
@@ -211,6 +314,19 @@ export type CombatEvent =
   | { t: 'exhaust'; uid: string }
   | { t: 'shuffle' }
   | { t: 'enemyMove'; enemyId: string; label: string }
+  /** New enemies joined the fight. `spawned` are their `EnemyState.id`s. */
+  | { t: 'summon'; enemyId: string; spawned: string[] }
+  /** A body broke apart. The parent is gone but did *not* die. */
+  | { t: 'split'; parentId: string; spawned: string[] }
+  /** An enemy fled. Not a death: no kill hooks, no reward, the fight can end. */
+  | { t: 'escape'; targetId: string }
+  /**
+   * 资财 lifted off the run. The engine has no `RunState`, so this is the whole
+   * of the theft — whoever drives the fight is what actually debits the purse.
+   */
+  | { t: 'steal'; enemyId: string; amount: number }
+  /** A threshold fired: a line over the enemy's head. */
+  | { t: 'shout'; enemyId: string; text: string }
   /** A relic fired: flash its icon in the bar. */
   | { t: 'relic'; relicId: string }
   /** A 丹药 was drunk: empty its slot and flourish. */

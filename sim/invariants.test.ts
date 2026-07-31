@@ -19,7 +19,19 @@ import { answerChoices, findEncounter, simulateCombat } from './runCombat';
  * the "360 fights, zero violations" claim in the README, made standing.
  */
 
-const ENCOUNTERS = ['m1', 'm2', 'm3', 'm4', 'e1', 'b1'];
+/**
+ * Every encounter in both tables. The six originals plus todos/15's rows, which
+ * is where 召唤, 分裂, 遁走, 塞牌 and the scripted bosses actually get walked
+ * under three policies and twenty seeds each — the mechanics tests in
+ * `tests/enemies.test.ts` pin the numbers, this pins that nothing they do can
+ * leave the fight in an impossible shape.
+ */
+const ENCOUNTERS = [
+  'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8',
+  'm9', 'm10', 'm11',
+  'e1', 'e2', 'e3',
+  'b1', 'b2', 'b3',
+];
 const POLICY_NAMES: PolicyName[] = ['random', 'greedy', 'threat'];
 const RUNS_PER_COMBO = 20;
 
@@ -43,6 +55,22 @@ function assertInvariants(state: CombatState, where: string): void {
   for (const enemy of state.enemies) {
     if (enemy.alive) expect(enemy.hp, `${where}: ${enemy.id} alive at 0 hp`).toBeGreaterThan(0);
     else expect(enemy.intent, `${where}: ${enemy.id} dead but telegraphing`).toBeNull();
+  }
+
+  // Bodies that join mid-fight — 召唤 and 分裂 — must not collide with the ones
+  // already there. A duplicate id makes `playCard` target the wrong body and a
+  // duplicate slot stacks two sprites on one spot.
+  const ids = state.enemies.map((e) => e.id);
+  expect(new Set(ids).size, `${where}: two enemies share an id`).toBe(ids.length);
+  const slots = state.enemies.map((e) => e.slot);
+  expect(new Set(slots).size, `${where}: two enemies share a slot`).toBe(slots.length);
+
+  // 遁走 is not a death: an enemy that left is off the field but was never
+  // killed, so nothing downstream may pay a kill reward for it.
+  for (const enemy of state.enemies) {
+    if (!enemy.escaped) continue;
+    expect(enemy.alive, `${where}: ${enemy.id} escaped but still on the field`).toBe(false);
+    expect(enemy.hp, `${where}: ${enemy.id} escaped at 0 hp — that is a death`).toBeGreaterThan(0);
   }
 }
 

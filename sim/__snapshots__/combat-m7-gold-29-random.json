@@ -1,0 +1,417 @@
+{
+  "encounter": "m7",
+  "seed": "gold-29",
+  "policy": "random",
+  "deck": "base",
+  "result": {
+    "won": true,
+    "turns": 5,
+    "hpLeft": 40,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "qishou-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "qishou-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "discard",
+      "uid": "d0"
+    },
+    {
+      "t": "discard",
+      "uid": "d3"
+    },
+    {
+      "t": "discard",
+      "uid": "d5"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "qishou-0",
+      "label": "驰突"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 0,
+      "blocked": 4,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 3,
+      "blocked": 1,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "qishou-1",
+      "label": "踏阵"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "vulnerable",
+      "amount": 1
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "qishou-0",
+      "amount": 13,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "qishou-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d2"
+    },
+    {
+      "t": "discard",
+      "uid": "d8"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "qishou-0",
+      "label": "驰突"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 0,
+      "blocked": 4,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 3,
+      "blocked": 1,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "qishou-1",
+      "label": "驰突"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "block",
+      "targetId": "player",
+      "amount": 5
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "qishou-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "qishou-0"
+    },
+    {
+      "t": "discard",
+      "uid": "d2"
+    },
+    {
+      "t": "discard",
+      "uid": "d5"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "qishou-1",
+      "label": "驰突"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 0,
+      "blocked": 4,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 0,
+      "blocked": 4,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 2,
+      "blocked": 2,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "qishou-1",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "qishou-1",
+      "amount": 8,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "qishou-1",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "discard",
+      "uid": "d3"
+    },
+    {
+      "t": "discard",
+      "uid": "d8"
+    },
+    {
+      "t": "discard",
+      "uid": "d1"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "qishou-1",
+      "label": "踏阵"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 7,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "vulnerable",
+      "amount": 1
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "qishou-1",
+      "amount": 13,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "qishou-1",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "qishou-1"
+    }
+  ]
+}

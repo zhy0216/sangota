@@ -13,9 +13,12 @@ import type {
   CombatState,
   Effect,
   EffectCondition,
+  EnemyDef,
   EnemyMove,
+  EnemyPhase,
   EnemyState,
   Encounter,
+  MoveCondition,
   PendingChoice,
   QueuedStep,
   StatusId,
@@ -126,6 +129,13 @@ function liftInnate(cards: Record<string, CardInstance>, drawPile: string[]): st
   return [...drawPile.filter((uid) => !innate(uid)), ...drawPile.filter(innate)];
 }
 
+/**
+ * `passives` are written straight into the literal rather than pushed through
+ * `addStatus`: a 龟缩 8 an enemy was *printed* with is not something that was
+ * applied to it, so it must not emit a `status` event, must not be warded off
+ * by a 护身符 it also carries, and must not depend on table order. `rng.range`
+ * still runs exactly once per enemy, which is what keeps every seed replaying.
+ */
 function makeEnemy(defId: string, slot: number, rng: Rng): EnemyState {
   const def = getEnemy(defId);
   const hp = rng.range(def.hp[0], def.hp[1]);
@@ -138,29 +148,83 @@ function makeEnemy(defId: string, slot: number, rng: Rng): EnemyState {
     hp,
     maxHp: hp,
     block: 0,
-    statuses: {},
+    statuses: { ...def.passives },
     intent: null,
     repeat: 0,
     alive: true,
     slot,
+    actedTurns: 0,
+    phase: null,
+    crossed: [],
+    escaped: false,
   };
 }
 
+/** The move table in force: the phase the enemy switched into, or the default. */
+const moveSet = (def: EnemyDef, enemy: EnemyState): EnemyPhase =>
+  (enemy.phase ? def.phases?.[enemy.phase] : undefined) ?? def;
+
+/** Living enemies, the one asking included — 「友军」 in a `MoveCondition`. */
+const allyCount = (state: CombatState): number => aliveEnemies(state).length;
+
+function moveAllowed(state: CombatState, enemy: EnemyState, cond: MoveCondition): boolean {
+  switch (cond.c) {
+    // Integer maths, like every other HP condition: no float decides a move.
+    case 'selfHpBelow':
+      return enemy.hp * 100 < enemy.maxHp * cond.percent;
+    case 'selfHpAtLeast':
+      return enemy.hp * 100 >= enemy.maxHp * cond.percent;
+    case 'turnAtLeast':
+      return state.turn >= cond.n;
+    case 'alliesAtLeast':
+      return allyCount(state) >= cond.n;
+    case 'alliesAtMost':
+      return allyCount(state) <= cond.n;
+  }
+}
+
 /**
- * Weighted pick over the enemy's moves, skipping any move that has already run
- * `maxRepeat` times in a row so enemies don't lock into one action.
+ * Weighted pick over the moves currently on the table, skipping any move that
+ * has already run `maxRepeat` times in a row so enemies don't lock into one
+ * action. A table with no `when` on any row rolls over exactly the pool — same
+ * members, same order, same weights — that it always did.
  */
-export function pickIntent(state: CombatState, enemy: EnemyState): void {
-  const def = getEnemy(enemy.defId);
-  let pool = def.moves.filter(
+function rollMove(state: CombatState, enemy: EnemyState, moves: EnemyMove[]): EnemyMove {
+  const open = moves.filter((m) => !m.when || moveAllowed(state, enemy, m.when));
+  let pool = open.filter(
     (m) => !(enemy.intent?.id === m.id && enemy.repeat >= (m.maxRepeat ?? Infinity)),
   );
-  if (pool.length === 0) pool = def.moves;
+  // Two fallbacks, narrowest first: the repeat cap yields before a `when` gate
+  // does, and a table that gates every row out still has to produce something.
+  if (pool.length === 0) pool = open;
+  if (pool.length === 0) pool = moves;
 
-  const picked = state.rng.weighted(
+  return state.rng.weighted(
     pool,
-    pool.map((m) => m.weight),
+    pool.map((m) => m.weight ?? 1),
   );
+}
+
+/**
+ * The scripted branch. Rolls nothing at all: the whole value of a 套路 is that
+ * the same seed and a different one produce the same order.
+ */
+function scriptedMove(set: EnemyPhase, enemy: EnemyState): EnemyMove {
+  const order = set.script!.order;
+  const from = Math.min(Math.max(set.script!.loopFrom ?? 0, 0), order.length - 1);
+  let i = enemy.actedTurns;
+  if (i >= order.length) i = from + ((i - from) % (order.length - from));
+
+  const move = set.moves.find((m) => m.id === order[i]);
+  if (!move) throw new Error(`${enemy.defId}: script names unknown move '${order[i]}'`);
+  return move;
+}
+
+/** Chooses and telegraphs the enemy's next move. */
+export function pickIntent(state: CombatState, enemy: EnemyState): void {
+  const set = moveSet(getEnemy(enemy.defId), enemy);
+  const picked = set.script ? scriptedMove(set, enemy) : rollMove(state, enemy, set.moves);
+
   enemy.repeat = enemy.intent?.id === picked.id ? enemy.repeat + 1 : 1;
   enemy.intent = picked;
 }
@@ -266,11 +330,19 @@ export function endPlayerTurn(state: CombatState): void {
   checkEnd(state);
 }
 
-/** Resolves every living enemy's intent, then hands the turn back. */
+/**
+ * Resolves every living enemy's intent, then hands the turn back.
+ *
+ * Both loops walk one snapshot taken before anything moves, so a summon that
+ * lands mid-turn neither acts on the turn it was called (it was not on the
+ * field when the turn opened) nor has its telegraph re-rolled — `summonEnemies`
+ * already picked one for it.
+ */
 export function runEnemyTurn(state: CombatState): void {
   if (state.phase !== 'enemy') return;
+  const acting = [...state.enemies];
 
-  for (const enemy of state.enemies) {
+  for (const enemy of acting) {
     if (!enemy.alive) continue;
     clearBlock(enemy);
     tickStatuses(state, enemy, 'ownerTurnStart');
@@ -279,13 +351,16 @@ export function runEnemyTurn(state: CombatState): void {
     if (!move) continue;
     state.events.push({ t: 'enemyMove', enemyId: enemy.id, label: move.label });
     executeMove(state, enemy, move);
+    // Counted even for a move cut short by a 反刺 kill: the script cursor tracks
+    // turns taken, not blows landed.
+    enemy.actedTurns += 1;
     if (state.player.hp <= 0) {
       state.phase = 'lost';
       return;
     }
   }
 
-  for (const enemy of state.enemies) {
+  for (const enemy of acting) {
     if (!enemy.alive) continue;
     tickStatuses(state, enemy, 'ownerTurnEnd');
     pickIntent(state, enemy);
@@ -296,6 +371,15 @@ export function runEnemyTurn(state: CombatState): void {
   if (state.phase === 'enemy') startPlayerTurn(state);
 }
 
+/**
+ * One move, resolved in a fixed order:
+ *
+ *   护甲 → 伤害 → 状态 → 群体状态 → 直接扣血 → 塞牌 → 召唤 → 掠夺 → 遁走
+ *
+ * The first three are the order the game shipped with and are deliberately
+ * untouched. The rest hang off the back of it, and 遁走 is last for the obvious
+ * reason: an enemy has to finish what it came to do before it leaves.
+ */
 function executeMove(state: CombatState, enemy: EnemyState, move: EnemyMove): void {
   if (move.block) gainBlock(state, enemy, move.block, 'enemyMove');
   if (move.damage) {
@@ -311,6 +395,63 @@ function executeMove(state: CombatState, enemy: EnemyState, move: EnemyMove): vo
     const target = move.status.to === 'self' ? enemy : state.player;
     addStatus(state, target, move.status.status, move.status.amount);
   }
+  if (move.statusAll) {
+    // Snapshot: 群体状态 must not reach a body that joins later in this move.
+    for (const ally of aliveEnemies(state)) {
+      addStatus(state, ally, move.statusAll.status, move.statusAll.amount);
+    }
+  }
+  if (move.loseHp) {
+    resolveDamage(state, {
+      attacker: null,
+      defender: state.player,
+      base: move.loseHp,
+      isAttack: false,
+      pierceBlock: true,
+    });
+    if (state.player.hp <= 0) return;
+  }
+  if (move.addCards) {
+    const { defId, count, to } = move.addCards;
+    for (let i = 0; i < count; i++) placeCard(state, mintCard(state, defId, 0), to);
+  }
+  if (move.summon) summonEnemies(state, enemy, move.summon);
+  if (move.steal) state.events.push({ t: 'steal', enemyId: enemy.id, amount: move.steal });
+  if (move.escape) leaveFight(state, enemy);
+}
+
+/**
+ * Appends bodies to the field. `slot` is `enemies.length` and the array only
+ * ever grows, so both `slot` and the derived `id` stay unique for the whole
+ * fight even when the same def is called twice.
+ */
+function summonEnemies(
+  state: CombatState,
+  summoner: EnemyState,
+  spec: { defId: string; count: number },
+): void {
+  const spawned: string[] = [];
+  for (let i = 0; i < spec.count; i++) {
+    const child = makeEnemy(spec.defId, state.enemies.length, state.rng);
+    state.enemies.push(child);
+    // Telegraphed at birth, like any enemy `startCombat` builds.
+    pickIntent(state, child);
+    spawned.push(child.id);
+  }
+  state.events.push({ t: 'summon', enemyId: summoner.id, spawned });
+}
+
+/**
+ * Off the field without dying. No `death` event and no `enemyKilled` hook — 枭首令
+ * must not pay 神力 for a thief who got away — but `alive: false` all the same,
+ * so a room emptied by flight is still a win.
+ */
+function leaveFight(state: CombatState, enemy: EnemyState): void {
+  if (!enemy.alive) return;
+  enemy.alive = false;
+  enemy.escaped = true;
+  enemy.intent = null;
+  state.events.push({ t: 'escape', targetId: enemy.id });
 }
 
 // ------------------------------------------------------------- playing cards
@@ -768,6 +909,12 @@ export function resolveDamage(state: CombatState, ctx: DamageContext): void {
     state.events.push({ t: 'heal', targetId: defender.id, amount: revive });
   }
 
+  // 血线触发 lands inside the blow that crossed the line, after the kill has
+  // been ruled out and before the death event — a half-HP transformation is
+  // live for the player's very next card, not a turn late. A corpse transforms
+  // into nothing, hence `!lethal`.
+  if (!lethal && defender.id !== state.player.id) checkThresholds(state, defender.id);
+
   if (lethal && defender.id !== state.player.id) {
     const enemy = state.enemies.find((e) => e.id === defender.id);
     if (enemy && enemy.alive) {
@@ -811,6 +958,81 @@ export function applyDamage(state: CombatState, target: Combatant, damage: numbe
     isAttack: false,
     pierceBlock: false,
   });
+}
+
+// ------------------------------------------------------------- 血线触发
+
+/**
+ * Spends whichever `thresholds` rows the enemy has just fallen through. Each
+ * row fires at most once per fight, tracked by index on the body rather than by
+ * a boolean per effect, so a def can carry as many lines as it likes.
+ */
+function checkThresholds(state: CombatState, targetId: string): void {
+  const enemy = state.enemies.find((e) => e.id === targetId);
+  if (!enemy || !enemy.alive) return;
+  const def = getEnemy(enemy.defId);
+  // The early exit that keeps this off the hot path: every hit on every enemy
+  // in the game runs the two lookups above and then stops here.
+  if (!def.thresholds) return;
+
+  def.thresholds.forEach((row, i) => {
+    if (!enemy.alive || enemy.crossed.includes(i)) return;
+    // Integer maths: no float compare decides whether a boss transforms.
+    if (enemy.hp * 100 > enemy.maxHp * row.percent) return;
+    enemy.crossed.push(i);
+
+    if (row.shout) state.events.push({ t: 'shout', enemyId: enemy.id, text: row.shout });
+    if (row.gain) {
+      for (const [id, n] of Object.entries(row.gain)) {
+        addStatus(state, enemy, id as StatusId, n as number);
+      }
+    }
+    if (row.phase) enterPhase(state, enemy, row.phase);
+    if (row.split) splitEnemy(state, enemy, row.split);
+  });
+}
+
+/**
+ * Switches move tables. The script cursor and the repeat counter both reset —
+ * a new form starts its 套路 at the beginning — and the intent is re-picked at
+ * once, so the badge over the enemy's head answers to the new table before the
+ * player takes another action.
+ */
+function enterPhase(state: CombatState, enemy: EnemyState, phase: string): void {
+  enemy.phase = phase;
+  enemy.actedTurns = 0;
+  enemy.repeat = 0;
+  enemy.intent = null;
+  pickIntent(state, enemy);
+}
+
+/**
+ * Breaks a body into `count` smaller ones, each carrying half of what was left
+ * of it, rounded up. The parent leaves the field *without dying*: no `death`
+ * event, no `enemyKilled` hook and no kill-triggered status — splitting is not
+ * a kill, and paying 斩将 for it would let a boss hand out free 神力.
+ */
+function splitEnemy(
+  state: CombatState,
+  parent: EnemyState,
+  spec: { defId: string; count: number },
+): void {
+  const hp = Math.ceil(parent.hp / 2);
+  const spawned: string[] = [];
+  for (let i = 0; i < spec.count; i++) {
+    const child = makeEnemy(spec.defId, state.enemies.length, state.rng);
+    // The def's own roll is spent and then overwritten: a child's HP is a
+    // function of the parent, and the roll has to happen either way so that
+    // adding a split to a table cannot shift the stream for everything after it.
+    child.hp = hp;
+    child.maxHp = hp;
+    state.enemies.push(child);
+    pickIntent(state, child);
+    spawned.push(child.id);
+  }
+  parent.alive = false;
+  parent.intent = null;
+  state.events.push({ t: 'split', parentId: parent.id, spawned });
 }
 
 /** What `amount` block from `source` is actually worth to `target` right now. */
@@ -1040,6 +1262,10 @@ export function describeCard(
 export function intentLabel(state: CombatState, enemy: EnemyState): string {
   const move = enemy.intent;
   if (!move) return '';
+  // 意图不可知. Read off the *label* alone, deliberately: hiding a telegraph must
+  // not change which move was picked, or the same seed would play differently
+  // depending on a presentation flag.
+  if (getEnemy(enemy.defId).hiddenFirstIntent && enemy.actedTurns === 0) return '？';
   if (move.damage) {
     const perHit = clampIncoming(computeAttack(move.damage, enemy, state.player), state.player);
     const hits = move.hits ?? 1;
@@ -1048,6 +1274,9 @@ export function intentLabel(state: CombatState, enemy: EnemyState): string {
     if (move.status) return `攻 ${dmg} · 弱`;
     return `攻 ${dmg}`;
   }
+  if (move.loseHp) return `伤 ${move.loseHp}`;
+  if (move.summon) return '召';
+  if (move.escape) return '遁';
   if (move.intent === 'buff') return move.block ? '强化 · 守' : '强化';
   if (move.intent === 'defend') return '守';
   return move.label;

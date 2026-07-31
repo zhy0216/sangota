@@ -1,0 +1,324 @@
+{
+  "encounter": "e2",
+  "seed": "gold-34",
+  "policy": "greedy",
+  "deck": "base",
+  "result": {
+    "won": true,
+    "turns": 4,
+    "hpLeft": 42,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d8"
+    },
+    {
+      "t": "discard",
+      "uid": "d6"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "guanhai-0",
+      "label": "巨斧"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 16,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "shout",
+      "enemyId": "guanhai-0",
+      "text": "「困兽犹斗！」"
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 2
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d5"
+    },
+    {
+      "t": "discard",
+      "uid": "d7"
+    },
+    {
+      "t": "discard",
+      "uid": "d3"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "guanhai-0",
+      "label": "怒吼"
+    },
+    {
+      "t": "block",
+      "targetId": "guanhai-0",
+      "amount": 8
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 2
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 8,
+      "blocked": 8,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "discard",
+      "uid": "d3"
+    },
+    {
+      "t": "discard",
+      "uid": "d6"
+    },
+    {
+      "t": "discard",
+      "uid": "d0"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "guanhai-0",
+      "label": "巨斧"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 24,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 13,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "guanhai-0",
+      "status": "strength",
+      "amount": 1
+    },
+    {
+      "t": "damage",
+      "targetId": "guanhai-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "guanhai-0"
+    }
+  ]
+}

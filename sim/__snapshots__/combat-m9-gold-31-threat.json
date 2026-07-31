@@ -1,0 +1,240 @@
+{
+  "encounter": "m9",
+  "seed": "gold-31",
+  "policy": "threat",
+  "deck": "base",
+  "result": {
+    "won": true,
+    "turns": 3,
+    "hpLeft": 62,
+    "hpMax": 82,
+    "aborted": null
+  },
+  "events": [
+    {
+      "t": "draw",
+      "uid": "d0"
+    },
+    {
+      "t": "draw",
+      "uid": "d7"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "bandit-1",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "bandit-1",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "bandit-1",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d7"
+    },
+    {
+      "t": "discard",
+      "uid": "d3"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "liukou-0",
+      "label": "摸金"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 8,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "bandit-1",
+      "label": "偷袭"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "weak",
+      "amount": 1
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "draw",
+      "uid": "d8"
+    },
+    {
+      "t": "draw",
+      "uid": "d9"
+    },
+    {
+      "t": "draw",
+      "uid": "d6"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "bandit-1",
+      "amount": 8,
+      "blocked": 0,
+      "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "bandit-1"
+    },
+    {
+      "t": "status",
+      "targetId": "bandit-1",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
+      "t": "damage",
+      "targetId": "liukou-0",
+      "amount": 4,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d8"
+    },
+    {
+      "t": "discard",
+      "uid": "d6"
+    },
+    {
+      "t": "discard",
+      "uid": "d5"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "liukou-0",
+      "label": "摸金"
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 8,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "shuffle"
+    },
+    {
+      "t": "draw",
+      "uid": "d2"
+    },
+    {
+      "t": "draw",
+      "uid": "d3"
+    },
+    {
+      "t": "draw",
+      "uid": "d4"
+    },
+    {
+      "t": "draw",
+      "uid": "d5"
+    },
+    {
+      "t": "draw",
+      "uid": "d1"
+    },
+    {
+      "t": "passive",
+      "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "liukou-0",
+      "amount": 9,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "liukou-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "liukou-0",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "discard",
+      "uid": "d5"
+    },
+    {
+      "t": "discard",
+      "uid": "d1"
+    },
+    {
+      "t": "enemyMove",
+      "enemyId": "liukou-0",
+      "label": "遁走"
+    },
+    {
+      "t": "steal",
+      "enemyId": "liukou-0",
+      "amount": 30
+    },
+    {
+      "t": "escape",
+      "targetId": "liukou-0"
+    }
+  ]
+}

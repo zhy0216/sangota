@@ -81,6 +81,27 @@ const CASES: Case[] = [
     policy: 'greedy',
     potions: ['huoyouguan', 'zhuangxingjiu', 'hulangzhiyao'],
   },
+
+  /*
+   * Cases 27-37 are todos/15's rows: one fixed fight per new mechanic, so a
+   * later pass over `pickIntent` / `executeMove` / `resolveDamage` cannot move
+   * a summon, a split, an escape or a scripted rotation by a single point
+   * without a file changing. The 26 above are the guard on the *old* engine
+   * behaving identically; these are the guard on the new behaviour holding.
+   */
+  { encounterId: 'm5', seed: 'gold-27', policy: 'greedy' }, // 三人成群
+  { encounterId: 'm6', seed: 'gold-28', policy: 'threat' }, // 群体 buff + 直接扣血
+  { encounterId: 'm7', seed: 'gold-29', policy: 'random' }, // 意图不可知
+  { encounterId: 'm8', seed: 'gold-30', policy: 'greedy' }, // 祭酒督阵
+  { encounterId: 'm9', seed: 'gold-31', policy: 'threat' }, // 掠夺 + 遁走
+  { encounterId: 'm10', seed: 'gold-32', policy: 'random' }, // 塞牌 + 重甲
+  { encounterId: 'm11', seed: 'gold-33', policy: 'threat' }, // 龟缩
+  { encounterId: 'e2', seed: 'gold-34', policy: 'greedy' }, // 暴怒 + 血线
+  // Base deck and `random` on purpose: 张曼成 is thin, and the two decks that
+  // kill him on turn three never see him call anybody.
+  { encounterId: 'e3', seed: 'gold-35', policy: 'random' }, // 召唤
+  { encounterId: 'b2', seed: 'gold-36', policy: 'greedy' }, // 脚本化五段
+  { encounterId: 'b3', seed: 'gold-37', policy: 'threat', deck: 'wide' }, // 半血分裂
 ];
 
 /**
