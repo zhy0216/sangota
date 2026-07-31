@@ -1,4 +1,5 @@
 import { C } from '../config';
+import { ZHAOYUN_CARDS, ZHUGELIANG_CARDS } from '../data/heroCards';
 import { CURSES, NEGATIVE_TYPE_META, STATUS_CARDS } from './curses';
 import type { CardDef, CardRarity, CardType } from './types';
 
@@ -683,12 +684,28 @@ const COLORLESS_CARDS: Record<string, CardDef> = tagHero('colorless', {
 });
 
 /**
+ * The other heroes' tables (todos/17). They are declared in `src/data/heroCards.ts`
+ * — data only, no imports back into the rules cycle — and stamped here, so a
+ * card's `hero` is decided by the table it lives in exactly the way 关羽's is.
+ *
+ * 关羽's table deliberately stays above, beside the 无色 stock it was written
+ * with: moving it would re-order nothing that matters *today*, but every
+ * existing 关羽 seed indexes into arrays derived from that declaration order,
+ * and there is no reason to take the risk for a tidier file.
+ */
+const ZHAOYUN = tagHero('zhaoyun', ZHAOYUN_CARDS);
+const ZHUGELIANG = tagHero('zhugeliang', ZHUGELIANG_CARDS);
+
+/**
  * Every card the game can name. Curses and status cards live in here so
  * `getCard` resolves them and the piles can hold them — their exclusion from
- * rewards is enforced by rarity, not by a second table.
+ * rewards is enforced by rarity, not by a second table. Hero 令牌 (「锦囊」) are
+ * in here for the same reason and kept out of the pools the same way: `basic`.
  */
 export const CARDS: Record<string, CardDef> = {
   ...GUANYU_CARDS,
+  ...ZHAOYUN,
+  ...ZHUGELIANG,
   ...COLORLESS_CARDS,
   ...CURSES,
   ...STATUS_CARDS,
@@ -723,14 +740,15 @@ export function poolsOf(table: Record<string, CardDef>): CardPools {
 }
 
 /**
- * Every hero's pool, by hero id. 无色 is deliberately absent — those cards are
+ * Every hero's pool, by hero id — the keys must match `HeroDef.id`, and a hero
+ * missing from the table drafts nothing, which is loud rather than silently
+ * dealing someone else's cards. 无色 is deliberately absent: those cards are
  * sold, never drafted, and `availableRarity` walks this table.
- *
- * todos/17 adds 赵云 here; a hero missing from the table drafts nothing, which
- * is loud rather than silently dealing someone else's cards.
  */
 export const HERO_CARD_POOLS: Record<string, CardPools> = {
   guanyu: poolsOf(GUANYU_CARDS),
+  zhaoyun: poolsOf(ZHAOYUN),
+  zhugeliang: poolsOf(ZHUGELIANG),
 };
 
 /**

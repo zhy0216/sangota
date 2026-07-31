@@ -127,6 +127,150 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
     ],
   },
   bazhentu: { effects: [{ kind: 'status', status: 'metallicize', amount: 5, to: 'self' }] },
+
+  // --- todos/17 赵云 · 连击 -------------------------------------------------
+  tuzhen: { effects: [{ kind: 'damage', amount: 9 }] },
+  luema: { effects: [{ kind: 'block', amount: 8 }] },
+  longdan: {
+    effects: [
+      { kind: 'damage', amount: 5 },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [{ kind: 'draw', amount: 1 }],
+      },
+    ],
+  },
+  tingqiang: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 1 },
+        then: [{ kind: 'damage', amount: 12 }],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+  },
+  qitanpanshe: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 1 },
+        then: [{ kind: 'scaleWithAttacks', per: [{ kind: 'damage', amount: 7 }] }],
+        otherwise: [{ kind: 'damage', amount: 7 }],
+      },
+    ],
+  },
+  kongyingji: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attackPlayedThisTurn' },
+        then: [{ kind: 'block', amount: 8 }],
+        otherwise: [{ kind: 'block', amount: 14 }],
+      },
+    ],
+  },
+  sanjinsanchu: { effects: [{ kind: 'damage', amount: 4, times: 3 }] },
+  jiejiang: {
+    effects: [
+      { kind: 'block', amount: 6 },
+      { kind: 'scaleWithAttacks', per: [{ kind: 'block', amount: 4 }] },
+    ],
+  },
+  xueranzhengpao: {
+    effects: [
+      { kind: 'loseHp', amount: 3 },
+      { kind: 'damage', amount: 14 },
+    ],
+  },
+  yishenshidan: {
+    effects: [
+      { kind: 'status', status: 'buffer', amount: 3, to: 'self' },
+      { kind: 'status', status: 'strength', amount: 1, to: 'self' },
+    ],
+  },
+  danqijiuzhu: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'hpBelow', percent: 50 },
+        then: [
+          { kind: 'damage', amount: 20 },
+          { kind: 'heal', amount: 8 },
+        ],
+        otherwise: [{ kind: 'damage', amount: 11 }],
+      },
+    ],
+  },
+  lizhanwujiang: { effects: [{ kind: 'damage', amount: 7, times: 5 }] },
+
+  // --- todos/17 诸葛亮 · 锦囊 -----------------------------------------------
+  yuanrongnu: { effects: [{ kind: 'damage', amount: 4, times: 2 }] },
+  jushou: { effects: [{ kind: 'block', amount: 8 }] },
+  longzhongdui: {
+    effects: [{ kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' }],
+  },
+  /**
+   * 「锦囊」 is minted in combat and never drafted, so it deliberately carries no
+   * `upgrade` — `resolveCard(id, 1)` gives back the base def. Listed with an
+   * empty override so this suite still accounts for it rather than skipping it.
+   */
+  jinnang: {},
+  jiejianzhiji: {
+    effects: [
+      { kind: 'block', amount: 9 },
+      { kind: 'addCard', defId: 'jinnang', count: 1, to: 'hand' },
+    ],
+  },
+  jiedongfeng: {
+    effects: [
+      { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
+      { kind: 'draw', amount: 1 },
+    ],
+  },
+  huoji: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 3 },
+        then: [{ kind: 'damage', amount: 16 }],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+  },
+  kongchengji: {
+    effects: [
+      { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+      { kind: 'block', amount: 11 },
+    ],
+  },
+  qixingdeng: { effects: [{ kind: 'status', status: 'regen', amount: 6, to: 'self' }] },
+  muniuliuma: { cost: 0 },
+  wolongchushan: {
+    effects: [
+      { kind: 'status', status: 'strength', amount: 3, to: 'self' },
+      { kind: 'addCard', defId: 'jinnang', count: 2, to: 'hand' },
+    ],
+  },
+  chushibiao: {
+    effects: [
+      { kind: 'energy', amount: 2 },
+      { kind: 'draw', amount: 3 },
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 3 },
+        then: [{ kind: 'draw', amount: 2 }],
+      },
+    ],
+  },
+  qiqinqizong: {
+    effects: [
+      { kind: 'status', status: 'vulnerable', amount: 4, to: 'allEnemies' },
+      { kind: 'status', status: 'weak', amount: 4, to: 'allEnemies' },
+      { kind: 'draw', amount: 2 },
+    ],
+  },
 };
 
 /** Minimal combat state to preview a card face against — no enemies needed. */

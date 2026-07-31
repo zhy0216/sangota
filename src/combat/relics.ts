@@ -154,6 +154,70 @@ export const RELICS: Record<string, RelicDef> = {
       def.type === 'attack' && state.attacksThisTurn === 0 ? value : 0,
   },
 
+  /**
+   * 赵云's 起手宝物 (todos/17). Deliberately 青龙偃月刀 shifted by one: 关羽 is
+   * paid for the turn's *first* swing, 赵云 for its second, so the two starters
+   * pull their decks in opposite directions from the first fight — one toward
+   * few fat cards, one toward many cheap ones.
+   *
+   * Shifted rather than replaced with a draw (`combatStart`) because a one-off
+   * two cards is worth a fixed ~10 damage a fight while 关羽's bonus is worth 3
+   * *per turn*; measured against the same starting-deck bench, the draw left
+   * 赵云 losing 精英 fights 关羽 wins at full health.
+   */
+  yajiaoqiang: {
+    id: 'yajiaoqiang',
+    name: '涯角枪',
+    tier: 'starter',
+    art: 'relic-yajiaoqiang',
+    text: '每回合第二次打出【攻】牌时，该牌额外造成 {N} 点伤害。',
+    value: 4,
+    banner: '涯角连枪',
+    damageBonus: ({ state, def, value }) =>
+      def.type === 'attack' && state.attacksThisTurn === 1 ? value : 0,
+  },
+
+  /**
+   * 诸葛亮's 起手宝物 (todos/17). Named for the other half of 羽扇纶巾 because
+   * 「羽扇」 is already a 罕见 relic below — the pair reads as intended and no id
+   * moves.
+   *
+   * The same trade 赤兔马 offers, printed as a hero instead of as a 首领 reward:
+   * his whole pool is written around a short hand (「锦囊」 mints its own cards
+   * back), and his 68 体力 is what pays for the 气. Stacking it with 赤兔马 is
+   * legal and reads as 5 气 / 3 张, which is a build, not an accident.
+   */
+  guanjin: {
+    id: 'guanjin',
+    name: '纶巾',
+    tier: 'starter',
+    art: 'relic-guanjin',
+    text: '气上限 +{N}，但每回合少抽 1 张牌。',
+    value: 1,
+    modifiers: { energy: 1, handSize: -1 },
+  },
+
+  /**
+   * 开局祝福's 「不受」 (todos/18). `tier: 'starter'` for the same reason the
+   * three 起手宝物 are: no source rolls that tier, so this can never be dropped,
+   * offered or stocked — it is handed out by exactly one option on exactly one
+   * screen, and refusing every gift is the only way to own it.
+   *
+   * The text says 「所得资财」 rather than 「战斗资财」 because `goldMultiplier`
+   * lives inside `addGold` and lifts *every* positive income: fights, chests,
+   * events, the 祝福 that granted it. Bending the words to the mechanism is
+   * cheaper than growing a second way of paying the player.
+   */
+  buyi: {
+    id: 'buyi',
+    name: '布衣',
+    tier: 'starter',
+    art: 'relic-buyi',
+    text: '所得资财 +{N}%。坊市不售宝物于你。',
+    value: 25,
+    modifiers: { goldMultiplier: 1.25, noRelicPurchase: true },
+  },
+
   shufajinguan: {
     id: 'shufajinguan',
     name: '束发金冠',
