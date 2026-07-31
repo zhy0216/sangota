@@ -84,7 +84,7 @@ Neow（鲸鱼）在跑团开始时给**四选一**，是原版每局最早的构
 
 ## 数据结构
 
-复用 [06 事件](06-events.md) 的 `EventOutcome`——开局祝福**本质上就是一个
+复用 [06 事件](06-events-done.md) 的 `EventOutcome`——开局祝福**本质上就是一个
 特殊事件**，不该再造一套结果系统。
 
 ```ts
@@ -108,7 +108,7 @@ export interface BlessingOption {
 export function rollBlessings(rng: Rng): BlessingOption[];
 ```
 
-需要给 `EventOutcome`（[06](06-events.md)）补两个字段：
+需要给 `EventOutcome`（[06](06-events-done.md)）补两个字段：
 
 ```ts
 export interface EventOutcome {
@@ -125,7 +125,7 @@ export interface EventOutcome {
 1. `src/rooms/blessing.ts`：写选项池 + `rollBlessings(rng)`。
    - `rng` 用 `new Rng(\`${runSeed}:blessing\`)`，保证同 seed 同选项
    - trade 类的配对也走同一个 rng
-2. 场景 `src/scenes/BlessingScene.ts`（或复用 [04](04-campfire.md) 的 `RoomScene`
+2. 场景 `src/scenes/BlessingScene.ts`（或复用 [04](04-campfire-done.md) 的 `RoomScene`
    加一个 `blessing` 模式）：
    - 背景：夜色下的营地/山道（`genmedia` 生成一张）
    - 左侧道人立绘 + 一句台词（「将军此去，可有所求？」）
@@ -145,7 +145,7 @@ export interface EventOutcome {
    autosave 应该在祝福选完之后，否则读档会重新弹祝福（或者要在
    `SavedRun` 里记 `blessingTaken: boolean`）。
 7. 「布衣」这件独特宝物需要遗物系统支持「禁止购买宝物」——
-   商店（[05](05-shop.md)）要检查这个标志并把遗物区整体灰掉。
+   商店（[05](05-shop-done.md)）要检查这个标志并把遗物区整体灰掉。
 
 ## 验收标准
 
@@ -163,7 +163,7 @@ export interface EventOutcome {
 
 ## 依赖
 
-- [06 事件](06-events.md)——**强依赖**，复用 `EventOutcome` 和 `applyOutcome`
+- [06 事件](06-events-done.md)——**强依赖**，复用 `EventOutcome` 和 `applyOutcome`
 - [07 牌堆查看器](07-deck-viewer-done.md)——选牌类选项
 - [01 遗物](01-relics-done.md) / [02 药水](02-potions-done.md) / [03 升级](03-card-upgrades-done.md)
   / [11 稀有度](11-card-rarity-and-rewards-done.md) / [14 诅咒](14-curses-and-status-cards-done.md)

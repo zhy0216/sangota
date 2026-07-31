@@ -141,9 +141,9 @@ export interface CustomRunConfig {
    关羽 + 现有 11 张牌的一部分，保证第一局能玩。
 2. **所有随机池抽取加解锁过滤**（漏一处解锁就形同虚设）：
    - `rollCardReward`（[11](11-card-rarity-and-rewards-done.md)）
-   - `rollRelic`（[10](10-relic-rewards.md)）
-   - 商店库存（[05](05-shop.md)）
-   - 事件的 `gainCards` / `gainRelic`（[06](06-events.md)）
+   - `rollRelic`（[10](10-relic-rewards-done.md)）
+   - 商店库存（[05](05-shop-done.md)）
+   - 事件的 `gainCards` / `gainRelic`（[06](06-events-done.md)）
    - 开局祝福（[18](18-neow-blessing.md)）
 3. `seenEnemies` 埋点：`startCombat`（`src/combat/engine.ts:43`）
    建敌人时记录。同样通过事件或由 `CombatScene` 写，不要让引擎碰持久化。

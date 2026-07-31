@@ -101,7 +101,7 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
 2. **宝藏房间**改成真界面：
    - `MapScene.enterRoom` 的 `case 'treasure'`（`MapScene.ts:336-341`）
      改成 `this.scene.start('Room', { node })`
-   - 复用 [04](04-campfire.md) 的 `RoomScene`，画一个箱子（尺寸随
+   - 复用 [04](04-campfire-done.md) 的 `RoomScene`，画一个箱子（尺寸随
      `ChestSize` 变），点击 → 开箱动画（金光 + 尘埃，`src/ui/vfx.ts` 已有素材）
      → 逐项展示遗物/金币/丹药
    - 丹药槽满时给替换/放弃弹窗（同 [02](02-potions-done.md)）
@@ -141,6 +141,6 @@ export function rollChest(run: RunState, nodeId: string): ChestLoot;
 
 - [01 遗物](01-relics-done.md)——遗物系统本体
 - [02 药水](02-potions-done.md)——宝箱附赠
-- [04 营帐](04-campfire.md)——`RoomScene` 壳
+- [04 营帐](04-campfire-done.md)——`RoomScene` 壳
 - [11 稀有度](11-card-rarity-and-rewards-done.md)——精英选卡加权
 - [09 多幕](09-acts-and-progression.md)——Boss 宝箱和宝钥的意义

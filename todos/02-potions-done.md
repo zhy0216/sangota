@@ -156,9 +156,9 @@ export interface RunState {
 
 ## 仍未做
 
-- **商店卖药 / 事件给药**：分属 [05](05-shop.md) / [06](06-events.md)，
+- **商店卖药 / 事件给药**：分属 [05](05-shop-done.md) / [06](06-events-done.md)，
   `addPotion` 和满槽弹窗都已经是共用原语。
-- **宝箱附赠丹药**：[10 遗物奖励](10-relic-rewards.md) 的步骤。
-- **Boss 战前提醒「药水没用完」**：需要营帐屏，属 [04](04-campfire.md)。
+- **宝箱附赠丹药**：[10 遗物奖励](10-relic-rewards-done.md) 的步骤。
+- **Boss 战前提醒「药水没用完」**：需要营帐屏，属 [04](04-campfire-done.md)。
 - **改掉率的遗物**：`modifiers.potionSlots` 通路已由 药囊 验证，掉率修饰
   目前没有挂点。

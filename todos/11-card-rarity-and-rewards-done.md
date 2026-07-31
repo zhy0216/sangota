@@ -126,7 +126,7 @@ export interface RunState {
 4. 新卡内容：13 张，落在 uncommon/rare 为主。写完后**必须**跑
    [25 无头模拟](25-headless-sim-and-tests-done.md) 看新卡有没有把 Boss 胜率
    拉过头（README 记录的基线是贪心 41% / 威胁感知 71%）。
-5. 商店卡牌库存（[05 商店](05-shop.md)）走同一套 `rollCardReward`
+5. 商店卡牌库存（[05 商店](05-shop-done.md)）走同一套 `rollCardReward`
    但 `tier: 'monster'` 且加入 `COLORLESS_POOL`，`count: 5`。
 6. 遗物联动：做两件验证 `cardRewardCount` 通路的遗物
    （「求贤令」+1 张 / 「独断」-2 张但换 boss 遗物）。
@@ -207,8 +207,8 @@ export interface RunState {
 ## 仍未做
 
 - **商店库存**（步骤 5）：`rollCardReward` 已经可以带 `tier: 'monster'` +
-  `count: 5` 复用，但 `COLORLESS_POOL` 目前是空的，等 [05 商店](05-shop.md)。
+  `count: 5` 复用，但 `COLORLESS_POOL` 目前是空的，等 [05 商店](05-shop-done.md)。
 - **无色牌本身**：池子留了口子，一张都还没写。
 - **Boss 奖励「一定给 rare 的机会」**：现在只是权重更高（40/40/20），
   没有做保底。
-- **发放这三件新遗物的渠道**：属 [10 遗物奖励](10-relic-rewards.md) / [05](05-shop.md)。
+- **发放这三件新遗物的渠道**：属 [10 遗物奖励](10-relic-rewards-done.md) / [05](05-shop-done.md)。

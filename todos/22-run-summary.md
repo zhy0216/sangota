@@ -165,7 +165,7 @@ export function computeScore(run: RunState, victory: boolean): {
      `RunState`（会破坏它的纯函数性质，也会破坏无头模拟）
 2. **死亡流程**：`CombatScene.ts:1140` 的 `lost` 分支改成
    `scene.start('Summary', { victory: false, killedBy: <最后行动的敌人名> })`。
-   死于事件（[06 事件](06-events.md)）也走这里，`killedBy: 'event'`。
+   死于事件（[06 事件](06-events-done.md)）也走这里，`killedBy: 'event'`。
 3. **胜利流程**：打完最后一个 Boss（`act === 3` 无终章，或 `act === 4` 终章）
    → `scene.start('Summary', { victory: true })`。这修掉当前那个
    「打完吕布卡在地图上」的断点。

@@ -76,7 +76,7 @@ export type CardType = 'attack' | 'skill' | 'power' | 'curse' | 'status';
 | **泥泞** | 1 费打出并消耗（纯浪费一点气）。 | exhaust |
 | **醉** | 不可打出。抽到时失去 1 气。 | unplayable |
 
-「醉」用于 [06 事件](06-events.md) 的「醉酒张飞」。
+「醉」用于 [06 事件](06-events-done.md) 的「醉酒张飞」。
 
 ### 两个必须处理的边界
 
@@ -139,15 +139,15 @@ export const CURSE_POOL: string[];
      所以这一步应当由 `CombatScene` 在结算前调一个
      `resolveCombatEndHooks(state, run)`
 4. `addCurse(run, defId)`：往 `run.deck` push 一张 `DeckCard`。
-   事件（[06](06-events.md)）和遗物调它。
+   事件（[06](06-events-done.md)）和遗物调它。
 5. 状态牌生成走 [13 关键词](13-card-keywords-done.md) 的
    `{ kind: 'addCard', defId: 'fenying', count: 2, to: 'discard' }`。
 6. **敌人生成状态牌**：`EnemyMove` 需要能塞牌。见
    [15 敌人机制](15-enemy-mechanics.md)——`EnemyMove` 加
    `addCards?: { defId: string; count: number; to: 'draw'|'discard'|'hand' }`。
    典型用法：西凉铁骑的「扬尘」往抽牌堆塞 2 张「创伤」。
-7. **移除手段**：[05 商店](05-shop.md) 的弃卡服务是主渠道；
-   再做一件「静心香」遗物解锁营帐弃甲（[04](04-campfire.md)）；
+7. **移除手段**：[05 商店](05-shop-done.md) 的弃卡服务是主渠道；
+   再做一件「静心香」遗物解锁营帐弃甲（[04](04-campfire-done.md)）；
    一个「五丈原」事件能清一张诅咒。**必须有足够的移除渠道**，
    否则诅咒只是纯粹的挫败感。
 8. 牌堆查看器（[07](07-deck-viewer-done.md)）的排序把诅咒/状态牌排在最后。
@@ -172,7 +172,7 @@ export const CURSE_POOL: string[];
   是这些牌的基础，`addCard` 是生成手段
 - [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` 实例化
 - [11 稀有度](11-card-rarity-and-rewards-done.md)——确保不进奖励池
-- 移除渠道依赖 [05 商店](05-shop.md) / [04 营帐](04-campfire.md)
+- 移除渠道依赖 [05 商店](05-shop-done.md) / [04 营帐](04-campfire-done.md)
   ——**不要在移除渠道就绪前上线诅咒**
 
 ---
@@ -211,8 +211,8 @@ export const CURSE_POOL: string[];
   [15 敌人机制](15-enemy-mechanics.md)，这里只备好了 `STATUS_POOL` 和
   `{ kind: 'addCard' }` 通路。
 - **移除渠道的界面**（步骤 7）：`removeCard` 有了，商店/营帐/五丈原的屏幕
-  分别属于 [05](05-shop.md) / [04](04-campfire.md) / [06](06-events.md)。
+  分别属于 [05](05-shop-done.md) / [04](04-campfire-done.md) / [06](06-events-done.md)。
   **在其中至少一个上线前，不要让任何事件真的发诅咒。**
 - **营帐锻造界面的灰显与原因提示**：`canUpgrade` 已经对诅咒返回 false、
   `upgradableCards` 已经把它们排除，`CardGridEntry.disabledReason` 也已就位，
-  但那个界面本身还不存在（[04](04-campfire.md)）。
+  但那个界面本身还不存在（[04](04-campfire-done.md)）。

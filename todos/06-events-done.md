@@ -115,7 +115,7 @@ export interface RunState {
    - 池子空了兜底给一个「无事发生 +25 资财」的默认事件
 2. `applyOutcome(run, outcome): OutcomeReport`——纯函数，返回「实际发生了什么」
    （实际回了多少血、实际拿到哪件遗物），供界面显示。`branches` 用 seeded Rng 抽。
-3. 事件场景：基于 [04](04-campfire.md) 的 `RoomScene` 壳。
+3. 事件场景：基于 [04](04-campfire-done.md) 的 `RoomScene` 壳。
    - 上半屏事件插画（`genmedia` 生成，12 张，和卡牌同风格）
    - 中间 `body` 文本（`bodyStyle`，`src/ui/theme.ts`）
    - 下方选项按钮竖排，每个下面一行灰字 `hint`
@@ -141,7 +141,7 @@ export interface RunState {
 
 ## 依赖
 
-- [04 营帐](04-campfire.md)——`RoomScene` 壳
+- [04 营帐](04-campfire-done.md)——`RoomScene` 壳
 - [01 遗物](01-relics-done.md) / [02 药水](02-potions-done.md) / [03 升级](03-card-upgrades-done.md)
   ——`EventOutcome` 的几个字段需要它们存在（可以先做没有这些字段的事件）
 - [14 诅咒](14-curses-and-status-cards-done.md)——黄金台/醉酒张飞的代价

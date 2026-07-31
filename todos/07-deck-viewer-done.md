@@ -41,8 +41,8 @@ README「Known gaps」写了「no deck viewer」。
 模式 pickN —— 选 N 张
 ```
 
-这个组件是 [04 营帐](04-campfire.md)、[05 商店](05-shop.md)、
-[06 事件](06-events.md)、[22 结算](22-run-summary.md) 的共同依赖，
+这个组件是 [04 营帐](04-campfire-done.md)、[05 商店](05-shop-done.md)、
+[06 事件](06-events-done.md)、[22 结算](22-run-summary.md) 的共同依赖，
 所以**接口要先定稳**。
 
 布局：5 列 × N 行，卡片缩到现有 `CardView` 的 0.62 倍（原版也是缩略），

@@ -145,12 +145,12 @@ export interface RunState {
    - `engine.ts` 的 `executeMove`（`engine.ts:190`）：`damageMult`
      （**在 `computeAttack` 之前**乘基础伤害，否则和怯战/破绽的乘法顺序不对）
    - `intentOf`（[16 意图](16-intent-system.md)）也要乘，否则意图数字和实际不符
-   - `MapScene.ts:330` 的营帐：`restHealPercent`（→ [04 营帐](04-campfire.md)）
+   - `MapScene.ts:330` 的营帐：`restHealPercent`（→ [04 营帐](04-campfire-done.md)）
    - `advanceAct`（[09 多幕](09-acts-and-progression.md)）：`actStartHpLossPercent`
    - `startRun`（`src/state/run.ts:22`）：`maxHpMult`、`potionSlots`、
      `startingCurses`
    - `rollCardReward`（[11](11-card-rarity-and-rewards-done.md)）：`rarityWeightMult`
-   - `priceOf`（[05 商店](05-shop.md)）：`shopPriceMult`
+   - `priceOf`（[05 商店](05-shop-done.md)）：`shopPriceMult`
 3. `AscensionProgress` 持久化（localStorage，和 [08 存档](08-save-resume.md)
    分开存——难度进度不该被跑团存档清除影响）。
 4. 选将界面（[17](17-multiple-heroes.md)）加天命选择器：
@@ -160,7 +160,7 @@ export interface RunState {
    `cleared[heroId] = max(cleared, run.ascension)`。
 6. HUD 显示当前天命等级（地图右上角小字「天命五重」）。
 7. **诅咒「宿业」**：虚无 + 不可打出 + **不可移除**——
-   [05 商店](05-shop.md) 的弃卡和 [04 营帐](04-campfire.md) 的弃甲
+   [05 商店](05-shop-done.md) 的弃卡和 [04 营帐](04-campfire-done.md) 的弃甲
    都要把它标为不可选。`CardDef` 加 `removable?: false`。
 8. 平衡标定：**每一级都要跑
    [25 无头模拟](25-headless-sim-and-tests-done.md)**，目标是天命十重时

@@ -121,7 +121,7 @@ export interface RunState {
    （现在 `MapScene.ts:144` 已经识别 `isBoss` 做了特殊尺寸，在那里加）。
 5. `CombatScene` 打完 Boss：
    - 不走普通结算屏（`CombatScene.ts:1149-1198`）
-   - 走 **Boss 宝箱**：三件 boss 档遗物选一（见 [10 遗物奖励](10-relic-rewards.md)），
+   - 走 **Boss 宝箱**：三件 boss 档遗物选一（见 [10 遗物奖励](10-relic-rewards-done.md)），
      另有「跳过换 Sapphire 钥匙」选项（终章需要）
    - 然后 `advanceAct(run)`
 6. `advanceAct(run)`：`act += 1`、生成新地图、`actCombatCount = 0`、
@@ -148,7 +148,7 @@ export interface RunState {
 ## 依赖
 
 - [15 敌人机制与敌人库](15-enemy-mechanics.md)——第二三幕的内容主体
-- [10 遗物奖励](10-relic-rewards.md)——Boss 宝箱
+- [10 遗物奖励](10-relic-rewards-done.md)——Boss 宝箱
 - [22 结算界面](22-run-summary.md)——真结局
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——三幕难度曲线必须靠模拟标定，
   手调三幕的数值不可能对

@@ -95,7 +95,7 @@ export interface RunState {
    - `buy(run, stock, item): boolean`——查金币、扣钱、进牌组/遗物/药水槽
    - `removeCard(run, stock, uid)`——扣钱、从 `run.deck` 删、
      `run.cardRemovalSurcharge += 18`
-2. 商店场景：基于 [04 营帐](04-campfire.md) 立的 `RoomScene` 壳，
+2. 商店场景：基于 [04 营帐](04-campfire-done.md) 立的 `RoomScene` 壳，
    布局三行——卡（5 张 `CardView`，`display` 模式）、遗物（3 图标）、丹药（3 瓶），
    右侧一列放「弃卡」按钮和金币数。
 3. 价格标签：卡片下方金色小牌；买不起的商品**卡面压暗 + 价格标红**，
@@ -122,7 +122,7 @@ export interface RunState {
 
 ## 依赖
 
-- [04 营帐](04-campfire.md)——`RoomScene` 壳
+- [04 营帐](04-campfire-done.md)——`RoomScene` 壳
 - [03 卡牌升级](03-card-upgrades-done.md)——`DeckCard` 实例化（弃卡要定位到具体一张）
 - [01 遗物](01-relics-done.md) / [02 药水](02-potions-done.md)——库存的两个品类
 - [07 牌堆查看器](07-deck-viewer-done.md)——弃卡的选牌 UI
