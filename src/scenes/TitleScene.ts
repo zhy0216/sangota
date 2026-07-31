@@ -381,7 +381,11 @@ export class TitleScene extends Phaser.Scene {
     startRun(this.picked);
     this.cameras.main.fadeOut(420, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('Map');
+      // 拜别 comes before the map, not after it: the blessing rolls off the run
+      // seed and can rewrite the deck, the purse and 体力上限, so it has to land
+      // before the first node is ever committed to. `BlessingScene` starts
+      // 「Map」 itself once the four-up is answered.
+      this.scene.start('Blessing');
     });
   }
 }

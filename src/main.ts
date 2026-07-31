@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C, CANVAS_HEIGHT, CANVAS_WIDTH, css } from './config';
 import { BootScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
+import { BlessingScene } from './scenes/BlessingScene';
 import { MapScene } from './scenes/MapScene';
 import { CombatScene } from './scenes/CombatScene';
 import { RoomScene } from './scenes/RoomScene';
@@ -25,8 +26,18 @@ const config: Phaser.Types.Core.GameConfig = {
     powerPreference: 'high-performance',
   },
   // RoomScene sits after MapScene: a room runs as a second scene on top of a
-  // sleeping map, and render order follows this array.
-  scene: [BootScene, TitleScene, MapScene, CombatScene, RoomScene, InterludeScene],
+  // sleeping map, and render order follows this array. BlessingScene sits
+  // between the title and the map because that is the order a run walks them:
+  // 出征 hands off to 拜别, and only 拜别 opens the map.
+  scene: [
+    BootScene,
+    TitleScene,
+    BlessingScene,
+    MapScene,
+    CombatScene,
+    RoomScene,
+    InterludeScene,
+  ],
 };
 
 const game = new Phaser.Game(config);
