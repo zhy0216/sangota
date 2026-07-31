@@ -177,10 +177,18 @@ export function generateMap(seedInput: string | undefined, layout: ActLayout): G
  * random stream entirely — the 终章 costs no draws, so unlocking it cannot
  * shift anything an existing seed does anywhere else.
  *
+ * **`seed` is still required, and it is not decoration.** The layout ignores
+ * it, but `GameMap.seed` is *also* the prefix every room stream in the act is
+ * derived from (`streamSeed`, `src/rooms/rng.ts`) and the only place the run's
+ * own seed survives once the map is swapped (`runSeedOf`, `src/data/acts.ts`).
+ * A literal here — it used to be `'final'` — made 司马懿's shuffle, the 战利品
+ * chest, the elite's relic and every reward roll in the 终章 identical for
+ * every seed ever played, and left `runSeedOf` unable to name the run at all.
+ *
  * Node ids follow the same `row_col` convention every other act uses, and the
  * boss keeps the literal id `boss`, so the room layer needs no special case.
  */
-export function generateFinalAct(): GameMap {
+export function generateFinalAct(seed: string): GameMap {
   const rows = 2;
   const cols = MAP.cols;
   const mid = (cols - 1) / 2;
@@ -228,7 +236,7 @@ export function generateFinalAct(): GameMap {
     node.y = height - MAP.marginBottom - node.row * MAP.rowSpacing;
   }
 
-  return { seed: 'final', rows, cols, width, height, nodes, byRow, bossId };
+  return { seed, rows, cols, width, height, nodes, byRow, bossId };
 }
 
 /**

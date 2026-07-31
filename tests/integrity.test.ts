@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/core/rng';
+import { DEFAULT_HERO } from '../src/data/heroes';
+import { ACT1_LAYOUT, generateMap } from '../src/map/generateMap';
+import type { GameMap } from '../src/map/types';
+import { startRun } from '../src/state/run';
 
 /**
  * Guards on the two properties the whole test net rests on: the rules layer is
@@ -130,6 +134,41 @@ describe('determinism', () => {
     const body = source.slice(at, source.indexOf('\n}', at)).replace(/\/\/.*$/gm, '');
     for (const forbidden of ['Rng', 'stream(', 'roll', 'randomSeed(']) {
       expect(body, `startRun must not ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('spends the seed on the map and on nothing else — measured, not spelled', () => {
+    // The check above is a substring scan of one function body, so a single
+    // helper call (`blessing: openingBlessing()`, rolling in another file)
+    // contains none of the four banned strings and walks straight through it.
+    // This is the same rule measured behaviourally, which no indirection hides.
+    //
+    // Two halves. First: everything except the map must be *identical* for
+    // every seed — a die rolled anywhere inside `startRun`, however it is
+    // spelled or wherever it lives, has to show up as a difference here,
+    // because the seed is the only input.
+    const seeds = ['aaa', 'bbb', '', 'zz', '999', 'seed:act2'];
+    const withoutMap = (seed: string): string => {
+      const { map: _map, ...rest } = startRun(DEFAULT_HERO, seed);
+      return JSON.stringify(rest);
+    };
+    const first = withoutMap(seeds[0]);
+    for (const seed of seeds.slice(1)) {
+      expect(withoutMap(seed), `startRun varied with seed ${JSON.stringify(seed)}`).toBe(first);
+    }
+
+    // Second: the map it built is *exactly* the map `generateMap` builds from
+    // the bare seed. Anything drawn before the map would offset its stream and
+    // move every node; anything drawn after would not show up above only if it
+    // were discarded, and a discarded draw is still a draw that moves 第一幕.
+    const shape = (m: GameMap): string =>
+      [...m.nodes.values()]
+        .map((n) => `${n.id}:${n.type}:${n.x.toFixed(4)}:${n.y.toFixed(4)}`)
+        .join('|');
+    for (const seed of seeds) {
+      expect(shape(startRun(DEFAULT_HERO, seed).map), seed).toBe(
+        shape(generateMap(seed, ACT1_LAYOUT)),
+      );
     }
   });
 });
@@ -310,13 +349,56 @@ describe('the victory screen pays out once', () => {
   it('leaves the screen only by claiming, so a payout cannot be taken twice', () => {
     const body = scene.slice(
       scene.indexOf('private showVictory'),
-      scene.indexOf('private rollPotionDrop'),
+      scene.indexOf('private buildRelicDrop'),
     );
 
-    expect(body).toContain('addCard(this.run, cardId)');
-    expect(body).toContain('this.run.maxHp += skipHp');
+    expect(body).toContain('takeCardReward(this.run, this.nodeId, cardId)');
+    expect(body).toContain('takeCardReward(this.run, this.nodeId, null)');
     // Both payouts, and no other way out of the overlay.
     expect(body.match(/this\.claimReward\(/g)).toHaveLength(2);
     expect(body).not.toMatch(/this\.leaveToMap\(\)/);
+  });
+});
+
+/**
+ * The victory screen is the one place in the scene layer that pays a run out,
+ * and `RULES_DIRS` above does not cover `src/scenes/`. It cannot: `vfx.ts` and
+ * the combat backdrop roll cosmetic dice on purpose, and banning `Math.random`
+ * there outright would ban a breathing animation.
+ *
+ * So the rule enforced here is the *architectural* one, which is stronger
+ * anyway: 战利品 does not roll at all. Every number on that screen is decided by
+ * `src/rooms/fight.ts`, inside `commit.once`, and written into
+ * `run.rooms[nodeId]` — so a re-entry reads it back instead of re-rolling it
+ * (R5), and any die added to it lands in a directory the scans above *do* cover.
+ */
+describe('the victory screen decides nothing on its own', () => {
+  const scene = read('src/scenes/CombatScene.ts');
+
+  it('rolls no reward dice in the scene', () => {
+    // `showSpoils` used to open a `reward` stream, roll the gold, call
+    // `rollCardReward` (which moves `run.rareBump`) and roll the 丹药 drop
+    // (which moves `run.potionChance`) — none of it gated and none of it
+    // materialised. `claimVictoryRelic` two lines below it *was* gated, which
+    // is what makes the omission an oversight rather than a decision.
+    for (const roll of ['rollCardReward', 'rollPotion', 'rollRelic', 'rollBossOffer']) {
+      expect(scene.includes(`${roll}(`), `${roll} belongs to the room layer`).toBe(false);
+    }
+    // The scene still names its own fight's seed — that is the shuffle — but it
+    // must not open a reward or 丹药 stream.
+    for (const purpose of ['reward', 'potion', 'eliteRelic', 'bossRelic']) {
+      expect(scene).not.toContain(`stream(this.run, this.nodeId, '${purpose}')`);
+    }
+  });
+
+  it('banks nothing into the run by hand', () => {
+    // The rule `src/rooms/*View.ts` and `RoomScene` are already held to,
+    // extended to the one scene that was exempt. `removePotion` stays allowed:
+    // drinking or discarding mid-fight is a player action on a resource already
+    // held, not a payout, and a re-entered fight replays from the top anyway.
+    const BANNED = /\b(addGold|addCard|addCurse|addRelic|addPotion|upgradeCard)\s*\(/;
+    expect(BANNED.test(scene), 'CombatScene must pay out through src/rooms/fight.ts').toBe(false);
+    // 歌钵's 体力上限 was the last one written inline.
+    expect(scene).not.toContain('this.run.maxHp +=');
   });
 });

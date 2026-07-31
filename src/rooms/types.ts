@@ -109,8 +109,31 @@ export interface DeckPick {
  * A payload of `null` means "not materialised yet"; the room module fills it on
  * first entry and every later visit reads it back unchanged.
  */
+/**
+ * 战利品 — what a won fight paid, frozen on the node.
+ *
+ * The victory screen used to roll all three of these inline in `CombatScene`
+ * and materialise none of them, which made it the one room in the game showing
+ * the player a random result with nowhere to write it down (R5). It also drifts
+ * two run-wide counters as a side effect — `rareBump` on the card roll and
+ * `potionChance` on the drop — so a second `create()` on a won node paid twice
+ * *and* moved the odds of every later fight.
+ */
+export interface Spoils {
+  gold: number;
+  cardIds: string[];
+  /** The bottle that dropped, or null for a miss. The id is rolled either way. */
+  potionId: string | null;
+}
+
 export type RoomRecord =
-  | { kind: 'combat'; committed: string[]; encounterId: string | null; relicId: string | null }
+  | {
+      kind: 'combat';
+      committed: string[];
+      encounterId: string | null;
+      relicId: string | null;
+      spoils: Spoils | null;
+    }
   | { kind: 'rest'; committed: string[] }
   | { kind: 'shop'; committed: string[]; stock: ShopStock | null }
   | { kind: 'event'; committed: string[]; eventId: string | null }

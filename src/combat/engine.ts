@@ -355,7 +355,12 @@ export function runEnemyTurn(state: CombatState): void {
     // turns taken, not blows landed.
     enemy.actedTurns += 1;
     if (state.player.hp <= 0) {
-      state.phase = 'lost';
+      // Through `checkEnd`, not by assigning the phase: a fight that ends must
+      // also drop `pendingChoice` and drain `effectQueue` (`endCombat`), or the
+      // scene is left showing a mandatory, non-dismissable card grid over a
+      // finished combat. Setting the phase inline was the one path in the
+      // engine that skipped the very cleanup `endCombat` exists for.
+      checkEnd(state);
       return;
     }
   }

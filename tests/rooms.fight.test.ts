@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { ACT1, getEncounter } from '../src/combat/enemies';
-import { RELICS, relicsOfTier } from '../src/combat/relics';
+import { RELICS, relicModifiers, relicsOfTier } from '../src/combat/relics';
+import { rollPotion } from '../src/combat/potions';
+import type { Spoils } from '../src/rooms/types';
 import { roomCommit, roomRecord } from '../src/rooms/commit';
 import {
   bossOfferPending,
+  claimSpoils,
   claimVictoryRelic,
+  declinePotionDrop,
   ensureBossOffer,
   ensureEncounter,
   takeBossRelic,
+  takeCardReward,
+  takePotionDrop,
 } from '../src/rooms/fight';
 import { stream } from '../src/rooms/rng';
 import { addRelic, startRun, type RunState } from '../src/state/run';
@@ -278,5 +284,163 @@ describe('the ledger the fight writes', () => {
     expect(record.encounterId).toBe(encounter.id);
     expect(record.relicId).not.toBeNull();
     expect(roomCommit(run, id).isDone('relic')).toBe(true);
+  });
+});
+
+// ------------------------------------------------------------------ 战利品
+
+describe('claimSpoils', () => {
+  const spoilsNode = (run: RunState): string => nodeOf(run, 'monster');
+
+  it('pays coin, offers cards and rolls the bottle, once', () => {
+    const run = fresh('spoils');
+    const id = spoilsNode(run);
+    const encounter = ensureEncounter(run, id, 'monster');
+    const gold = run.gold;
+
+    const first = claimSpoils(run, id, 'monster', encounter);
+    expect(first.gold).toBeGreaterThanOrEqual(encounter.goldReward[0]);
+    expect(first.gold).toBeLessThanOrEqual(encounter.goldReward[1]);
+    expect(run.gold).toBe(gold + first.gold);
+    expect(first.cardIds.length).toBe(run.cardRewardCount);
+  });
+
+  it('reads back rather than re-rolling, and pays nothing the second time', () => {
+    // R5. The victory screen used to roll all three of these inline on every
+    // `create()`: a second visit paid the gold again, offered a different three
+    // cards, and drifted `rareBump` and `potionChance` — which are run-wide, so
+    // it moved the odds of every fight after it too.
+    const run = fresh('spoils-twice');
+    const id = spoilsNode(run);
+    const encounter = ensureEncounter(run, id, 'monster');
+
+    const first = claimSpoils(run, id, 'monster', encounter);
+    const gold = run.gold;
+    const bump = run.rareBump;
+    const chance = run.potionChance;
+
+    const again = claimSpoils(run, id, 'monster', encounter);
+    expect(again).toEqual(first);
+    expect(run.gold).toBe(gold);
+    expect(run.rareBump).toBe(bump);
+    expect(run.potionChance).toBe(chance);
+  });
+
+  it('writes what it paid onto the node, so a reload can read it back', () => {
+    const run = fresh('spoils-record');
+    const id = spoilsNode(run);
+    const paid = claimSpoils(run, id, 'monster', ensureEncounter(run, id, 'monster'));
+    const record = roomRecord(run, id, 'combat');
+    expect(record.spoils).toEqual(paid);
+    expect(roomCommit(run, id).isDone('spoils')).toBe(true);
+  });
+
+  it('spends the same streams the screen used to spend, in the same order', () => {
+    // The gold roll and the card picks share the `reward` stream, gold first;
+    // the 丹药 drop has its own. Frozen: a seed already played must replay.
+    const run = fresh('spoils-streams');
+    const id = spoilsNode(run);
+    const encounter = ensureEncounter(run, id, 'monster');
+
+    const rng = stream(run, id, 'reward');
+    const expectedGold = rng.range(encounter.goldReward[0], encounter.goldReward[1]);
+    expect(claimSpoils(run, id, 'monster', encounter).gold).toBe(expectedGold);
+  });
+
+  it('rolls the bottle id on a miss as well as a hit (R3)', () => {
+    // A guaranteed miss and a guaranteed hit must consume the identical amount
+    // of the `potion` stream, or one relic that changes the drop rate would
+    // reshuffle which bottle every later fight offers.
+    const spent = (chance: number): { rolls: number; dropped: boolean } => {
+      const run = fresh('spoils-potion');
+      const id = spoilsNode(run);
+      run.potionChance = chance;
+      const encounter = ensureEncounter(run, id, 'monster');
+      const paid = claimSpoils(run, id, 'monster', encounter);
+      // Re-derive the stream and walk it to the same place the room did.
+      const rng = stream(run, id, 'potion');
+      rng.int(100);
+      rollPotion(rng);
+      return { rolls: rng.rolls, dropped: paid.potionId !== null };
+    };
+
+    const miss = spent(0);
+    const hit = spent(100);
+    expect(miss.dropped).toBe(false);
+    expect(hit.dropped).toBe(true);
+    expect(miss.rolls).toBe(hit.rolls);
+  });
+});
+
+describe('taking what the fight paid', () => {
+  const setup = (seed: string): { run: RunState; id: string; spoils: Spoils } => {
+    const run = fresh(seed);
+    const id = nodeOf(run, 'monster');
+    const spoils = claimSpoils(run, id, 'monster', ensureEncounter(run, id, 'monster'));
+    return { run, id, spoils };
+  };
+
+  it('banks one card and refuses a second', () => {
+    // `CombatScene.claimed` only guards a double click inside one scene
+    // instance and dies with the scene; the gate has to live on the run.
+    const { run, id, spoils } = setup('take-card');
+    const deck = run.deck.length;
+    expect(takeCardReward(run, id, spoils.cardIds[0])).toBe(true);
+    expect(run.deck.length).toBe(deck + 1);
+
+    expect(takeCardReward(run, id, spoils.cardIds[1])).toBe(false);
+    expect(run.deck.length).toBe(deck + 1);
+  });
+
+  it('refuses a card that was never on offer', () => {
+    const { run, id } = setup('take-unoffered');
+    const deck = run.deck.length;
+    expect(takeCardReward(run, id, 'not-a-card')).toBe(false);
+    expect(run.deck.length).toBe(deck);
+  });
+
+  it('pays 歌钵 for declining, and only once', () => {
+    const run = fresh('take-skip');
+    const id = nodeOf(run, 'monster');
+    addRelic(run, 'geban');
+    const bonus = relicModifiers(run.relics).skipRewardMaxHp;
+    expect(bonus).toBeGreaterThan(0);
+    claimSpoils(run, id, 'monster', ensureEncounter(run, id, 'monster'));
+
+    const maxHp = run.maxHp;
+    expect(takeCardReward(run, id, null)).toBe(true);
+    expect(run.maxHp).toBe(maxHp + bonus);
+    expect(takeCardReward(run, id, null)).toBe(false);
+    expect(run.maxHp).toBe(maxHp + bonus);
+  });
+
+  it('puts the bottle on the belt once, and leaves the choice open on a full belt', () => {
+    const run = fresh('take-potion');
+    const id = nodeOf(run, 'monster');
+    const potionId = 'huoyouguan';
+
+    // Room on the belt: taken, and the gate closes behind it.
+    expect(takePotionDrop(run, id, potionId)).toBe(true);
+    expect(run.potions).toContain(potionId);
+    expect(takePotionDrop(run, id, potionId)).toBe(false);
+
+    // A full belt must *not* close the gate — the swap prompt is still to come.
+    const full = fresh('take-potion-full');
+    const fullId = nodeOf(full, 'monster');
+    full.potions = full.potions.map(() => 'huoyouguan');
+    expect(takePotionDrop(full, fullId, 'zhuangxingjiu')).toBe(false);
+    expect(roomCommit(full, fullId).isDone('potionDrop')).toBe(false);
+    // …and the swap then lands.
+    expect(takePotionDrop(full, fullId, 'zhuangxingjiu', 0)).toBe(true);
+    expect(full.potions).toContain('zhuangxingjiu');
+  });
+
+  it('settles the drop when the player walks away from it', () => {
+    const full = fresh('decline-potion');
+    const id = nodeOf(full, 'monster');
+    full.potions = full.potions.map(() => 'huoyouguan');
+    declinePotionDrop(full, id);
+    expect(takePotionDrop(full, id, 'zhuangxingjiu', 0)).toBe(false);
+    expect(full.potions.includes('zhuangxingjiu')).toBe(false);
   });
 });

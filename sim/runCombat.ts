@@ -22,6 +22,30 @@ export const DEFAULT_MAX_TURNS = 60;
 /** Consecutive iterations with an unchanged state hash before we call it hung. */
 const NO_PROGRESS_LIMIT = 16;
 
+/**
+ * Hard ceiling on top-level actions in one fight, and the only guard that
+ * actually holds.
+ *
+ * Both of the other two can be defeated at once, and one deck does it: a hand
+ * at `MAX_HAND` with 0 气 and a 0-cost draw card in it. The policy plays 观阵,
+ * `drawCards` returns immediately because the hand is full, the card lands in
+ * the discard pile, the pile is reshuffled, and it comes straight back to hand.
+ * `state.turn` never advances, so `maxTurns` never fires; `hashState` counts
+ * `state.events.length`, which grows on every pass, so the no-progress detector
+ * reads it as forward motion forever. The loop then spins until `state.events`
+ * overflows a JS array — and because it is *synchronous*, vitest's `testTimeout`
+ * cannot interrupt it. CI hangs rather than failing.
+ *
+ * This is a sim bug, not an engine one: every iteration is one independent
+ * top-level `playCard` that returns normally. A real player would end the turn.
+ *
+ * 4000 is far above any legitimate fight — the longest thing the tables produce
+ * is ~60 turns at a handful of actions each — so tripping it is always a report,
+ * never a truncation. It surfaces as `aborted: 'noProgress'`, which the balance
+ * tables already assert is zero.
+ */
+const MAX_ACTIONS = 4000;
+
 export interface SimOptions {
   encounterId: string;
   deck: DeckCard[];
@@ -79,11 +103,18 @@ export function simulateCombat(opts: SimOptions): SimResult {
   let aborted: SimResult['aborted'] = null;
   let lastHash = '';
   let stuck = 0;
+  let actions = 0;
   const belt = [...(opts.potions ?? [])];
 
   while (state.phase === 'player') {
     if (state.turn > maxTurns) {
       aborted = 'turnLimit';
+      break;
+    }
+    // Counted per iteration rather than per turn: the loop that defeats both
+    // other guards never advances `state.turn` at all. See `MAX_ACTIONS`.
+    if (++actions > MAX_ACTIONS) {
+      aborted = 'noProgress';
       break;
     }
 

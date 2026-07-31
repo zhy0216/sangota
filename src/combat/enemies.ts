@@ -1165,7 +1165,20 @@ export function pickEncounter(
       : table[tier];
 
   const fresh = pool.filter((e) => !opts.used.includes(e.id));
-  return rng.pick(fresh.length > 0 ? fresh : pool);
+  const from = fresh.length > 0 ? fresh : pool;
+  // Still exactly one roll (R3) even when there is nothing to roll for, so the
+  // degradation below cannot shift the stream.
+  const choice = from[rng.int(Math.max(1, from.length))];
+  if (choice) return choice;
+
+  // An empty pool used to return `undefined` and be assigned straight into
+  // `record.encounterId` by `ensureEncounter`, i.e. a TypeError one line later.
+  // 终章 is the act where this matters: `FINAL.weak` and `FINAL.strong` are
+  // deliberately empty, so adding a single 杂兵 node to it would crash the run
+  // rather than degrade. Falling back across the tier keeps the fight coming.
+  const fallback = table.elite[0] ?? table.boss[0] ?? table.strong[0] ?? table.weak[0];
+  if (!fallback) throw new Error('encounter table is empty');
+  return fallback;
 }
 
 /**

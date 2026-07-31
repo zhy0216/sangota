@@ -1,11 +1,21 @@
 import { getEncounter, pickEncounter, type CombatTier } from '../combat/enemies';
-import { RELIC_MISS_GOLD } from '../combat/relics';
-import { rollBossOffer, rollRelic } from '../combat/rewards';
+import { POTION_DROP, nextPotionChance, rollPotion } from '../combat/potions';
+import { RELIC_MISS_GOLD, relicModifiers } from '../combat/relics';
+import { rollBossOffer, rollCardReward, rollRelic } from '../combat/rewards';
 import type { Encounter } from '../combat/types';
 import { actOf } from '../data/acts';
-import { addGold, addRelic, type RunState } from '../state/run';
+import {
+  addCard,
+  addGold,
+  addPotion,
+  addRelic,
+  hasPotionSpace,
+  removePotion,
+  type RunState,
+} from '../state/run';
 import { roomCommit, roomRecord } from './commit';
 import { stream } from './rng';
+import type { Spoils } from './types';
 
 /**
  * 战斗房 — the rules half of a combat node.
@@ -32,6 +42,27 @@ import { stream } from './rng';
  * **One payout per node.** Every grant goes through `commit.once`, the same
  * gate the shop counter and the event options use.
  */
+
+/**
+ * The ledger id for a fight an 奇遇 started.
+ *
+ * An event node's record is a `{ kind: 'event' }` one from the moment the
+ * player steps on it, and `roomRecord(..., 'combat')` **throws** on a mismatched
+ * kind by design. So a fight run against the event's own node id took the
+ * player's map away (`goCombat` stops 「Map」 before starting 「Combat」) and then
+ * threw inside `create()` before a single Game Object existed: black screen,
+ * run gone. 江东赴宴's 「单刀赴之」 and 山中残兵's 25% ambush both did it, and
+ * 山中残兵 is `minRow: 1` and repeatable, so it was reachable in 第一幕.
+ *
+ * A derived id rather than a reused one, because the two rooms are genuinely
+ * separate decisions and each owes its own commits: the event has already paid
+ * out its relic and its lines, and the fight still owes an encounter, spoils
+ * and possibly an 精英 relic. `#` cannot appear in a real node id (`row_col` or
+ * the literal `boss`) or in a `Purpose`, so the derived id collides with
+ * nothing — including in `streamSeed`, where it simply reads as a node the map
+ * does not have.
+ */
+export const eventFightNodeId = (nodeId: string): string => `${nodeId}#fight`;
 
 /**
  * Read back a materialised encounter, or pick this node's fight and freeze it.
@@ -178,4 +209,125 @@ export function takeBossRelic(run: RunState, nodeId: string, relicId: string | n
       return true;
     }) ?? false
   );
+}
+
+// ------------------------------------------------------------------ 战利品
+
+/**
+ * What a won fight pays: coin, the cards to choose from, and the 丹药 roll.
+ *
+ * All three used to be rolled inline on `CombatScene`'s victory screen, outside
+ * `commit.once` and materialised nowhere — the only room in the game that
+ * showed the player a random result it could not write down (R5). `addGold`,
+ * `rollCardReward` (which moves `run.rareBump`) and the drop roll (which moves
+ * `run.potionChance`) all landed on every `create()`, so re-entering a won node
+ * paid a second time *and* shifted the odds of every later fight. The relic two
+ * lines below it was gated, which is what makes the omission an oversight
+ * rather than a decision.
+ *
+ * Draw order is frozen and matches what the screen used to do exactly: the
+ * `reward` stream rolls gold and then the cards, and the `potion` stream is its
+ * own so that adding or removing a drop cannot shift either.
+ *
+ * The cards are *offered*, not granted — `takeCardReward` is the second half.
+ */
+export function claimSpoils(
+  run: RunState,
+  nodeId: string,
+  tier: CombatTier,
+  encounter: Encounter,
+): Spoils {
+  const record = roomRecord(run, nodeId, 'combat');
+  const paid = roomCommit(run, nodeId).once('spoils', (): Spoils => {
+    const rng = stream(run, nodeId, 'reward');
+    const gold = rng.range(encounter.goldReward[0], encounter.goldReward[1]);
+    const cardIds = rollCardReward({ tier, run, rng });
+    const potionId = rollPotionDrop(run, nodeId, tier);
+
+    addGold(run, gold);
+    const spoils: Spoils = { gold, cardIds, potionId };
+    record.spoils = spoils;
+    return spoils;
+  });
+
+  // Read back on every later visit — the frozen record, never a re-roll.
+  return paid ?? record.spoils ?? { gold: 0, cardIds: [], potionId: null };
+}
+
+/**
+ * The 丹药 that dropped, or null.
+ *
+ * The id is rolled whether or not the drop landed (R3), so one relic that
+ * changes the drop rate cannot reshuffle which bottle every later fight offers.
+ * `potionChance` only drifts on a 杂兵 fight: 精英 and 首领 have fixed rates, so
+ * banking elite kills must not be able to dry a monster-fight streak out.
+ */
+function rollPotionDrop(run: RunState, nodeId: string, tier: CombatTier): string | null {
+  const rng = stream(run, nodeId, 'potion');
+  const chance =
+    tier === 'elite' ? POTION_DROP.elite : tier === 'boss' ? POTION_DROP.boss : run.potionChance;
+
+  const dropped = rng.int(100) < chance;
+  if (tier === 'monster') run.potionChance = nextPotionChance(run.potionChance, dropped);
+  const id = rollPotion(rng);
+  return dropped ? id : null;
+}
+
+/**
+ * Take one of the offered cards, or decline. `null` declines — which 歌钵 turns
+ * into 体力上限 rather than nothing, so it is a real choice and has to be paid
+ * through the same gate.
+ *
+ * Gated because it is one payout per fight: `CombatScene.claimed` only guards a
+ * double click *within one scene instance*, and dies with the scene.
+ */
+export function takeCardReward(run: RunState, nodeId: string, cardId: string | null): boolean {
+  const offered = roomRecord(run, nodeId, 'combat').spoils?.cardIds ?? [];
+  if (cardId !== null && !offered.includes(cardId)) return false;
+
+  return (
+    roomCommit(run, nodeId).once('cardReward', (): boolean => {
+      if (cardId !== null) {
+        addCard(run, cardId);
+        return true;
+      }
+      const skip = relicModifiers(run.relics).skipRewardMaxHp;
+      if (skip > 0) {
+        run.maxHp += skip;
+        run.hp += skip;
+      }
+      return true;
+    }) ?? false
+  );
+}
+
+/**
+ * Put the dropped bottle on the belt.
+ *
+ * `slot` is the bottle to pour away for it, or null to take it only if the belt
+ * has room. Declining with a full belt therefore leaves the gate *open* — the
+ * player has not answered yet, and the swap prompt is still to come — which is
+ * why the space check sits outside `once` rather than inside it: `once` marks
+ * before it runs, so an early return from inside would burn the key.
+ *
+ * Returns whether the bottle actually landed.
+ */
+export function takePotionDrop(
+  run: RunState,
+  nodeId: string,
+  potionId: string,
+  slot: number | null = null,
+): boolean {
+  if (slot === null && !hasPotionSpace(run)) return false;
+  return (
+    roomCommit(run, nodeId).once('potionDrop', (): boolean => {
+      if (slot !== null) removePotion(run, slot);
+      return addPotion(run, potionId);
+    }) ?? false
+  );
+}
+
+/** 「放弃新瓶」 — answer the drop without taking it, so it cannot be taken later. */
+export function declinePotionDrop(run: RunState, nodeId: string): void {
+  roomCommit(run, nodeId).mark('potionDrop');
 }

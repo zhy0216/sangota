@@ -256,11 +256,14 @@ describe('act layout and the finale', () => {
   });
 
   it('builds 终章 without touching a die', () => {
-    const a = generateFinalAct();
-    const b = generateFinalAct();
+    // Two different seeds: the seed is carried for the room streams and for
+    // `runSeedOf`, and the *layout* must still ignore it entirely.
+    const a = generateFinalAct('one:act4');
+    const b = generateFinalAct('two:act4');
     const shape = (m: ReturnType<typeof generateFinalAct>): string[] =>
       [...m.nodes.values()].map((n) => `${n.id}:${n.type}:${n.x}:${n.y}`);
     expect(shape(a)).toEqual(shape(b));
+    expect(a.seed).toBe('one:act4');
     expect(a.nodes.size).toBe(3);
     expect(a.nodes.get('0_0')!.type).toBe('elite');
     expect(a.nodes.get('1_0')!.type).toBe('rest');
@@ -302,7 +305,13 @@ describe('clearActProgress', () => {
 
   it('lets a repeated node id start clean, which is the whole point', () => {
     const r = run();
-    r.rooms['3_2'] = { kind: 'combat', committed: ['relic'], encounterId: 'm1', relicId: null };
+    r.rooms['3_2'] = {
+      kind: 'combat',
+      committed: ['relic'],
+      encounterId: 'm1',
+      relicId: null,
+      spoils: null,
+    };
     clearActProgress(r);
     expect(r.rooms['3_2']).toBeUndefined();
   });

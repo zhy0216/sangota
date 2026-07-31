@@ -73,7 +73,17 @@ export function rollCardReward(opts: CardRewardOptions): string[] {
     const from = availableRarity(run.hero.id, wanted, picked);
     // Every pool drained at once: only reachable if the whole card set is
     // smaller than `count`, so returning short beats repeating a card.
-    if (!from) break;
+    //
+    // R3 (`src/rooms/rng.ts`): the *draw* still happens. Skipping it would make
+    // the length of the `reward` stream depend on how much of the pool this
+    // reward had already eaten — a `break` here made the same seed pull a
+    // different number of times for a hero whose pools are small, and every
+    // stream position after it moved. `pick([])` is undefined, so the burn is
+    // an explicit `int`.
+    if (!from) {
+      rng.int(1);
+      continue;
+    }
 
     const options = poolFor(run.hero.id, from).filter((id) => !picked.includes(id));
     picked.push(rng.pick(options));

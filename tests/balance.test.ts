@@ -115,6 +115,92 @@ describe('黄金快照锁住的敌人', () => {
   }
 });
 
+// -------------------------------------------- 幕二之后的精英与首领：伤害面
+
+/**
+ * Just the damage surface — what a body *hits for*, not how long it lives.
+ *
+ * Deliberately excludes 体力: the stratification tests below own that, and
+ * keeping the two guards disjoint means a failure names which of the two things
+ * moved instead of both at once.
+ */
+const damageLine = (def: EnemyDef): string =>
+  [
+    ...def.moves.map(
+      (m) => `${m.id} ${m.damage ?? 0}x${m.hits ?? 1}+${m.loseHp ?? 0}@${m.weight ?? 0}`,
+    ),
+    ...(def.passives ? [`passive ${JSON.stringify(def.passives)}`] : []),
+    ...(def.thresholds ?? []).map((t) => `@${t.percent} ${JSON.stringify(t.gain ?? t.split)}`),
+  ].join(' · ');
+
+/**
+ * Every 精英 and 首领 body that the 37 snapshots do **not** own.
+ *
+ * The hole this closes: `FROZEN` above covers only the 15 bodies the golden
+ * files can field, and 「可调内容的分层」 below asserts 体力 and nothing else.
+ * Between them, **every damage number on every act-2, act-3 and 终章 elite and
+ * 首领 was unguarded** — all 26 of them could be set to 1, making 天命 hit for a
+ * single point a turn, and both `npm test` and `npm run sim` stayed green.
+ * (Measured: the test net was watching how long a fight takes, never how much
+ * it hurts.)
+ *
+ * **This table is not `FROZEN`.** These fights are meant to be tuned, and
+ * updating a line here is a legitimate part of a balance pass — the point is
+ * that it has to be a *visible line in the diff* rather than a number that
+ * moves in silence. `sim/balance.sim.ts` says whether a value is right; this
+ * says that somebody chose it.
+ */
+const TUNABLE_DAMAGE: Record<string, string> = {
+  // 第二幕 · 战虎牢
+  licui: 'drive 19x1+0@3 · pillage 7x2+0@2 · hold 0x1+0@1 · @50 {"strength":2}',
+  guosi: 'raid 7x3+0@3 · poison 0x1+5@2 · camp 0x1+0@1',
+  dongzhuo:
+    'might 19x1+0@3 · trample 6x3+0@2 · burn 10x1+0@2 · fortress 0x1+0@1 · passive {"metallicize":3}',
+  liru:
+    'jiaozhao 10x1+0@0 · luanzheng 7x2+0@0 · chenmou 0x1+0@0 · zhenjiu 0x1+8@0 · fenjing 26x1+0@0',
+  // 第三幕 · 定中原
+  xuchu: 'tiger 14x1+0@3 · bare 6x2+0@2 · passive {"angry":1} · @50 {"strength":1}',
+  pangde: 'coffin 21x1+0@3 · arrow 7x2+0@2 · laststand 0x1+0@1',
+  xiahouyuan:
+    'gallop 8x2+0@0 · raid 26x1+0@0 · banner 0x1+0@0 · strike 13x1+0@0 · deluge 8x1+0@0',
+  zhangliao: 'raid 20x1+0@3 · eighthundred 7x4+0@2 · awe 10x1+0@2 · regroup 0x1+0@1',
+  // 终 · 五丈原
+  simayi: 'hawk 23x1+0@3 · endure 0x1+0@2 · bite 8x2+0@2 · @50 {"strength":4}',
+  tianming:
+    'autumnwind 5x3+0@0 · lifespan 0x1+6@0 · wuzhang 0x1+0@0 · defy 12x1+0@0 · starfall 22x1+0@0 · dust 9x1+0@0 · passive {"metallicize":3}',
+};
+
+describe('幕二之后的精英与首领，伤害是被盯着的', () => {
+  /** Every elite/boss body in the game, summons and split halves included. */
+  const eliteAndBossBodies = (): string[] => {
+    const ids = ACT_TABLES.flatMap((t) => [...t.elite, ...t.boss]).map((e) => e.id);
+    return [...new Set(ids.flatMap(bodiesOf))].sort();
+  };
+
+  it('leaves no 精英 or 首领 body unaccounted for', () => {
+    // A new act's elite must land in one table or the other. Neither list
+    // regenerates itself, which is the whole point: the previous version of
+    // this file was a hand-written act-1 list whose comment claimed to cover
+    // everything, and todos/09 then added ten more bodies past it.
+    const guarded = new Set([...Object.keys(FROZEN), ...Object.keys(TUNABLE_DAMAGE)]);
+    const unguarded = eliteAndBossBodies().filter((id) => !guarded.has(id));
+    expect(unguarded).toEqual([]);
+  });
+
+  it('does not overlap the snapshot-owned table', () => {
+    // Two tables claiming the same body is two places to update and one to
+    // forget. 第一幕's elites and 首领 belong to `FROZEN`.
+    const both = Object.keys(TUNABLE_DAMAGE).filter((id) => id in FROZEN);
+    expect(both).toEqual([]);
+  });
+
+  for (const id of Object.keys(TUNABLE_DAMAGE).sort()) {
+    it(`${ENEMIES[id].name} hits for what it is meant to`, () => {
+      expect(damageLine(ENEMIES[id])).toBe(TUNABLE_DAMAGE[id]);
+    });
+  }
+});
+
 // ------------------------------------------------------ 可调的敌人
 
 const mid = (def: EnemyDef): number => (def.hp[0] + def.hp[1]) / 2;

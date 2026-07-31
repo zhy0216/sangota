@@ -413,6 +413,37 @@ describe('pendingChoice', () => {
     expect(state.effectQueue).toHaveLength(0);
   });
 
+  it('is dropped when the *enemy* is the one who ends the fight', () => {
+    // `runEnemyTurn` used to write `state.phase = 'lost'` inline and return,
+    // which is the one path in the engine that reaches a terminal phase without
+    // going through `endCombat` — so a prompt or a half-drained queue standing
+    // when the killing blow lands would survive into the defeat screen.
+    const state = bench(cards('pikan', 10));
+
+    // Play on until an enemy's move is the thing that lands the killing blow.
+    // The prompt and the queue are re-armed every turn, so whichever turn the
+    // blow falls on, both are standing when it does.
+    for (let turn = 0; turn < 20 && state.phase === 'player'; turn++) {
+      // After `endPlayerTurn`, which refuses to run with a prompt standing.
+      endPlayerTurn(state);
+      state.pendingChoice = { kind: 'discard', min: 1, max: 1, options: [state.hand[0]] };
+      state.effectQueue.push({
+        effect: { kind: 'draw', amount: 1 },
+        target: undefined,
+        bonus: 0,
+        energy: 0,
+        attacks: 0,
+      });
+      state.player.hp = 1;
+      state.player.block = 0;
+      runEnemyTurn(state);
+    }
+
+    expect(state.phase).toBe('lost');
+    expect(state.pendingChoice).toBeNull();
+    expect(state.effectQueue).toHaveLength(0);
+  });
+
   it('exhausts the picked card rather than discarding it', () => {
     const state = bench([newDeckCard('t-exhaustpick'), ...cards('pikan', 9)]);
     playCard(state, inHand(state, 't-exhaustpick'));

@@ -4,6 +4,7 @@ import {
   ACT1,
   ACT_TABLES,
   ENEMIES,
+  FINAL,
   PENDING_ENCOUNTERS,
   allEncounters,
   getEncounter,
@@ -403,6 +404,56 @@ describe('脚本化意图', () => {
     }
   });
 
+  /**
+   * Two passes of every 套路 in the game, written out.
+   *
+   * `loopFrom` had exactly one behavioural assertion in the whole suite —
+   * 张梁's, above — so the field was guarded on the one enemy that happens to
+   * skip its opening move. 流寇's `loopFrom: 2` could be set to 0 and the suite
+   * stayed green, because 遁走 ends the fight before the wrap is ever observed.
+   *
+   * Spelled out as literals rather than derived from `script.order` and
+   * `script.loopFrom`: a check that recomputes the expected sequence from the
+   * same two fields it is checking passes for *every* value of them. That is
+   * the mistake this comment exists to stop the next person repeating.
+   */
+  const LOOPS: Record<string, string> = {
+    // `loopFrom: 1` — 咒水 opens and never returns.
+    zhangliang: 'curse,gale,sigil,drums,surge,gale,sigil,drums,surge,gale,sigil',
+    // `loopFrom: 2` — two 摸金 and then 遁走 forever. Unobservable in a real
+    // fight, because 遁走 takes him off the field; that is why it went unpinned.
+    liukou: 'rob,rob,bolt,bolt,bolt,bolt,bolt',
+    // `loopFrom: 0` — the whole rotation repeats.
+    liru: 'jiaozhao,luanzheng,chenmou,zhenjiu,fenjing,jiaozhao,luanzheng,chenmou,zhenjiu,fenjing,jiaozhao',
+    xiahouyuan: 'gallop,raid,banner,strike,deluge,gallop,raid,banner,strike,deluge,gallop',
+    tianming:
+      'autumnwind,lifespan,wuzhang,defy,starfall,dust,autumnwind,lifespan,wuzhang,defy,starfall,dust,autumnwind',
+  };
+
+  it('covers every scripted enemy in the game', () => {
+    const scripted = Object.values(ENEMIES)
+      .filter((def) => def.script)
+      .map((def) => def.id)
+      .sort();
+    expect(scripted).toEqual(Object.keys(LOOPS).sort());
+  });
+
+  for (const [id, expected] of Object.entries(LOOPS)) {
+    it(`${ENEMIES[id].name} runs its rotation and wraps where it says`, () => {
+      // Driven off `pickIntent` with a hand-set cursor rather than off real
+      // turns, which is what lets an enemy that leaves the field be checked.
+      const state = probe([id], `loop-${id}`);
+      const enemy = state.enemies[0];
+      const beats = expected.split(',');
+      const seen = beats.map((_, i) => {
+        enemy.actedTurns = i;
+        pickIntent(state, enemy);
+        return enemy.intent!.id;
+      });
+      expect(seen.join(',')).toBe(expected);
+    });
+  }
+
   it('indexes off the enemy, not the turn counter', () => {
     // A summon that joins on turn 4 starts its own script at the beginning; the
     // 力士 has none, so the check is that a mid-fight arrival's cursor is zero.
@@ -727,6 +778,28 @@ describe('pickEncounter', () => {
     expect(ACT1.elite.map((x) => x.id)).toContain(elite.id);
     const boss = pickEncounter(new Rng('b'), ACT1, 'boss', opts(99));
     expect(ACT1.boss.map((x) => x.id)).toContain(boss.id);
+  });
+
+  it('degrades rather than handing back undefined when a pool is empty', () => {
+    // `FINAL.weak` and `FINAL.strong` are empty on purpose, and 终章 is the one
+    // act where an added 杂兵 node would *crash* instead of degrading:
+    // `rng.pick([])` is `undefined`, which `ensureEncounter` assigns straight
+    // into `record.encounterId` and then reads back one line later.
+    const picked = pickEncounter(new Rng('final-weak'), FINAL, 'monster', opts(0));
+    expect(picked).toBeDefined();
+    expect(picked.id).toBeTruthy();
+    expect(ENEMIES[picked.enemies[0]]).toBeDefined();
+
+    // And still exactly one roll, so degrading cannot shift the stream (R3).
+    for (const [table, tier, count] of [
+      [FINAL, 'monster', 0],
+      [FINAL, 'elite', 0],
+      [FINAL, 'boss', 0],
+    ] as const) {
+      const rng = new Rng('empty-rolls');
+      pickEncounter(rng, table, tier, opts(count));
+      expect(rng.rolls, `${tier}`).toBe(1);
+    }
   });
 });
 

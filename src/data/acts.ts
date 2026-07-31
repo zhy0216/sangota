@@ -184,8 +184,13 @@ export function advanceAct(run: RunState): ActDef {
   const runSeed = runSeedOf(run);
   run.act = nextIndex;
   clearActProgress(run);
+  // 终章 rolls nothing, but it is still seeded: `GameMap.seed` is what every
+  // room stream in the act hangs off and what `runSeedOf` reads the run's seed
+  // back out of, so it must be derived like any other act's.
   run.map =
-    nextIndex === 4 ? generateFinalAct() : generateMap(actSeed(runSeed, nextIndex), next.layout);
+    nextIndex === 4
+      ? generateFinalAct(actSeed(runSeed, nextIndex))
+      : generateMap(actSeed(runSeed, nextIndex), next.layout);
   heal(run, Math.floor((run.maxHp * next.interActHealPercent) / 100));
   return next;
 }

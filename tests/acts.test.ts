@@ -15,6 +15,7 @@ import { DEFAULT_HERO } from '../src/data/heroes';
 import { ACTS, actExit, actLabel, actOf, actSeed, advanceAct, runSeedOf } from '../src/data/acts';
 import { generateFinalAct, generateMap } from '../src/map/generateMap';
 import { roomCommit, roomRecord } from '../src/rooms/commit';
+import { streamSeed } from '../src/rooms/rng';
 import { bossOfferPending, ensureBossOffer, ensureEncounter, takeBossRelic } from '../src/rooms/fight';
 import { addCard, addRelic, startRun, type RunState } from '../src/state/run';
 
@@ -303,6 +304,7 @@ describe('每幕一张地图', () => {
     expect(actSeed('hello', 1)).toBe('hello');
     expect(actSeed('hello', 2)).toBe('hello:act2');
     expect(actSeed('hello', 3)).toBe('hello:act3');
+    expect(actSeed('hello', 4)).toBe('hello:act4');
     expect(fresh('hello').map.seed).toBe('hello');
   });
 
@@ -314,6 +316,11 @@ describe('每幕一张地图', () => {
     expect(runSeedOf(run)).toBe('recover');
     run.act = 3;
     run.map = generateMap('recover:act3', ACTS[3].layout);
+    expect(runSeedOf(run)).toBe('recover');
+    // 终章 too: the hand-built map is the one that used to answer `'final'`
+    // here, which would hand todos/08 the wrong run to reload.
+    run.act = 4;
+    run.map = generateFinalAct('recover:act4');
     expect(runSeedOf(run)).toBe('recover');
   });
 
@@ -336,7 +343,7 @@ describe('每幕一张地图', () => {
   });
 
   it('builds 终章 by hand: three fixed rooms, no die rolled', () => {
-    const map = generateFinalAct();
+    const map = generateFinalAct('anything:act4');
     expect(map.rows).toBe(2);
     expect(map.bossId).toBe('boss');
     expect([...map.nodes.keys()].sort()).toEqual(['0_0', '1_0', 'boss'].sort());
@@ -345,13 +352,24 @@ describe('每幕一张地图', () => {
     expect(map.nodes.get('boss')!.type).toBe('boss');
     expect(map.nodes.get('0_0')!.children).toEqual(['1_0']);
     expect(map.nodes.get('1_0')!.children).toEqual(['boss']);
-    expect(map.seed).toBe('final');
 
-    // Identical every time, which is what "spends no randomness" looks like
-    // from outside: no seed goes in and nothing varies.
-    const again = generateFinalAct();
-    expect([...again.nodes.values()].map((n) => `${n.id}:${n.type}:${n.x}:${n.y}`)).toEqual(
-      [...map.nodes.values()].map((n) => `${n.id}:${n.type}:${n.x}:${n.y}`),
+    // "Spends no randomness" means the *layout* ignores the seed — two
+    // different seeds still lay the same three rooms down in the same places.
+    const other = generateFinalAct('something-else:act4');
+    const shape = (m: typeof map): string[] =>
+      [...m.nodes.values()].map((n) => `${n.id}:${n.type}:${n.x}:${n.y}`);
+    expect(shape(other)).toEqual(shape(map));
+  });
+
+  it('carries the run seed into 终章 rather than a literal', () => {
+    // The map spends no draws, but `GameMap.seed` is *also* the prefix every
+    // room stream in the act derives from and the only copy of the run's seed
+    // left once the map is swapped. A literal here (it was `'final'`) gave
+    // every run in the game the same 司马懿 shuffle, the same 战利品 chest and
+    // the same elite relic, and made `runSeedOf` unable to name the run.
+    expect(generateFinalAct(actSeed('alpha', 4)).seed).toBe('alpha:act4');
+    expect(generateFinalAct(actSeed('bravo', 4)).seed).not.toBe(
+      generateFinalAct(actSeed('alpha', 4)).seed,
     );
   });
 });
@@ -486,11 +504,41 @@ describe('advanceAct', () => {
       advanceAct(run);
     }
     expect(run.act).toBe(4);
-    expect(run.map.seed).toBe('final');
+    expect(run.map.seed).toBe('finale:act4');
     expect([...run.map.nodes.values()].map((n) => n.type)).toEqual(['elite', 'rest', 'boss']);
     // …and its fights come from FINAL, not from 第三幕.
     expect(ensureEncounter(run, '0_0', 'elite').id).toBe('e8');
     expect(ensureEncounter(run, 'boss', 'boss').id).toBe('b8');
+  });
+
+  it('gives two seeds two different 终章 — every stream, not just the map', () => {
+    // The 终章 map is hand built, so nothing about its *shape* can vary. What
+    // must vary is everything hanging off `GameMap.seed`: the fight's shuffle,
+    // the 战利品 chest, the elite's relic, the reward and 丹药 rolls. With a
+    // literal seed all five were the same for every run ever played.
+    const toFinale = (seed: string): RunState => {
+      const run = fresh(seed);
+      for (let i = 0; i < 3; i++) {
+        clearBoss(run, i === 0);
+        advanceAct(run);
+      }
+      return run;
+    };
+    const a = toFinale('alpha');
+    const b = toFinale('bravo');
+
+    const PURPOSES = ['combat', 'reward', 'potion', 'eliteRelic', 'bossRelic'] as const;
+    for (const purpose of PURPOSES) {
+      for (const node of ['0_0', 'boss']) {
+        expect(streamSeed(a, node, purpose), `${node}:${purpose}`).not.toBe(
+          streamSeed(b, node, purpose),
+        );
+      }
+    }
+    // The 战利品 chest is the one a player would notice first.
+    expect(ensureBossOffer(a, 'boss')).not.toEqual(ensureBossOffer(b, 'boss'));
+    // Reproducible all the same: the same seed still lands the same chest.
+    expect(ensureBossOffer(toFinale('alpha'), 'boss')).toEqual(ensureBossOffer(a, 'boss'));
   });
 
   it('runs out of acts rather than looping', () => {

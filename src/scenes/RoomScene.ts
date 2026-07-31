@@ -4,6 +4,7 @@ import { ROOM_META } from '../map/roomMeta';
 import type { MapNode, RoomType } from '../map/types';
 import { CampfireController } from '../rooms/campfireView';
 import { roomCommit, type RoomCommit } from '../rooms/commit';
+import { eventFightNodeId } from '../rooms/fight';
 import type { PickRequest, RoomOptionView } from '../rooms/types';
 import { EventController } from '../rooms/eventView';
 import { ShopController } from '../rooms/shopView';
@@ -466,7 +467,14 @@ export class RoomScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
       // `bonusRelic` rides along for todo 10 to grant on the victory screen.
-      this.scene.start('Combat', { nodeType: req.tier, bonusRelic: req.bonusRelic }),
+      // The fight gets its **own** ledger id: this node's record is already an
+      // event one, and `roomRecord(..., 'combat')` throws on the mismatch — it
+      // used to do so inside `create()`, with the map already stopped.
+      this.scene.start('Combat', {
+        nodeType: req.tier,
+        bonusRelic: req.bonusRelic,
+        nodeId: eventFightNodeId(this.node.id),
+      }),
     );
   }
 }

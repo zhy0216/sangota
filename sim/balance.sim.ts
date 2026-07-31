@@ -3,7 +3,7 @@ import { COLORLESS_POOL } from '../src/combat/cards';
 import { ACT_TABLES } from '../src/combat/enemies';
 import { rollCardReward, rollRelicOfTier } from '../src/combat/rewards';
 import { Rng } from '../src/core/rng';
-import { DEFAULT_HERO } from '../src/data/heroes';
+import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../src/data/heroes';
 import { addCard, MIN_DECK_SIZE, startRun, upgradeCard, type DeckCard } from '../src/state/run';
 import { POLICIES, type Policy, type PolicyName } from './policy';
 import { simulateCombat, type SimResult } from './runCombat';
@@ -317,24 +317,29 @@ test(`balance: ${N} fights per tier per deck per policy`, () => {
  * boss band and the harness this file used to be could not see the fight.
  */
 function bandTable(rows: TierStats[], measured: Set<string>, label: string): string {
-  const out = [
-    `**Outside band** (${label})\n`,
-    '| tier | deck | policy | metric | measured | band |',
-    '|---|---|---|---|---|---|',
-  ];
-  let any = false;
+  const body: string[] = [];
+  let considered = 0;
   for (const r of rows) {
     const band = bandFor(r.tier);
     if (!band || !measured.has(r.profile) || r.policy === 'random') continue;
+    considered += 1;
     const value = metricOf(r, band.metric);
     if (value >= band.lo && value <= band.hi) continue;
-    any = true;
     const name = band.metric === 'win' ? 'win rate' : 'hp cost';
-    out.push(
+    body.push(
       `| ${r.tier} | ${r.profile} | ${r.policy} | ${name} | ${pct(value)} | ${pct(band.lo)}–${pct(band.hi)} |`,
     );
   }
-  return any ? out.join('\n') : `**Outside band** (${label}): none.`;
+
+  // The count goes in the heading, and `npm run sim` prints more than one of
+  // these tables. A handoff once quoted "five rows out of band" off the second
+  // table alone while the first held fifteen — a total that no line of output
+  // stated, so nothing contradicted it.
+  const head = `**Outside band** (${label}): ${body.length} of ${considered} rows`;
+  if (body.length === 0) return `${head} — none.`;
+  return [head, '', '| tier | deck | policy | metric | measured | band |', '|---|---|---|---|---|---|', ...body].join(
+    '\n',
+  );
 }
 
 // =====================================================================
@@ -382,8 +387,8 @@ interface Kit {
   relics: string[];
 }
 
-function buildKit(seed: string, p: ActProfile): Kit {
-  const run = startRun(DEFAULT_HERO, seed);
+function buildKit(seed: string, p: ActProfile, hero: HeroDef = DEFAULT_HERO): Kit {
+  const run = startRun(hero, seed);
   const rng = new Rng(`${seed}:kit`);
   for (let i = 0; i < p.rewards; i++) {
     // Every fourth reward is an 精英's, which is roughly the real ratio.
@@ -396,7 +401,7 @@ function buildKit(seed: string, p: ActProfile): Kit {
     if (open.length === 0) break;
     upgradeCard(run, rng.pick(open).uid);
   }
-  const relics = [DEFAULT_HERO.starterRelic];
+  const relics = [hero.starterRelic];
   for (let i = 0; i < p.relics; i++) {
     const id = rollRelicOfTier(rng, run, i % 4 === 3 ? 'uncommon' : 'common');
     if (id) {
@@ -425,18 +430,21 @@ function runActTier(
   p: ActProfile,
   policy: PolicyName,
   n: number,
+  hero: HeroDef = DEFAULT_HERO,
 ): TierStats {
   const results: SimResult[] = [];
   for (let i = 0; i < n; i++) {
+    // The seed deliberately does **not** carry the hero: 关羽's rows must keep
+    // the exact seeds they were tuned against when the other two were added.
     const seed = `${tier}-${p.profile}-${policy}-${i}`;
-    const kit = buildKit(seed, p);
+    const kit = buildKit(seed, p, hero);
     results.push(
       simulateCombat({
         encounterId: encounters[i % encounters.length],
         deck: kit.deck,
-        hero: DEFAULT_HERO,
-        hp: DEFAULT_HERO.maxHp,
-        maxHp: DEFAULT_HERO.maxHp,
+        hero,
+        hp: hero.maxHp,
+        maxHp: hero.maxHp,
         relics: kit.relics,
         seed,
         policy: POLICIES[policy],
@@ -453,7 +461,7 @@ function runActTier(
     winRate: wins.length / n,
     avgTurns: mean(results.map((r) => r.turns)),
     avgHpCost: mean(results.map((r) => r.hpMax - r.hpLeft)),
-    hpMax: DEFAULT_HERO.maxHp,
+    hpMax: hero.maxHp,
     avgHpLeft: mean(results.map((r) => r.hpLeft)),
     avgHpLeftOnWin: mean(wins.map((r) => r.hpLeft)),
     hpPercentiles: [10, 20, 30, 40, 50, 60, 70, 80, 90].map((q) => percentile(hp, q)),
@@ -499,6 +507,89 @@ test(`per-act balance: ${ACT_N} fights per row`, () => {
   for (const r of rows) expect(r.aborted, `${r.tier}/${r.profile}/${r.policy}`).toBe(0);
 });
 
+// --------------------------------------------------------- 三将逐场
+
+/**
+ * The same fights, for every 武将 the game ships.
+ *
+ * **Every table above this line measures 关羽 and only 关羽.** `rollCardReward`
+ * has been per-hero since todos/17 and `heroCards.ts` added two more card pools,
+ * but each profile here wrote `DEFAULT_HERO`, so 赵云 and 诸葛亮 had never been
+ * measured once — the balance numbers in the handoff were a statement about one
+ * third of the game.
+ *
+ * They are far apart, and this table is how that stays visible. Measured at
+ * 250 fights a row: against the same 首领 band 关羽 lands ~6 rows out, 赵云 ~26
+ * and 诸葛亮 ~31, in opposite directions — 诸葛亮 clears 终章 首领 at roughly
+ * +40 points on 关羽 and 赵云 at roughly −40.
+ *
+ * **Deliberately not asserted into the band.** The cause is upstream of tuning:
+ * `poolFor` gives 关羽 21 cards and the other two 9 each (todos/17 asked for
+ * 20+), so their drafts are near-deterministic and a number moved here would be
+ * fitting to a pool that is about to change size. The assertion is that the
+ * rows *exist and run*; closing the gap belongs to todos/17 with the rest of
+ * the card pools.
+ */
+const HERO_N = 250;
+
+test(`per-hero balance: ${HERO_N} fights per row, every 武将`, () => {
+  const rows: (TierStats & { hero: string })[] = [];
+  for (const hero of HEROES_IN_ORDER) {
+    for (const p of ACT_PROFILES) {
+      // The elites and 首领 only: the trash rows carry no signal worth 12× the
+      // runtime, and it is the tier where the heroes actually diverge.
+      const tiers = actTiers(p.act).filter((t) => !t.tier.startsWith('trash'));
+      for (const { tier, encounters } of tiers) {
+        const stats = runActTier(tier, encounters, p, 'greedy', HERO_N, hero);
+        rows.push({ ...stats, hero: hero.name });
+      }
+    }
+  }
+
+  const heroes = HEROES_IN_ORDER.map((h) => h.name);
+  const tiers = [...new Set(rows.map((r) => r.tier))];
+  const out = [
+    `| tier | ${heroes.join(' | ')} | band |`,
+    `|---|${heroes.map(() => '---').join('|')}|---|`,
+  ];
+  for (const tier of tiers) {
+    const band = bandFor(tier);
+    const cells = heroes.map((name) => {
+      const r = rows.find((x) => x.tier === tier && x.hero === name)!;
+      const value = band ? metricOf(r, band.metric) : r.winRate;
+      const flag = band && (value < band.lo || value > band.hi) ? ' ⚠' : '';
+      return `${pct(value)}${flag}`;
+    });
+    const cell = band
+      ? `${pct(band.lo)}–${pct(band.hi)} ${band.metric === 'win' ? 'win' : 'cost'}`
+      : '—';
+    out.push(`| ${tier} | ${cells.join(' | ')} | ${cell} |`);
+  }
+
+  console.log(`\n### 三将逐场 — ${HERO_N} fights per row, greedy, act-appropriate kit\n`);
+  console.log(
+    '每格是该 tier 的 band 指标（首领看胜率，精英看体力消耗）。⚠ = 落在带外。\n' +
+      '赵云 / 诸葛亮 的牌池目前各只有 9 张（关羽 21 张），todos/17 未完；\n' +
+      '在补齐之前不对这两列调参 —— 池子一变，调出来的数就作废。\n',
+  );
+  console.log(out.join('\n') + '\n');
+
+  const outOfBand = rows.filter((r) => {
+    const band = bandFor(r.tier);
+    if (!band) return false;
+    const value = metricOf(r, band.metric);
+    return value < band.lo || value > band.hi;
+  });
+  const byHero = heroes.map(
+    (name) => `${name} ${outOfBand.filter((r) => r.hero === name).length}/${rows.length / heroes.length}`,
+  );
+  console.log(`**Outside band** (per hero): ${byHero.join('　·　')}\n`);
+
+  // The rows have to run. Nothing more is claimed — see the note above.
+  for (const r of rows) expect(r.aborted, `${r.hero}/${r.tier}`).toBe(0);
+  expect(rows.length).toBe(HEROES_IN_ORDER.length * tiers.length);
+});
+
 // ------------------------------------------------------------- 连场
 
 /**
@@ -525,33 +616,29 @@ interface GauntletVariant {
 }
 
 /**
- * ⚠️ **A `cull` variant is missing here on purpose, and it is not a preference.**
- *
  * Card removal is the single biggest thing separating this sim's player from a
- * real one — measured while tuning 第二/三幕, removing five basic cards took the
- * act-2 clear rate from 5% to 25% — so a `{ cull: 5 }` row belongs in this
- * table. It is left out because it trips an **engine hang**:
+ * real one, so the `cull` rows are the ones worth reading.
  *
- *   seed `gauntlet-裁牌 5-1-greedy-5`, encounter `m3`, policy `greedy`,
- *   relics `qinglongdao` + `lianhuanjia`, deck (11 cards, legal — well above
- *   `MIN_DECK_SIZE`) `tiebi ×3, tiebi+, tuodao+, wanren ×2, guanzhen ×2,
- *   guanzhen+, quedi`
+ * **They were missing for a phase, and the reason on record was wrong.** The
+ * note here said `{ cull: 5 }` tripped an *engine* hang — `playCard` →
+ * `pumpEffects` → `applyEffect` → `drawCards` re-entering without bound. It
+ * does not. Replaying the named seed with a counter shows 5000 independent
+ * top-level `playCard` calls returning normally in 38 ms: the loop is
+ * `simulateCombat`'s own `while`, spinning on a full hand at 0 气 with a 0-cost
+ * draw card recycling through the discard pile. `MAX_ACTIONS` in
+ * `sim/runCombat.ts` is the two-line guard that was actually needed, and with
+ * it these rows run clean.
  *
- * `playCard` → `pumpEffects` (engine.ts:608) → `applyEffect` (:656) →
- * `drawCards` (:275) re-enters without bound and only stops when `state.events`
- * overflows a JS array, about 200 seconds later. Two guards both miss it: the
- * `maxTurns` check in `simulateCombat` only runs between actions, and
- * `hashState` counts `state.events.length` as progress — so an infinite loop
- * that appends events reads as forward motion to the no-progress detector
- * forever. Three 观阵 (0 气, draw 2) in one deck is the trigger shape.
- *
- * Restore the row once that is fixed; until then the numbers below understate a
- * real run's survival by roughly a factor of five, which is why the per-fight
- * tables above are the ranking and this one is only the altitude check.
+ * What they measure is worth the wait: culling five basic cards roughly triples
+ * a first-act clear, and the 「裁五张 + 丹药」 row is the closest thing here to
+ * how a real run is actually played. The 素手 rows stay because they are the
+ * floor, not because they are representative.
  */
 const GAUNTLETS: GauntletVariant[] = [
   { label: '素手（不用丹药）', cull: 0, potions: [] },
   { label: '每战两瓶', cull: 0, potions: ['huoyouguan', 'zhuangxingjiu'] },
+  { label: '裁牌五张', cull: 5, potions: [] },
+  { label: '裁五张 + 每战两瓶', cull: 5, potions: ['huoyouguan', 'zhuangxingjiu'] },
 ];
 
 /** Rest sites in `generateMap` are worth 30% of max HP. */

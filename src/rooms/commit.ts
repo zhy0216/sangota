@@ -40,7 +40,7 @@ const ROOM_KIND: Record<RoomType, RoomKind> = {
 function blankRecord(kind: RoomKind): RoomRecord {
   switch (kind) {
     case 'combat':
-      return { kind, committed: [], encounterId: null, relicId: null };
+      return { kind, committed: [], encounterId: null, relicId: null, spoils: null };
     case 'rest':
       return { kind, committed: [] };
     case 'shop':

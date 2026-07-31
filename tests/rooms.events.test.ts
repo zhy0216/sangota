@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/core/rng';
-import { CARDS, CARD_POOL_BY_RARITY } from '../src/combat/cards';
+import { CARDS, CARD_POOL_BY_RARITY, poolFor } from '../src/combat/cards';
 import { POTIONS } from '../src/combat/potions';
 import { RELICS, relicsOfTier } from '../src/combat/relics';
 import { EVENTS, FALLBACK_EVENT, getEvent, type EventOutcome } from '../src/data/events';
@@ -15,9 +15,10 @@ import {
   pendingPick,
   resolvePending,
 } from '../src/rooms/events';
-import { stream } from '../src/rooms/rng';
+import { claimVictoryRelic, ensureEncounter, eventFightNodeId } from '../src/rooms/fight';
+import { stream, streamSeed } from '../src/rooms/rng';
 import { addRelic, startRun, type RunState } from '../src/state/run';
-import { DEFAULT_HERO } from '../src/data/heroes';
+import { DEFAULT_HERO, HEROES_IN_ORDER } from '../src/data/heroes';
 
 /**
  * 奇遇. Two halves worth testing for different reasons.
@@ -1059,6 +1060,39 @@ describe('applyOutcome ordering and boundaries', () => {
     }
   });
 
+  it('never hands the same card twice out of one gainCards', () => {
+    // 秘录 asks for three cards out of a 稀有 pool holding exactly three, which
+    // is the whole point of it — and with a with-replacement `rng.pick` it paid
+    // two of a kind in 76% of seeds, for the largest price in the table.
+    // Swept, not spot-checked: one bad seed proves nothing either way.
+    for (const hero of HEROES_IN_ORDER) {
+      for (let i = 0; i < 300; i++) {
+        const run = startRun(hero, `dup-${hero.id}-${i}`);
+        const report = applyOutcome(
+          run,
+          { text: '', gainCards: { count: 3, rarity: 'rare' } },
+          new Rng(`dup-${hero.id}-${i}`),
+        );
+        expect(report.cardIds).toHaveLength(3);
+        expect(new Set(report.cardIds).size, `${hero.id}/${i}: ${report.cardIds}`).toBe(3);
+      }
+    }
+  });
+
+  it('still draws once per card when the pool is smaller than the ask', () => {
+    // R3: filtering narrows *what* comes out, never how many times the stream
+    // is pulled. Asking for more cards than exist must repeat rather than
+    // silently spend fewer draws and shift everything downstream.
+    const run = fresh('overask');
+    const rng = new Rng('overask');
+    const pool = poolFor(run.hero.id, 'rare');
+    const report = applyOutcome(run, { text: '', gainCards: { count: pool.length + 2, rarity: 'rare' } }, rng);
+    expect(report.cardIds).toHaveLength(pool.length + 2);
+    expect(rng.rolls).toBe(pool.length + 2);
+    // The first pass is still exhaustive before anything repeats.
+    expect(new Set(report.cardIds.slice(0, pool.length)).size).toBe(pool.length);
+  });
+
   it('floors a removal at four cards, the same floor 弃卡 answers to', () => {
     // `RoomHost.pickCards` only clamps against what is *selectable*, which for
     // a removal is the whole deck. An outcome asking for three off a
@@ -1121,6 +1155,21 @@ describe('the narration a player actually reads', () => {
     const report = applyOutcome(run, { text: '', fight: { tier: 'monster' } }, new Rng('n'));
     expect(report.lines).toContain('刀兵已至。');
   });
+
+  it('gives 弃 / 精进 / 易 three different lines', () => {
+    // 易牌 and 换血 swap each card for another of the same rarity and the deck
+    // ends exactly as large as it started. Sharing 「择牌弃之」 with `remove`
+    // told the player they were about to lose two cards when they lose none —
+    // and the same wrong line covered every 奇遇 and 祝福 with `transformCards`.
+    const line = (o: Parameters<typeof applyOutcome>[1]): string[] =>
+      applyOutcome(fresh('narrate-pending'), o, new Rng('n')).lines;
+
+    expect(line({ text: '', removeCards: 2 })).toContain('择牌弃之。');
+    expect(line({ text: '', upgradeCards: 2 })).toContain('择牌精进。');
+    expect(line({ text: '', transformCards: 2 })).toContain('择牌易之。');
+    // The one that was wrong: a 换 must never be announced as a 弃.
+    expect(line({ text: '', transformCards: 2 }).join()).not.toContain('弃');
+  });
 });
 
 // ------------------------------------------------------- 打起来就关掉事件
@@ -1152,5 +1201,94 @@ describe('a fight closes the event whichever option started it', () => {
       return;
     }
     throw new Error('no ambush landed in 200 runs');
+  });
+});
+
+// ------------------------------------------- 奇遇打起来的那一仗，账记在哪
+
+describe('a fight an 奇遇 started gets its own ledger', () => {
+  const SOURCES: Record<string, string> = import.meta.glob('../src/**/*.ts', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  });
+  const readSrc = (path: string): string => SOURCES[`../${path}`];
+
+  /** Walk an event node exactly the way `nav.enterRoom` + `EventController` do. */
+  function standOnEvent(seed: string, eventId: string): { run: RunState; id: string } {
+    const run = fresh(seed);
+    const id = eventNode(run);
+    run.currentNodeId = id;
+    roomCommit(run, id).once('enter', () => undefined);
+    pin(run, id, eventId);
+    return { run, id };
+  }
+
+  it('does not ask an event node for a combat record', () => {
+    // The failure this replaces: `goCombat` stops 「Map」 and starts 「Combat」,
+    // whose `create()` ran `ensureEncounter(run, currentNodeId, tier)`. By then
+    // the node held a `{ kind: 'event' }` record, `roomRecord` threw on the
+    // mismatch, and it threw *before* the first Game Object — black screen with
+    // no map behind it and no way back into the run.
+    const { run, id } = standOnEvent('event-fight', 'jiangdong');
+    expect(run.rooms[id]!.kind).toBe('event');
+    expect(() => ensureEncounter(run, id, 'elite')).toThrow(/not combat/);
+
+    // What the room layer hands the scene instead.
+    const fightId = eventFightNodeId(id);
+    expect(fightId).not.toBe(id);
+    const encounter = ensureEncounter(run, fightId, 'elite');
+    expect(encounter.id).toBeTruthy();
+    expect(run.rooms[fightId]!.kind).toBe('combat');
+    // Both ledgers coexist; neither overwrote the other.
+    expect(run.rooms[id]!.kind).toBe('event');
+    expect(() => claimVictoryRelic(run, fightId, 'elite')).not.toThrow();
+  });
+
+  it('freezes the ambush fight the same way a map node freezes one', () => {
+    // R5 still applies: the fight the player walked into is the fight they
+    // fight, even if the scene is rebuilt.
+    const { run, id } = standOnEvent('ambush-ledger', 'shanzhongcanbing');
+    const fightId = eventFightNodeId(id);
+    const first = ensureEncounter(run, fightId, 'monster');
+    const before = run.actCombatCount;
+    expect(ensureEncounter(run, fightId, 'monster').id).toBe(first.id);
+    expect(run.actCombatCount).toBe(before);
+  });
+
+  it('gives the fight its own streams, separate from the event that started it', () => {
+    // Sharing them would let the event's branch roll and the fight's shuffle
+    // read the same numbers.
+    const { run, id } = standOnEvent('streams', 'jiangdong');
+    const fightId = eventFightNodeId(id);
+    for (const purpose of ['combat', 'reward', 'potion'] as const) {
+      expect(streamSeed(run, fightId, purpose)).not.toBe(streamSeed(run, id, purpose));
+    }
+    // `#` is not a legal map node id, so the derived id can never shadow one.
+    expect([...run.map.nodes.keys()].some((k) => k.includes('#'))).toBe(false);
+  });
+
+  it('is what RoomScene actually hands to CombatScene', () => {
+    // The wiring no unit test can reach — the same source-text technique
+    // `tests/combatScene.test.ts` uses on the rest of the scene.
+    const roomScene = readSrc('src/scenes/RoomScene.ts');
+    const at = roomScene.indexOf('private goCombat');
+    expect(at).toBeGreaterThan(-1);
+    const body = roomScene.slice(at, roomScene.indexOf('\n  }', at));
+    expect(body).toContain('eventFightNodeId(this.node.id)');
+  });
+
+  it('is what CombatScene prefers over the node the player is standing on', () => {
+    const combatScene = readSrc('src/scenes/CombatScene.ts');
+    // Order matters: `currentNodeId` first would put the fight back on the
+    // event's own ledger and throw again.
+    expect(combatScene).toContain('this.nodeId = this.ledgerId ?? this.run.currentNodeId');
+    // And it has to be reset per fight, or a map fight after an 奇遇 fight
+    // inherits the derived id and books its spoils on the wrong ledger.
+    const init = combatScene.slice(
+      combatScene.indexOf('  init(data:'),
+      combatScene.indexOf('\n  }', combatScene.indexOf('  init(data:')),
+    );
+    expect(init).toContain('this.ledgerId = data?.nodeId ?? null');
   });
 });

@@ -10,7 +10,7 @@ vi.mock('phaser', () => ({
   },
 }));
 
-import { getEncounter } from '../src/combat/enemies';
+import { allEncounters, getEncounter } from '../src/combat/enemies';
 import { endPlayerTurn, resolveDamage, runEnemyTurn, startCombat } from '../src/combat/engine';
 import type { CombatEvent, CombatState, EnemyState } from '../src/combat/types';
 import { DEFAULT_HERO } from '../src/data/heroes';
@@ -639,5 +639,105 @@ describe('the intent marker is drawn, not written', () => {
     expect(icons).toMatch(/^import type Phaser from 'phaser';$/m);
     expect(icons).not.toMatch(/^import Phaser from 'phaser';$/m);
     expect(icons).not.toContain('this.add.image');
+  });
+});
+
+// ------------------------------------------------- 出手之后，身子要归位
+
+describe('an enemy that acts goes back to where it stood', () => {
+  const scene = read('src/scenes/CombatScene.ts');
+
+  it('has exactly one place that winds a body up, and one that puts it back', () => {
+    // The wind-up (`baseX + 30`) is unconditional on `enemyMove`. The only
+    // other tween that ever writes `baseX` back to a container is `lunge`'s
+    // return leg, and the scene lunges an enemy **only** from `playDamage`,
+    // gated on `hitsPlayer && this.currentAttacker`. So a move that deals no
+    // damage used to leave the body 30 px right of its own HP bar, name plate,
+    // intent badge and hit zone — permanently, and re-set on the next such
+    // move. `settleAttacker` is the counterpart.
+    expect(scene).toContain('x: view.baseX + 30');
+    const at = scene.indexOf('private settleAttacker');
+    expect(at, 'settleAttacker must exist').toBeGreaterThan(-1);
+    const body = scene.slice(at, scene.indexOf('\n  }', at));
+    expect(body).toContain('x: view.baseX');
+    // Guarded, or a body destroyed by 遁走 / 分裂 mid-batch is tweened dead.
+    expect(body).toContain('view.container.active');
+    expect(body).toContain('this.currentAttacker = null');
+  });
+
+  it('settles the previous swing before the next one and after the last', () => {
+    // Two enemies in one turn: the first must be home before the second leans.
+    const move = scene.slice(
+      scene.indexOf("case 'enemyMove': {"),
+      scene.indexOf("case 'relic':"),
+    );
+    expect(move).toContain('this.settleAttacker()');
+    expect(move.indexOf('this.settleAttacker()')).toBeLessThan(
+      move.indexOf('this.currentAttacker = view'),
+    );
+
+    // And the last swing of the turn, which has no next move to settle it.
+    const from = scene.indexOf('runEnemyTurn(this.state);');
+    expect(from).toBeGreaterThan(-1);
+    const turn = scene.slice(from, scene.indexOf('this.checkOutcome();', from));
+    expect(turn).toContain('this.settleAttacker();');
+  });
+
+  it('lets go of a body before destroying it', () => {
+    // 流寇 plays 遁走 as its last move; anything that damages the player later
+    // in the same batch (a turn-start 中毒 tick, a relic that wounds) then
+    // lunges `currentAttacker` — which `EnemyRoster.remove` has destroyed.
+    const at = scene.indexOf('removeEnemyView(id: string)');
+    const body = scene.slice(at, scene.indexOf('\n  }', at));
+    expect(body).toContain('this.currentAttacker = null');
+    expect(body.indexOf('this.currentAttacker = null')).toBeLessThan(
+      body.indexOf('this.roster.remove(id)'),
+    );
+  });
+
+  it('is not a rare case: most elites and bosses have a move with no damage', () => {
+    // The number that makes this worth a fix rather than a note. Every
+    // encounter in every act, driven through the real engine, grouped by which
+    // `enemyMove` produced no player-damage event before the next move.
+    let moves = 0;
+    let silent = 0;
+    const offenders = new Set<string>();
+
+    for (const encounter of allEncounters()) {
+      for (const seed of ['park-a', 'park-b', 'park-c']) {
+        const state = fight(encounter.id, `${seed}-${encounter.id}`);
+        for (let turn = 0; turn < 12 && state.phase === 'player'; turn++) {
+          endPlayerTurn(state);
+          runEnemyTurn(state);
+          const events = drain(state);
+          // Walk the batch, splitting it at each `enemyMove`.
+          let open: { id: string; label: string } | null = null;
+          let hit = false;
+          const close = (): void => {
+            if (!open) return;
+            moves += 1;
+            if (!hit) {
+              silent += 1;
+              offenders.add(`${encounter.id}:${open.label}`);
+            }
+          };
+          for (const ev of events) {
+            if (ev.t === 'enemyMove') {
+              close();
+              open = { id: ev.enemyId, label: ev.label };
+              hit = false;
+            } else if (ev.t === 'damage' && ev.targetId === 'player') {
+              hit = true;
+            }
+          }
+          close();
+        }
+      }
+    }
+
+    expect(moves).toBeGreaterThan(400);
+    // Not a corner: roughly one move in five lands no blow on the player.
+    expect(silent / moves).toBeGreaterThan(0.1);
+    expect(offenders.size).toBeGreaterThan(15);
   });
 });

@@ -27,7 +27,7 @@ import {
 } from '../data/events';
 import { roomCommit, roomRecord } from './commit';
 import { stream } from './rng';
-import type { DeckPick, RoomOptionView } from './types';
+import type { DeckPick, DeckPickKind, RoomOptionView } from './types';
 
 /**
  * 奇遇 — the rules half. Everything that touches `RunState` for an event is in
@@ -337,8 +337,19 @@ export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): Ou
       report.cardIds.push(id);
     }
     const pool = poolFor(run.hero.id, o.gainCards.rarity ?? 'common');
+    // Drawn *without* replacement, like `rollCardReward`. 「秘录 · 得稀世之技
+    // 三张」 asks for three cards out of a three-card 稀有 pool and paid the
+    // same card twice in 76% of seeds — the largest single payout in the game,
+    // bought with 割股 or 倾囊, and most of the time it was two of a kind.
+    //
+    // R3 is untouched: the filter narrows *what* can come out, never how many
+    // times the stream is pulled. A pool smaller than `count` falls back to the
+    // whole pool rather than skipping the draw.
+    const taken: string[] = [];
     for (let i = 0; i < (o.gainCards.count ?? 0); i++) {
-      const id = rng.pick(pool);
+      const fresh = pool.filter((id) => !taken.includes(id));
+      const id = rng.pick(fresh.length > 0 ? fresh : pool);
+      taken.push(id);
       addCard(run, id, o.gainCards.upgraded ?? 0);
       report.cardIds.push(id);
     }
@@ -453,6 +464,17 @@ export function applyPick(
 // ----------------------------------------------------------------- narration
 
 /**
+ * What the player is about to be asked to do with their deck. One line per
+ * kind — 换 keeps the deck the same size and 弃 does not, and a player told the
+ * wrong one is a player making the wrong decision.
+ */
+const PENDING_LINE: Record<DeckPickKind, string> = {
+  remove: '择牌弃之。',
+  upgrade: '择牌精进。',
+  transform: '择牌易之。',
+};
+
+/**
  * The result lines, built here rather than in the view: they quote numbers the
  * view has no way to recompute (what the 聚宝盆 multiplier turned 30 into, which
  * relic the ladder degraded to) and the room layer already knows all of them.
@@ -481,7 +503,11 @@ function describe(report: OutcomeReport): string[] {
   for (const id of report.cardIds) lines.push(`「${getCard(id).name}」入册。`);
   for (const id of report.curseIds) lines.push(`「${getCard(id).name}」缠身。`);
   if (report.pending) {
-    lines.push(report.pending.kind === 'upgrade' ? '择牌精进。' : '择牌弃之。');
+    // One line per kind, and 换 is *not* 弃: 易牌 and 换血 swap each card for
+    // another of the same rarity and leave the deck exactly as large as it was.
+    // Sharing 「择牌弃之」 with `remove` told the player they were about to lose
+    // two cards when they were about to lose none.
+    lines.push(PENDING_LINE[report.pending.kind]);
   }
   if (report.fight) lines.push('刀兵已至。');
   return lines;

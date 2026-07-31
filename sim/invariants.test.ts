@@ -7,6 +7,7 @@ import {
 } from '../src/combat/engine';
 import type { CombatState } from '../src/combat/types';
 import { CARD_POOL_BY_RARITY, COLORLESS_POOL } from '../src/combat/cards';
+import { allEncounters } from '../src/combat/enemies';
 import { CURSE_POOL, STATUS_POOL } from '../src/combat/curses';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { newDeckCard, startRun, type DeckCard } from '../src/state/run';
@@ -20,18 +21,18 @@ import { answerChoices, findEncounter, simulateCombat } from './runCombat';
  */
 
 /**
- * Every encounter in both tables. The six originals plus todos/15's rows, which
- * is where 召唤, 分裂, 遁走, 塞牌 and the scripted bosses actually get walked
- * under three policies and twenty seeds each — the mechanics tests in
- * `tests/enemies.test.ts` pin the numbers, this pins that nothing they do can
- * leave the fight in an impossible shape.
+ * **Every** encounter the game ships, derived rather than listed.
+ *
+ * It used to be a hand-written list of the 17 第一幕 rows, with a comment
+ * claiming it was "every encounter in both tables". That was true when it was
+ * written; todos/09 then added 20 more across 第二/三幕 and 终章 and the list did
+ * not move, so two thirds of the game's fights — every act-2 and act-3 elite and
+ * 首领, and both 终章 rows — were fuzzed by nothing at all. Their only driver was
+ * `balance.sim.ts`, which asserts `aborted === 0` and no invariant beyond it.
+ *
+ * Deriving it means the next act cannot repeat the mistake.
  */
-const ENCOUNTERS = [
-  'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8',
-  'm9', 'm10', 'm11',
-  'e1', 'e2', 'e3',
-  'b1', 'b2', 'b3',
-];
+const ENCOUNTERS = allEncounters().map((e) => e.id);
 const POLICY_NAMES: PolicyName[] = ['random', 'greedy', 'threat'];
 const RUNS_PER_COMBO = 20;
 
@@ -198,6 +199,51 @@ describe('protective bail-outs', () => {
   it('reports turnLimit when a fight outlasts maxTurns', () => {
     const result = simulateCombat({ ...base, policy: POLICIES.threat, maxTurns: 2 });
     expect(result.aborted).toBe('turnLimit');
+  });
+
+  it('stops a loop that defeats both of the other two guards', () => {
+    // The shape that hung CI, and the reason the `{ cull: 5 }` gauntlet rows
+    // were missing for a phase: a hand at `MAX_HAND` with 0 气 and a 0-cost
+    // draw card in it. 观阵 is played, `drawCards` returns immediately because
+    // the hand is full, the card lands in the discard pile, the pile reshuffles
+    // and it comes back to hand.
+    //
+    // `state.turn` never advances, so `maxTurns` never fires. `hashState`
+    // counts `state.events.length`, which grows every pass, so the no-progress
+    // detector reads it as forward motion forever. And the loop is synchronous,
+    // so vitest's `testTimeout` cannot interrupt it — this test would hang the
+    // run rather than fail it.
+    //
+    // Diagnosed for a phase as an engine recursion (`playCard` → `pumpEffects`
+    // → `applyEffect` → `drawCards`). It is not: every iteration is one
+    // independent top-level `playCard` that returns.
+    // The deck named in the note that used to stand where this test does:
+    // tiebi ×3, tiebi+, tuodao+, wanren ×2, guanzhen ×2, guanzhen+, quedi.
+    const deck = [
+      ...Array.from({ length: 3 }, () => newDeckCard('tiebi')),
+      newDeckCard('tiebi', 1),
+      newDeckCard('tuodao', 1),
+      ...Array.from({ length: 2 }, () => newDeckCard('wanren')),
+      ...Array.from({ length: 2 }, () => newDeckCard('guanzhen')),
+      newDeckCard('guanzhen', 1),
+      newDeckCard('quedi'),
+    ];
+    const result = simulateCombat({
+      encounterId: 'm3',
+      deck,
+      hero: DEFAULT_HERO,
+      hp: DEFAULT_HERO.maxHp,
+      maxHp: DEFAULT_HERO.maxHp,
+      relics: ['qinglongdao', 'lianhuanjia'],
+      seed: 'gauntlet-裁牌 5-1-greedy-5-m3',
+      policy: POLICIES.greedy,
+    });
+
+    // Reported, not hung — and reported as the bug it is rather than silently
+    // scored as a loss.
+    expect(result.aborted).toBe('noProgress');
+    // Well short of the array overflow the old loop ran to.
+    expect(result.events.length).toBeLessThan(20000);
   });
 
   it('finishes normal fights without tripping either guard', () => {

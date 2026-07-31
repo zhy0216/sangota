@@ -142,6 +142,24 @@ describe('rollCardReward · 验收标准', () => {
     expect(new Set(picks).size).toBe(total);
   });
 
+  it('draws the same number of times whether or not the pools ran out (R3)', () => {
+    // A `break` on the drained case made the length of the `reward` stream
+    // depend on how much of the pool the reward had already eaten. Today the
+    // gold roll comes first and the stream ends here, so nothing visibly
+    // shifts — but `count` is relic-driven and hero pools are small, so this is
+    // one added purpose away from moving everything downstream of it.
+    const total = Object.values(CARD_POOL_BY_RARITY).flat().length;
+    const rolls = (count: number): number => {
+      const rng = new Rng('r3');
+      rollCardReward({ tier: 'monster', run: run(`r3-${count}`), rng, count });
+      return rng.rolls;
+    };
+    // Two draws per requested card — the rarity roll and the pick — flat.
+    expect(rolls(3)).toBe(6);
+    expect(rolls(total)).toBe(total * 2);
+    expect(rolls(total + 5)).toBe((total + 5) * 2);
+  });
+
   it('offers 4 cards under 求贤令 and 1 under 独断', () => {
     const more = run('more');
     expect(more.cardRewardCount).toBe(BASE_CARD_REWARD_COUNT);
