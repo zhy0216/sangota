@@ -110,6 +110,23 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   weizhenhuaxia: { effects: [{ kind: 'status', status: 'ritual', amount: 2, to: 'self' }] },
   wuguanliujiang: { effects: [{ kind: 'status', status: 'slayer', amount: 3, to: 'self' }] },
   shengougaolei: { cost: 2 },
+
+  // --- todos/05 无色 stock, sold only over a 商旅's counter -----------------
+  qingnangshu: { effects: [{ kind: 'heal', amount: 9 }] },
+  lujiao: { effects: [{ kind: 'status', status: 'thorns', amount: 4, to: 'self' }] },
+  lijianji: {
+    effects: [
+      { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+      { kind: 'status', status: 'vulnerable', amount: 3, to: 'allEnemies' },
+    ],
+  },
+  dushi: {
+    effects: [
+      { kind: 'damage', amount: 7 },
+      { kind: 'status', status: 'poison', amount: 4, to: 'target' },
+    ],
+  },
+  bazhentu: { effects: [{ kind: 'status', status: 'metallicize', amount: 5, to: 'self' }] },
 };
 
 /** Minimal combat state to preview a card face against — no enemies needed. */

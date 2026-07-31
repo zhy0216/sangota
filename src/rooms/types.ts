@@ -14,21 +14,30 @@ import type { DeckCard } from '../state/run';
 
 // ------------------------------------------------------------------- 商店
 
-/** One card on the shelf. Priced when the stock is frozen, never re-rolled. */
+/**
+ * `price` is always what the player pays. `listPrice` is set only on the one
+ * discounted slot and holds what the tag *would* have said — a struck-through
+ * number the view can print beside the real one. Storing the discount as the
+ * pre-discount price rather than as a flag keeps the arithmetic in the room
+ * layer, where it can be tested, instead of in the tag that draws it.
+ */
 export interface ShopCardOffer {
   defId: string;
   upgraded: number;
   price: number;
+  listPrice?: number;
 }
 
 export interface ShopRelicOffer {
   id: string;
   price: number;
+  listPrice?: number;
 }
 
 export interface ShopPotionOffer {
   id: string;
   price: number;
+  listPrice?: number;
 }
 
 /**

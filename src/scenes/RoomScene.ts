@@ -4,6 +4,7 @@ import { ROOM_META } from '../map/roomMeta';
 import type { MapNode, RoomType } from '../map/types';
 import { roomCommit, type RoomCommit } from '../rooms/commit';
 import type { PickRequest, RoomOptionView } from '../rooms/types';
+import { ShopController } from '../rooms/shopView';
 import { TreasureController } from '../rooms/treasureView';
 import { getRun, type RunState } from '../state/run';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
@@ -88,6 +89,7 @@ export interface RoomController {
  * one line here.
  */
 const CONTROLLERS: Partial<Record<RoomType, () => RoomController>> = {
+  shop: () => new ShopController(),
   treasure: () => new TreasureController(),
 };
 

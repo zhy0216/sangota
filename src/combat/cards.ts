@@ -548,11 +548,134 @@ const HERO_CARDS: Record<string, CardDef> = {
 };
 
 /**
+ * 无色 — cards no hero starts with and no fight ever offers. The only counter
+ * they are sold over is a 商旅's (todos/05), which is what buys them the licence
+ * to reach for mechanics 关羽's own pool deliberately leaves alone: 反刺, 中毒
+ * and 重甲 exist as statuses but no drafted card grants any of them.
+ *
+ * Their `rarity` is a **price band and nothing else**. They are absent from
+ * `CARD_POOL_BY_RARITY` and must stay absent: that table feeds `availableRarity`,
+ * so widening it would move every post-combat reward roll on every seed that
+ * already exists.
+ *
+ * Rate check against the printed baselines (劈砍 1气/6伤, 铁壁 1气/5甲):
+ * 淬毒 pays 5 up front and 3+2+1 over three turns for one 气, which is above
+ * rate only if the fight lasts — 中毒 is the price and the point. 八阵图 pays
+ * nothing on the turn it lands. 离间计 buys no damage at all, only a window.
+ */
+const COLORLESS_CARDS: Record<string, CardDef> = {
+  /** The one out-of-band heal in the game that is not a 丹药 or a campfire. */
+  qingnangshu: {
+    id: 'qingnangshu',
+    name: '青囊书',
+    type: 'skill',
+    rarity: 'common',
+    cost: 0,
+    target: 'self',
+    art: 'card-qingnangshu',
+    text: '回复 6 点体力。',
+    effects: [{ kind: 'heal', amount: 6 }],
+    keywords: ['exhaust'],
+    upgrade: { text: '回复 9 点体力。', effects: [{ kind: 'heal', amount: 9 }] },
+  },
+
+  /**
+   * 反刺 scales with how often the enemy swings rather than with 神力, so this
+   * is the answer to a multi-hit attacker and dead weight against a single big
+   * one — the first card in the game whose value the intent marker decides.
+   */
+  lujiao: {
+    id: 'lujiao',
+    name: '鹿角',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'self',
+    art: 'card-lujiao',
+    text: '获得 3 层【反刺】。',
+    effects: [{ kind: 'status', status: 'thorns', amount: 3, to: 'self' }],
+    upgrade: {
+      text: '获得 4 层【反刺】。',
+      effects: [{ kind: 'status', status: 'thorns', amount: 4, to: 'self' }],
+    },
+  },
+
+  /** 虚招's debuffs, aimed at the whole field and with the block traded away. */
+  lijianji: {
+    id: 'lijianji',
+    name: '离间计',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'all',
+    art: 'card-lijianji',
+    text: '对所有敌人施加 2 层【怯战】与 2 层【破绽】。',
+    effects: [
+      { kind: 'status', status: 'weak', amount: 2, to: 'allEnemies' },
+      { kind: 'status', status: 'vulnerable', amount: 2, to: 'allEnemies' },
+    ],
+    upgrade: {
+      text: '对所有敌人施加 3 层【怯战】与 3 层【破绽】。',
+      effects: [
+        { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+        { kind: 'status', status: 'vulnerable', amount: 3, to: 'allEnemies' },
+      ],
+    },
+  },
+
+  /** 中毒 ignores 护甲, which makes this the one attack a 深沟高垒 cannot wall. */
+  dushi: {
+    id: 'dushi',
+    name: '毒矢',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-dushi',
+    text: '造成 {D} 点伤害。\n施加 3 层【中毒】。',
+    effects: [
+      { kind: 'damage', amount: 5 },
+      { kind: 'status', status: 'poison', amount: 3, to: 'target' },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n施加 4 层【中毒】。',
+      effects: [
+        { kind: 'damage', amount: 7 },
+        { kind: 'status', status: 'poison', amount: 4, to: 'target' },
+      ],
+    },
+  },
+
+  /** 重甲 lands its block at *turn end*, so it survives into the enemy turn. */
+  bazhentu: {
+    id: 'bazhentu',
+    name: '八阵图',
+    type: 'power',
+    rarity: 'rare',
+    cost: 2,
+    target: 'self',
+    art: 'card-bazhentu',
+    text: '获得 4 层【重甲】。',
+    effects: [{ kind: 'status', status: 'metallicize', amount: 4, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 5 层【重甲】。',
+      effects: [{ kind: 'status', status: 'metallicize', amount: 5, to: 'self' }],
+    },
+  },
+};
+
+/**
  * Every card the game can name. Curses and status cards live in here so
  * `getCard` resolves them and the piles can hold them — their exclusion from
  * rewards is enforced by rarity, not by a second table.
  */
-export const CARDS: Record<string, CardDef> = { ...HERO_CARDS, ...CURSES, ...STATUS_CARDS };
+export const CARDS: Record<string, CardDef> = {
+  ...HERO_CARDS,
+  ...COLORLESS_CARDS,
+  ...CURSES,
+  ...STATUS_CARDS,
+};
 
 /**
  * The reward pool, grouped by rarity — `rollCardReward` rolls a tier and then
@@ -592,11 +715,11 @@ export const CARD_POOL_BY_RARITY: Record<Exclude<CardRarity, 'basic'>, string[]>
 };
 
 /**
- * 无色 cards, which only the shop and events deal. Empty until todos/05 — the
- * export exists so `rollCardReward` has one place to widen rather than growing
- * a second pool shape later.
+ * 无色 cards, which only the shop and events deal. Declaration order, and
+ * therefore stable: a shop's shelf indexes into this array off a seeded roll,
+ * so re-ordering it re-stocks every 商旅 in every existing run. Append only.
  */
-export const COLORLESS_POOL: string[] = [];
+export const COLORLESS_POOL: string[] = Object.keys(COLORLESS_CARDS);
 
 export const getCard = (id: string): CardDef => {
   const def = CARDS[id];
