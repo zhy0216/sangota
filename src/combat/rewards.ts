@@ -1,4 +1,14 @@
 import { CARD_POOL_BY_RARITY } from './cards';
+import { rollPotion } from './potions';
+import {
+  RELIC_DROP_WEIGHTS,
+  RELIC_LADDER,
+  RELIC_MISS_GOLD,
+  RELIC_TIER_ORDER,
+  relicsOfTier,
+  type RelicSource,
+  type RelicTier,
+} from './relics';
 import type { Rng } from '../core/rng';
 import type { RunState } from '../state/run';
 import type { CardRarity } from './types';
@@ -106,4 +116,199 @@ function availableRarity(wanted: RewardRarity, picked: readonly string[]): Rewar
     if (has(REWARD_RARITIES[i])) return REWARD_RARITIES[i];
   }
   return null;
+}
+
+// ----------------------------------------------------------------- 宝物掉落
+//
+// 战利品 — where relics come from. The tier odds are data (`RELIC_DROP_WEIGHTS`
+// in `relics.ts`); this is the rolling, the de-duplication and the fallback.
+//
+// Three properties hold it together, and every one of them has a test:
+//
+// **A roll is a fixed number of draws.** `rollRelic` pulls the stream exactly
+// twice — once for the tier, once for the pick — whether or not anything came
+// out. An empty pool still burns its pick. This is R3 from `src/rooms/rng.ts`:
+// the 宝藏 stream's first draw is the frozen gold roll and the six behind it
+// must stay six, or adding one relic to the table re-rolls every existing seed.
+//
+// **A relic is owned once.** Everything the run already holds is filtered out
+// before the pick, so 「已持有的遗物不会再次掉落」 is a property of the pool
+// rather than a re-roll loop — a re-roll loop would break the draw count.
+//
+// **Running dry pays coin, not `undefined`.** The ladder degrades first (see
+// `RELIC_LADDER`); only when a source's whole ladder is owned does this return
+// `null`, and the caller then pays the constant in `RELIC_MISS_GOLD`.
+
+/** Draws `rollRelic` takes off the stream. Constant by construction. */
+export const RELIC_ROLL_DRAWS = 2;
+
+/** 战利品 shows three 首领 relics and the player keeps one. */
+export const BOSS_OFFER_SIZE = 3;
+export const BOSS_OFFER_DRAWS = RELIC_ROLL_DRAWS * BOSS_OFFER_SIZE;
+
+/** Draws `rollChestExtras` takes — the six that follow 宝藏's frozen gold roll. */
+export const CHEST_EXTRA_DRAWS = 6;
+
+export type ChestSize = 'small' | 'medium' | 'large';
+
+/** Ordered, because a weighted pick over them must not depend on key order. */
+export const CHEST_SIZES: readonly ChestSize[] = ['small', 'medium', 'large'];
+
+export const CHEST_SIZE_WEIGHTS: Record<ChestSize, number> = { small: 50, medium: 33, large: 17 };
+
+/** Percent chance a chest of each size also holds a 丹药. */
+export const CHEST_POTION_CHANCE: Record<ChestSize, number> = { small: 0, medium: 40, large: 60 };
+
+export const CHEST_RELIC_SOURCE: Record<ChestSize, RelicSource> = {
+  small: 'chestSmall',
+  medium: 'chestMedium',
+  large: 'chestLarge',
+};
+
+/**
+ * Everything a 宝藏 holds beyond the gold. The gold roll itself stays where it
+ * is, as the first draw on the `loot` stream, and is not repeated here.
+ */
+export interface ChestExtras {
+  size: ChestSize;
+  relicId: string | null;
+  /** The `RELIC_MISS_GOLD` consolation when the pool was dry; 0 otherwise. */
+  gold: number;
+  /** null when the size's chance roll missed — the id is rolled either way. */
+  potionId: string | null;
+}
+
+/** Relic ids of one tier the run does not already hold. Never re-orders. */
+function unowned(run: RunState, tier: RelicTier, exclude: ReadonlySet<string>): string[] {
+  return relicsOfTier(tier)
+    .map((def) => def.id)
+    .filter((id) => !run.relics.includes(id) && !exclude.has(id));
+}
+
+/**
+ * The ids a `wanted` tier can actually deliver, after de-duplication and after
+ * the fallback ladder. Pure and draw-free — the fallback must not cost the
+ * stream anything, or how far a pool had been drained would change every roll
+ * downstream of it.
+ */
+export function relicPool(
+  run: RunState,
+  wanted: RelicTier,
+  exclude: readonly string[] = [],
+): string[] {
+  const skip = new Set(exclude);
+  const free = (tier: RelicTier): string[] => unowned(run, tier, skip);
+
+  // Closed pools. 坊市 stock is bought, never dropped, so it has nowhere to
+  // fall back to; an exhausted 首领 pool drops onto the open ladder instead of
+  // handing out something the player could have walked into a shop and bought.
+  if (wanted === 'shop') return free('shop');
+  let target = wanted;
+  if (target === 'boss') {
+    const bosses = free('boss');
+    if (bosses.length > 0) return bosses;
+    target = 'rare';
+  }
+  // 关羽's own relic is dealt at 开局, never dropped.
+  if (target === 'starter') target = 'common';
+
+  const at = RELIC_LADDER.indexOf(target);
+  for (let i = at; i >= 0; i--) {
+    const pool = free(RELIC_LADDER[i]);
+    if (pool.length > 0) return pool;
+  }
+  for (let i = at + 1; i < RELIC_LADDER.length; i++) {
+    const pool = free(RELIC_LADDER[i]);
+    if (pool.length > 0) return pool;
+  }
+  return [];
+}
+
+/**
+ * One unowned relic of `tier` — for callers that already know the tier they
+ * want: 坊市 stocks one 常见 and one 罕见 by design, and an 奇遇 names its own
+ * reward. Exactly one draw, spent whether or not the pool had anything in it.
+ *
+ * Reaching for `rng.pick(relicPool(...))` instead is the bug this exists to
+ * prevent: `pick` on an empty array hands back `undefined`, and `addRelic`
+ * takes `undefined` as quietly as it takes a typo.
+ */
+export function rollRelicOfTier(
+  rng: Rng,
+  run: RunState,
+  tier: RelicTier,
+  exclude: readonly string[] = [],
+): string | null {
+  const pool = relicPool(run, tier, exclude);
+  const at = rng.int(Math.max(1, pool.length));
+  return pool.length > 0 ? pool[at] : null;
+}
+
+/**
+ * One relic from `source`, or null when everything it could offer is owned.
+ *
+ * The `Rng` is passed in and never built here: the caller owns the stream, so
+ * an elite's relic and its gold replay together off one seed.
+ *
+ * Exactly `RELIC_ROLL_DRAWS` draws, always — the pick is rolled even against an
+ * empty pool, the way `rollPotionDrop` rolls a bottle id it may throw away.
+ */
+export function rollRelic(
+  rng: Rng,
+  run: RunState,
+  source: RelicSource,
+  exclude: readonly string[] = [],
+): string | null {
+  const weights = RELIC_DROP_WEIGHTS[source];
+  const tiers = RELIC_TIER_ORDER.filter((tier) => (weights[tier] ?? 0) > 0);
+  const wanted = rng.weighted(
+    tiers,
+    tiers.map((tier) => weights[tier] ?? 0),
+  );
+  return rollRelicOfTier(rng, run, wanted, exclude);
+}
+
+/**
+ * The three 首领 relics the 战利品 chest offers. Distinct by construction —
+ * each pick excludes the ones already on the table — and short only if the
+ * whole ladder behind 首领 ran dry too, which the scene pays out as coin.
+ *
+ * Always `BOSS_OFFER_DRAWS` draws, however few relics come back.
+ */
+export function rollBossOffer(rng: Rng, run: RunState): string[] {
+  const offer: string[] = [];
+  for (let i = 0; i < BOSS_OFFER_SIZE; i++) {
+    const id = rollRelic(rng, run, 'boss', offer);
+    if (id) offer.push(id);
+  }
+  return offer;
+}
+
+/**
+ * A 宝藏's relic and its trimmings, in `CHEST_EXTRA_DRAWS` draws.
+ *
+ * Call it on the `loot` stream *after* the frozen `range(25, 45)` gold roll and
+ * nowhere else — the ordering is what keeps a chest opened on a given seed
+ * paying the same coin it paid before relics existed.
+ */
+export function rollChestExtras(rng: Rng, run: RunState): ChestExtras {
+  const size = rng.weighted(
+    CHEST_SIZES,
+    CHEST_SIZES.map((s) => CHEST_SIZE_WEIGHTS[s]),
+  );
+  const source = CHEST_RELIC_SOURCE[size];
+  const relicId = rollRelic(rng, run, source);
+
+  // Rolled in this order and both rolled unconditionally: a 小宝藏 never holds
+  // a 丹药 but still burns the same two draws finding that out, so widening the
+  // chance table later cannot reshuffle what every later chest contains.
+  const lucky = rng.int(100) < CHEST_POTION_CHANCE[size];
+  const potionId = rollPotion(rng);
+
+  return {
+    size,
+    relicId,
+    gold: relicId ? 0 : RELIC_MISS_GOLD[source],
+    potionId: lucky ? potionId : null,
+  };
 }

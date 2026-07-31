@@ -1,4 +1,4 @@
-import { addGold, type RunState } from '../state/run';
+import { addGold, heal, type RunState } from '../state/run';
 import {
   addStatus,
   aliveEnemies,
@@ -425,7 +425,309 @@ export const RELICS: Record<string, RelicDef> = {
       },
     },
   },
+
+  // ------------------------------------------------------- todos/10 additions
+  //
+  // The drop tables below can only pay out what the table holds. Before this
+  // block there was exactly one 稀有 relic and two 首领 ones, so an elite that
+  // rolled 稀有 could cash in at most once a run and a boss chest could not
+  // offer three distinct relics at all. The counts these bring the table to —
+  // 9 常见 / 8 罕见 / 5 稀有 / 6 首领 / 4 坊市 — are what `rollRelic`'s
+  // degradation ladder is sized against.
+  //
+  // Nothing above this line is touched: the eight relics the golden snapshots
+  // exercise keep their `value`, `modifiers`, `hooks` and `damageBonus` exactly
+  // as they were, and `tests/relicRewards.test.ts` pins them.
+
+  // --- 罕见 -----------------------------------------------------------------
+
+  yushan: {
+    id: 'yushan',
+    name: '羽扇',
+    tier: 'uncommon',
+    art: 'relic-yushan',
+    text: '战斗开始时，获得 {N} 点【神力】。',
+    value: 1,
+    hooks: {
+      combatStart: ({ state, value, trigger }) => {
+        trigger();
+        addStatus(state, state.player, 'strength', value);
+      },
+    },
+  },
+
+  /**
+   * 行军图's sibling on the same trigger, paying HP instead of block. A reshuffle
+   * is the one clock a fight keeps that neither side controls, so it is worth
+   * having two relics read from it.
+   */
+  mumaliu: {
+    id: 'mumaliu',
+    name: '木牛流马',
+    tier: 'uncommon',
+    art: 'relic-mumaliu',
+    text: '每次重洗抽牌堆时，回复 {N} 点体力。',
+    value: 3,
+    hooks: {
+      shuffle: ({ state, value, trigger }) => {
+        if (state.player.hp >= state.player.maxHp) return;
+        trigger();
+        healCombatant(state, state.player, value);
+      },
+    },
+  },
+
+  /**
+   * The counter is reset by `turnStart` rather than being read off
+   * `cardsPlayedThisTurn`: that field counts every card, and what this pays for
+   * is specifically the turn's first 【技】.
+   */
+  huangshishu: {
+    id: 'huangshishu',
+    name: '黄石公书',
+    tier: 'uncommon',
+    art: 'relic-huangshishu',
+    text: '每回合首次打出【技】牌时，抽 {N} 张牌。',
+    value: 1,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      cardPlayed: ({ state, payload, counter, value, trigger }) => {
+        if ((payload as CardDef | undefined)?.type !== 'skill') return;
+        if (counter.value > 0) return;
+        counter.value = 1;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  // --- 稀有 -----------------------------------------------------------------
+
+  tengjia: {
+    id: 'tengjia',
+    name: '藤甲',
+    tier: 'rare',
+    art: 'relic-tengjia',
+    text: '每回合开始时，获得 {N} 点护甲。',
+    value: 3,
+    hooks: {
+      turnStart: ({ state, value, trigger }) => {
+        trigger();
+        gainBlock(state, state.player, value, 'relic');
+      },
+    },
+  },
+
+  /**
+   * 青龙偃月刀 without the once-a-turn limit and at a smaller number — the
+   * starter rewards opening with an attack, this rewards a deck built out of
+   * them.
+   */
+  gudingdao: {
+    id: 'gudingdao',
+    name: '古锭刀',
+    tier: 'rare',
+    art: 'relic-gudingdao',
+    text: '你打出的每张【攻】牌额外造成 {N} 点伤害。',
+    value: 2,
+    damageBonus: ({ def, value }) => (def.type === 'attack' ? value : 0),
+  },
+
+  sunzibingfa: {
+    id: 'sunzibingfa',
+    name: '孙子兵法',
+    tier: 'rare',
+    art: 'relic-sunzibingfa',
+    text: '每打出 5 张牌，抽 {N} 张牌。',
+    value: 2,
+    hooks: {
+      cardPlayed: ({ state, counter, value, trigger }) => {
+        counter.value += 1;
+        if (counter.value < 5) return;
+        counter.value = 0;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  qixingdeng: {
+    id: 'qixingdeng',
+    name: '七星灯',
+    tier: 'rare',
+    art: 'relic-qixingdeng',
+    text: '每回合开始时，若体力不足半数，回复 {N} 点体力。',
+    value: 4,
+    hooks: {
+      turnStart: ({ state, value, trigger }) => {
+        if (state.player.hp * 2 >= state.player.maxHp) return;
+        trigger();
+        healCombatant(state, state.player, value);
+      },
+    },
+  },
+
+  // --- 首领 -----------------------------------------------------------------
+  //
+  // Every one of these is a trade, and every downside is expressed through
+  // `modifiers` or a status. None of them moves 体力上限: `addRelic` moves
+  // `run.hp` by the same amount a relic moves `run.maxHp`, so a boss relic
+  // costing max HP would kill a player who walked out of the boss fight under
+  // its cost. That is a fine relic and a terrible way to end a run, and it needs
+  // a guard in `addRelic` before it can exist.
+
+  fangtianhuaji: {
+    id: 'fangtianhuaji',
+    name: '方天画戟',
+    tier: 'boss',
+    art: 'relic-fangtianhuaji',
+    text: '你打出的每张【攻】牌额外造成 {N} 点伤害，但所得资财减半。',
+    value: 3,
+    modifiers: { goldMultiplier: 0.5 },
+    damageBonus: ({ def, value }) => (def.type === 'attack' ? value : 0),
+  },
+
+  /**
+   * 力竭 is re-applied every turn rather than granted once, so the cost is
+   * permanent for the whole fight. It rides on `gainBlock`'s card scale only —
+   * relic-sourced block is deliberately off that scale — which is what makes
+   * this a tax on 【技】 armour and not on 藤甲 or 玄武甲.
+   */
+  hufu: {
+    id: 'hufu',
+    name: '虎符',
+    tier: 'boss',
+    art: 'relic-hufu',
+    text: '战斗开始时获得 {N} 点【神力】，但每回合开始时获得 1 层【力竭】。',
+    value: 2,
+    hooks: {
+      combatStart: ({ state, value, trigger }) => {
+        trigger();
+        addStatus(state, state.player, 'strength', value);
+      },
+      turnStart: ({ state, trigger }) => {
+        trigger();
+        addStatus(state, state.player, 'frail', 1);
+      },
+    },
+  },
+
+  tongquetai: {
+    id: 'tongquetai',
+    name: '铜雀台',
+    tier: 'boss',
+    art: 'relic-tongquetai',
+    text: '所得资财增加一半，但每回合少抽 1 张牌。',
+    modifiers: { goldMultiplier: 1.5, handSize: -1 },
+  },
+
+  jiuxi: {
+    id: 'jiuxi',
+    name: '九锡',
+    tier: 'boss',
+    art: 'relic-jiuxi',
+    text: '气上限 +1，但战后可选的卡牌 -1 张。',
+    modifiers: { energy: 1, cardRewardCount: -1 },
+  },
+
+  // --- 坊市 -----------------------------------------------------------------
+
+  jiuhulu: {
+    id: 'jiuhulu',
+    name: '酒葫芦',
+    tier: 'shop',
+    art: 'relic-jiuhulu',
+    text: '每进入一处房间，回复 {N} 点体力。',
+    value: 2,
+    hooks: {
+      roomEnter: ({ run, value, trigger }) => {
+        if (run.hp >= run.maxHp) return;
+        trigger();
+        heal(run, value);
+      },
+    },
+  },
 };
+
+// -------------------------------------------------------------- 掉落档位数据
+
+/**
+ * Where a relic can come from. Chest sizes are separate sources rather than a
+ * second argument: `rollRelic`'s signature carries an `exclude` list in that
+ * slot, and a size that only ever selects a weight row is a weight row.
+ */
+export type RelicSource =
+  | 'elite'
+  | 'chestSmall'
+  | 'chestMedium'
+  | 'chestLarge'
+  | 'boss'
+  | 'shop'
+  | 'event';
+
+/**
+ * Rarity odds per source. Percentages, and each row sums to 100 — that is
+ * checked, because a row that does not is still a legal weighted pick and would
+ * silently drift from the number written in the design.
+ *
+ * `starter` appears in no row: 关羽's 青龙偃月刀 is dealt with the hero, never
+ * dropped. `boss` and `shop` are closed pools of one tier each.
+ */
+export const RELIC_DROP_WEIGHTS: Record<RelicSource, Partial<Record<RelicTier, number>>> = {
+  elite: { common: 50, uncommon: 33, rare: 17 },
+  chestSmall: { common: 75, uncommon: 25 },
+  chestMedium: { common: 60, uncommon: 35, rare: 5 },
+  chestLarge: { common: 40, uncommon: 45, rare: 15 },
+  boss: { boss: 100 },
+  shop: { shop: 100 },
+  event: { common: 60, uncommon: 30, rare: 10 },
+};
+
+/**
+ * What a source pays instead when every relic it could offer is already owned.
+ * A constant per source, never a roll: the stream must be pulled the same
+ * number of times whether or not a relic came out (R3), so the consolation
+ * cannot be a die of its own.
+ *
+ * Priced off the tier a source mostly hands out — 常见 40 / 罕见 60 / 稀有 90 /
+ * 首领 120 — which is a little above what the same room's gold roll pays, since
+ * running the pool dry is the player's own doing.
+ */
+export const RELIC_MISS_GOLD: Record<RelicSource, number> = {
+  elite: 60,
+  chestSmall: 40,
+  chestMedium: 60,
+  chestLarge: 90,
+  boss: 120,
+  shop: 60,
+  event: 40,
+};
+
+/**
+ * Canonical tier order for anything that iterates a weight row. Rolling off
+ * `Object.keys(row)` instead would make the outcome depend on the order the
+ * literal above happens to be written in, and re-ordering one row would then
+ * silently re-roll every existing seed.
+ */
+export const RELIC_TIER_ORDER: readonly RelicTier[] = [
+  'starter',
+  'common',
+  'uncommon',
+  'rare',
+  'boss',
+  'shop',
+];
+
+/**
+ * The open ladder, worst to best. A drained tier steps *down* this list before
+ * it steps up, so exhausting the commons hands out 罕见 only once there is
+ * nothing cheaper left — draining a pool must never quietly upgrade a reward.
+ * `boss` and `shop` are closed and sit outside it; an empty 首领 pool falls back
+ * to the top of this ladder rather than to a 坊市 relic the player could buy.
+ */
+export const RELIC_LADDER: readonly RelicTier[] = ['common', 'uncommon', 'rare'];
 
 // ----------------------------------------------------------------- lookups
 
