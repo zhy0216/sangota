@@ -231,3 +231,38 @@ export function poolFor(heroId: string, rarity: CardRarity): string[];
 坊市与奇遇发放，战斗奖励不含无色——与原版一致，与验收字面不符。
 
 归档条件：上面两条 + 「实现步骤」第 3 条的 20+ 张卡池。
+
+---
+
+## 阶段七 · 归档：三条缺口全部补上
+
+归档条件里的三件事逐条落地，全部有测试钉住：
+
+1. **连击数上了战斗 HUD。** `CombatScene` 在气球同一竖槽加了连击徽记
+   （墨底圆盘 + 朱砂描边 + 笔刷体数字），仅 `hero.id === 'zhaoyun'` 时构建；
+   `refresh()` 读 `state.attacksThisTurn`，打攻击牌 +1（升值时 `pop()` 弹一下）、
+   回合开始归零（静默重绘）两条路径都过。`grep attacksThisTurn src/scenes` 从
+   0 命中变 3 命中；`tests/heroes.test.ts` 按 `save.test.ts` 的源码文本先例
+   钉住了门控与读数。
+2. **五件武将专属可掉落遗物**（`RelicDef.hero` 首次有了真实条目）：
+   关羽·汉寿亭侯印（uncommon），赵云·青釭剑（uncommon）/ 亮银甲（common），
+   诸葛亮·孔明灯（common）/ 奇门遁甲（uncommon）。全部接进既有引擎钩子，
+   `tests/relicRewards.test.ts` 断言关羽的池子和坊市滚不出赵云/诸葛亮专属、
+   赵云的池子和货架滚得出；`tests/relics.test.ts` 逐件钉行为。
+3. **两个卡池 9 → 20**（common 8 / uncommon 8 / rare 4，关羽 21 不变）：
+   赵云 +11 张全部围绕连击（`heroCards.ts` 纯追加，698 行插入 0 删除）；
+   诸葛亮 +11 张沿用既有锦囊/消耗/控制词汇。零引擎改动，
+   37 个黄金快照未动，`tests/upgrades.test.ts` 钉住 22 条升级表。
+
+命名勘误：新卡与新遗物一度都叫 `qinggangjian`（青釭剑）。归档前把**卡**改成
+`duojian`（夺剑）——夺的是那把剑，剑本身留给遗物，为 [23 图鉴](23-compendium-and-unlocks.md)
+的共享 id 空间免掉一次撞名。
+
+### 归档后仍欠的（不在 17 的验收标准内）
+
+- **22 张新卡 + 5 件新遗物没有画**，走的是 `cardArt.ts` 的程序化占位画。
+  实现步骤第 9 条的美术 pass（genmedia）整体未做，含赵云/诸葛亮的立绘。
+- **平衡未重测**：池子补齐后「三将逐场」的旧数字（关羽 3 / 赵云 10 / 诸葛亮 13
+  带外）已作废，需要重跑 `npm run sim` 定新基线再调。这是 17 之前就定好的顺序：
+  先补池，后调平衡。
+- 验收里「战斗奖励含 colorless」的措辞偏离维持原判（与原版一致，不改）。

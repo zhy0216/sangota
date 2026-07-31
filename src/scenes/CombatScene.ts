@@ -237,6 +237,10 @@ export class CombatScene extends Phaser.Scene {
   private arrow!: Phaser.GameObjects.Graphics;
   private energyOrb!: Phaser.GameObjects.Container;
   private lastEnergy = 0;
+  /** 连击 badge — built only for a hero whose pool reads `attacksThisTurn` (赵云). */
+  private comboBadge: Phaser.GameObjects.Container | null = null;
+  private comboText: Phaser.GameObjects.Text | null = null;
+  private lastCombo = 0;
   /** The enemy currently resolving a move, so its hits can reach for the player. */
   private currentAttacker: ActorView | null = null;
 
@@ -274,6 +278,9 @@ export class CombatScene extends Phaser.Scene {
     this.statusTipText = null;
     this.currentAttacker = null;
     this.lastEnergy = 0;
+    this.comboBadge = null;
+    this.comboText = null;
+    this.lastCombo = 0;
     this.tweens.timeScale = 1;
 
     // 存档 (todos/08). Applied *after* the defaults rather than folded into
@@ -657,6 +664,29 @@ export class CombatScene extends Phaser.Scene {
     this.energyMaxText = this.add.text(0, 20, '', bodyStyle(13, C.paperDim)).setOrigin(0.5);
     this.energyOrb.add([orb, this.energyText, this.energyMaxText]);
     fixed(this.add.text(88, 606, '气', bodyStyle(13, C.paperFaint)).setOrigin(0.5));
+
+    // 连击 counter, stacked above the 气 orb in the same gutter — and only for
+    // the hero whose pool actually reads the number (赵云). 关羽 and 诸葛亮
+    // never see it: a zero that can never move is one more thing to ignore.
+    // (When a second combo hero exists, this gate should move onto a
+    // `HeroResourceDef` declaration — see todos/17.)
+    if (this.run.hero.id === 'zhaoyun') {
+      this.comboBadge = this.add.container(88, 462).setDepth(DEPTH.hud);
+      const disc = this.add.graphics();
+      disc.fillStyle(C.inkDeep, 0.95);
+      disc.fillCircle(0, 0, 24);
+      disc.lineStyle(2, C.cinnabarBright, 0.9);
+      disc.strokeCircle(0, 0, 24);
+      // Seeded from the live state, not from 0: a resumed fight (todos/08) can
+      // reopen mid-turn with attacks already played, and the first `refresh`
+      // must repaint that quietly rather than pop a badge nobody just earned.
+      this.lastCombo = this.state.attacksThisTurn;
+      this.comboText = this.add
+        .text(0, 0, `${this.lastCombo}`, brushStyle(24, C.paper))
+        .setOrigin(0.5);
+      this.comboBadge.add([disc, this.comboText]);
+      fixed(this.add.text(88, 498, '连击', bodyStyle(13, C.paperFaint)).setOrigin(0.5));
+    }
 
     // Relic bar, clear of the encounter name on the left and of the boss's
     // intent marker, which rides high over the middle of the top edge.
@@ -1858,6 +1888,20 @@ export class CombatScene extends Phaser.Scene {
 
     this.energyText.setText(`${this.state.energy}`);
     this.energyMaxText.setText(`/ ${this.state.maxEnergy}`);
+
+    // 连击: `playCard` increments only after the card has resolved (see
+    // heroCards.ts), so by the time this runs the number is the turn's current
+    // total — the third 攻 of the turn lands and the badge says 3, even though
+    // its own face scaled off the 2 played before it. Pop on the way up only;
+    // the turn-start reset (`startPlayerTurn` zeroes it) just repaints.
+    if (this.comboBadge && this.comboText) {
+      const combo = this.state.attacksThisTurn;
+      if (combo !== this.lastCombo) {
+        this.comboText.setText(`${combo}`);
+        if (combo > this.lastCombo) pop(this, this.comboBadge, 1.35, 110);
+        this.lastCombo = combo;
+      }
+    }
     this.turnText.setText(`第 ${this.state.turn} 回合`);
     this.deckCount.setText(String(this.run.deck.length));
     this.setCount(this.drawPile, this.state.drawPile.length);

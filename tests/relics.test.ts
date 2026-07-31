@@ -11,6 +11,7 @@ import {
   playCard,
   previewValues,
   runEnemyTurn,
+  stacks,
   startCombat,
 } from '../src/combat/engine';
 import {
@@ -380,5 +381,100 @@ describe('relic table', () => {
     const engine = SOURCES['../src/combat/engine.ts'];
     for (const id of Object.keys(RELICS)) expect(engine, id).not.toContain(id);
     expect(engine).not.toContain('青龙偃月');
+  });
+});
+
+// -------------------------------------------------------- 武将专属遗物 (todos/17)
+
+/**
+ * The five hero-locked relics must be live rules, not table dressing — each one
+ * reads the resource its owner's pool is built around, so each test drives that
+ * resource and watches the payout. Who may *find* them is `rewards.ts` business
+ * and is pinned in `relicRewards.test.ts`.
+ */
+describe('武将专属遗物 pay their printed promises', () => {
+  /** `bench` above is welded to 披坎; the exclusives need their own decks. */
+  function heroBench(relics: string[], deck: string, maxHp = 74, seed = 'hero-relic'): CombatState {
+    return startCombat({
+      encounter: getEncounter('m1'),
+      deck: Array.from({ length: 20 }, () => newDeckCard(deck)),
+      heroName: DEFAULT_HERO.name,
+      hp: maxHp,
+      maxHp,
+      relics,
+      seed,
+    });
+  }
+
+  it('青釭剑 draws on exactly the third attack of a turn, and only there', () => {
+    const draw = RELICS.qinggangjian.value ?? 0;
+    const state = heroBench(['qinggangjian'], 'pikan');
+    const enemy = state.enemies[0].id;
+
+    playCard(state, state.hand[0], enemy);
+    playCard(state, state.hand[0], enemy);
+    let held = state.hand.length;
+    playCard(state, state.hand[0], enemy);
+    expect(state.hand.length).toBe(held - 1 + draw);
+
+    // A fourth attack is past the trigger, not on it.
+    state.energy += 1;
+    held = state.hand.length;
+    playCard(state, state.hand[0], enemy);
+    expect(state.hand.length).toBe(held - 1);
+  });
+
+  it('亮银甲 pays armour only for a turn that attacked at least twice', () => {
+    const armour = RELICS.liangyinjia.value ?? 0;
+    const twice = heroBench(['liangyinjia'], 'pikan');
+    playCard(twice, twice.hand[0], twice.enemies[0].id);
+    playCard(twice, twice.hand[0], twice.enemies[0].id);
+    endPlayerTurn(twice);
+    expect(twice.player.block).toBe(armour);
+
+    const once = heroBench(['liangyinjia'], 'pikan');
+    playCard(once, once.hand[0], once.enemies[0].id);
+    endPlayerTurn(once);
+    expect(once.player.block).toBe(0);
+  });
+
+  it('孔明灯 heals every third 消耗 card played, holding the charge at full 体力', () => {
+    const mend = RELICS.kongmingdeng.value ?? 0;
+    const state = heroBench(['kongmingdeng'], 'jinnang', 68);
+
+    // Three 锦囊 at full 体力: the charge is banked, not burned.
+    for (let i = 0; i < 3; i++) playCard(state, state.hand[0]);
+    expect(state.player.hp).toBe(68);
+
+    // First real HP loss, and the held charge pays out on the very next play.
+    applyDamage(state, state.player, 20); // 12 甲 from the 锦囊 soak the front of it
+    const hp = state.player.hp;
+    expect(hp).toBeLessThan(68);
+    playCard(state, state.hand[0]);
+    expect(state.player.hp).toBe(hp + mend);
+  });
+
+  it('奇门遁甲 converts every second 锦囊 into 神力', () => {
+    const might = RELICS.qimendunjia.value ?? 0;
+    const state = heroBench(['qimendunjia'], 'jinnang', 68);
+
+    playCard(state, state.hand[0]);
+    expect(stacks(state.player, 'strength')).toBe(0);
+    playCard(state, state.hand[0]);
+    expect(stacks(state.player, 'strength')).toBe(might);
+    playCard(state, state.hand[0]);
+    playCard(state, state.hand[0]);
+    expect(stacks(state.player, 'strength')).toBe(might * 2);
+  });
+
+  it('汉寿亭侯印 boosts the fat 【攻】 and leaves the cheap one alone', () => {
+    const edge = RELICS.hanshoutinghouyin.value ?? 0;
+    const sealed = heroBench(['hanshoutinghouyin'], 'tuodao');
+    const bare = heroBench([], 'tuodao');
+    const fat = resolveCard('tuodao', 0); // cost 2
+    const thin = resolveCard('pikan', 0); // cost 1
+
+    expect(previewValues(sealed, fat).D).toBe((previewValues(bare, fat).D ?? 0) + edge);
+    expect(previewValues(sealed, thin).D).toBe(previewValues(bare, thin).D);
   });
 });

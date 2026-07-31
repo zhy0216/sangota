@@ -48,7 +48,7 @@ const GUANYU_COMMON = [
   'xuzhao', 'dandaofuhui', 'huarongdao', 'bingzhudadan', 'yeduchunqiu',
 ];
 const GUANYU_RARE = ['weizhenhuaxia', 'wuguanliujiang', 'shengougaolei'];
-const ZHAOYUN_RARE = ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang'];
+const ZHAOYUN_RARE = ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang', 'changbanpo'];
 
 const COMMON_RELICS = [
   'shufajinguan', 'dujunlingqi', 'xuanwujia', 'xingjuntu', 'lianhuanjia',

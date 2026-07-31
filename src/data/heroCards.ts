@@ -379,6 +379,362 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
     effects: [{ kind: 'damage', amount: 5, times: 5 }],
     upgrade: { effects: [{ kind: 'damage', amount: 7, times: 5 }] },
   },
+
+  // --- Pool expansion (todos/17, 阶段四实测) --------------------------------
+  /*
+   * 11 cards taking 赵云 from 9 draftable to 20 — 8 common, 8 uncommon, 4 rare,
+   * against 关羽's 10/8/3. Same design brief as the section header: small,
+   * cheap, and worth more the later in the turn they land. Appended after the
+   * original nine and never re-ordered — `poolsOf` walks this table in
+   * declaration order and existing runs index into the derived arrays.
+   */
+
+  /**
+   * 三进三出 one instance short and one tier down: 6 for 1 气 is 劈砍's rate
+   * exactly, paid out in two hits — each takes borrowed 神力 and 破绽
+   * separately, and each is its own 连击-less swing that still moves the
+   * counter by only one. The humble body the archetype runs on.
+   */
+  lianhuanqiang: {
+    id: 'lianhuanqiang',
+    name: '连环枪',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-lianhuanqiang',
+    text: '造成 {D} 点伤害 {T} 次。',
+    effects: [{ kind: 'damage', amount: 3, times: 2 }],
+    upgrade: { effects: [{ kind: 'damage', amount: 4, times: 2 }] },
+  },
+
+  /**
+   * 3 for 0 气 is under 白马义从's rate, and the refund is the difference: at
+   * two prior 攻 the card is 气-positive, which is the only way this pool ever
+   * prints "gain 气" — bought with two cards of set-up, never flat.
+   */
+  jici: {
+    id: 'jici',
+    name: '疾刺',
+    type: 'attack',
+    rarity: 'common',
+    cost: 0,
+    target: 'enemy',
+    art: 'card-jici',
+    text: '造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，获得 1 点气。',
+    effects: [
+      { kind: 'damage', amount: 3 },
+      { kind: 'conditional', when: { c: 'attacksAtLeast', n: 2 }, then: [{ kind: 'energy', amount: 1 }] },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 5 },
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 2 },
+          then: [{ kind: 'energy', amount: 1 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 温酒斩's shape with the rider moved behind the combo gate: 6 flat is rate,
+   * and the 2 层【破绽】 — worth most to 连环枪 and 力斩五将, which subtract per
+   * hit — only land once two 攻 have already gone out. The sword pays the
+   * finisher, not the opener. Named for the *taking* of 青釭剑 at 长坂坡 — the
+   * sword itself is the relic of that id, and the two must not share a name.
+   */
+  duojian: {
+    id: 'duojian',
+    name: '夺剑',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-duojian',
+    text: '造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，施加 2 层【破绽】。',
+    effects: [
+      { kind: 'damage', amount: 6 },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [{ kind: 'status', status: 'vulnerable', amount: 2, to: 'target' }],
+      },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 8 },
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 2 },
+          then: [{ kind: 'status', status: 'vulnerable', amount: 2, to: 'target' }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 铁壁's rate with a gated cantrip on top: 5 甲 flat, and the draw — the half
+   * 却敌 prints unconditionally for 关羽 — only on a turn an 攻 already went
+   * out. Defence that keeps the combo moving instead of pausing it.
+   */
+  qianghua: {
+    id: 'qianghua',
+    name: '枪花',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'self',
+    art: 'card-qianghua',
+    text: '获得 {B} 点护甲。\n若本回合已打出【攻】牌，抽 1 张牌。',
+    effects: [
+      { kind: 'block', amount: 5 },
+      { kind: 'conditional', when: { c: 'attacksAtLeast', n: 1 }, then: [{ kind: 'draw', amount: 1 }] },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'block', amount: 8 },
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 1 },
+          then: [{ kind: 'draw', amount: 1 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 观阵 split across the combo gate: one card cold, 观阵's two once an 攻 has
+   * gone out. Under 关羽's rate on purpose — draw is worth more to a deck of
+   * small cards, so it pays the same toll every payoff in this pool pays.
+   */
+  chenshi: {
+    id: 'chenshi',
+    name: '趁势',
+    type: 'skill',
+    rarity: 'common',
+    cost: 0,
+    target: 'self',
+    art: 'card-chenshi',
+    text: '抽 1 张牌。\n若本回合已打出【攻】牌，再抽 1 张牌。',
+    effects: [
+      { kind: 'draw', amount: 1 },
+      { kind: 'conditional', when: { c: 'attacksAtLeast', n: 1 }, then: [{ kind: 'draw', amount: 1 }] },
+    ],
+    upgrade: {
+      text: '抽 2 张牌。\n若本回合已打出【攻】牌，再抽 1 张牌。',
+      effects: [
+        { kind: 'draw', amount: 2 },
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 1 },
+          then: [{ kind: 'draw', amount: 1 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * The attack that replaces itself: 5 for 1 气 is under rate and the draw is
+   * the missing point — a 连击 counter that costs no card is what every payoff
+   * in the pool wants most, which is why the cantrip sits a tier above 突阵.
+   */
+  yinqiang: {
+    id: 'yinqiang',
+    name: '银枪',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-yinqiang',
+    text: '造成 {D} 点伤害。\n抽 1 张牌。',
+    effects: [
+      { kind: 'damage', amount: 5 },
+      { kind: 'draw', amount: 1 },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 8 },
+        { kind: 'draw', amount: 1 },
+      ],
+    },
+  },
+
+  /**
+   * The pool's one AoE, and it reads the counter like everything else: 6 to the
+   * room is under 万人敌's 8 for the same 气, 10 is over — the gap is the two
+   * 攻 the turn already spent. One damage instance per enemy either way, so the
+   * face prints an honest {D}.
+   */
+  hengsaoqianjun: {
+    id: 'hengsaoqianjun',
+    name: '横扫千军',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 2,
+    target: 'all',
+    art: 'card-hengsaoqianjun',
+    text: '对所有敌人造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，改为 10 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [{ kind: 'damageAll', amount: 10 }],
+        otherwise: [{ kind: 'damageAll', amount: 6 }],
+      },
+    ],
+    upgrade: {
+      text: '对所有敌人造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，改为 13 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 2 },
+          then: [{ kind: 'damageAll', amount: 13 }],
+          otherwise: [{ kind: 'damageAll', amount: 8 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 土山约三事 at half size, priced for a 74 体力 bar: 2 体力 buys one 气 and
+   * one card, which is exactly one more small attack this turn. The upgrade
+   * buys back 体力 rather than adding effect, the same bargain 关羽's makes.
+   */
+  longxiang: {
+    id: 'longxiang',
+    name: '龙骧',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 0,
+    target: 'self',
+    art: 'card-longxiang',
+    text: '失去 2 点体力。\n获得 1 点气。\n抽 1 张牌。',
+    effects: [
+      { kind: 'loseHp', amount: 2 },
+      { kind: 'energy', amount: 1 },
+      { kind: 'draw', amount: 1 },
+    ],
+    upgrade: {
+      text: '失去 1 点体力。\n获得 1 点气。\n抽 1 张牌。',
+      effects: [
+        { kind: 'loseHp', amount: 1 },
+        { kind: 'energy', amount: 1 },
+        { kind: 'draw', amount: 1 },
+      ],
+    },
+  },
+
+  /**
+   * 汉水: banners down, gates open. 铁壁's block plus 1 层【怯战】 on the whole
+   * room for 1 气 — over rate, paid by the layer being one: it blunts exactly
+   * the turn it lands, which is the turn 赵云 spends setting up rather than
+   * comboing.
+   */
+  yanqixigu: {
+    id: 'yanqixigu',
+    name: '偃旗息鼓',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'all',
+    art: 'card-yanqixigu',
+    text: '对所有敌人施加 1 层【怯战】。\n获得 {B} 点护甲。',
+    effects: [
+      { kind: 'status', status: 'weak', amount: 1, to: 'allEnemies' },
+      { kind: 'block', amount: 5 },
+    ],
+    upgrade: {
+      text: '对所有敌人施加 2 层【怯战】。\n获得 {B} 点护甲。',
+      effects: [
+        { kind: 'status', status: 'weak', amount: 2, to: 'allEnemies' },
+        { kind: 'block', amount: 7 },
+      ],
+    },
+  },
+
+  /**
+   * The only 身法 any pool grants, and it belongs here: 身法 pays per block
+   * instance, and 赵云 plays more, cheaper 谋 cards than anyone — 掠马, 枪花 and
+   * 截江's every +3 all collect. 义勇's price and life cycle exactly, with the
+   * scaling stat swapped for the defensive one.
+   */
+  huwei: {
+    id: 'huwei',
+    name: '虎威',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-huwei',
+    text: '获得 2 层【身法】。',
+    effects: [{ kind: 'status', status: 'dexterity', amount: 2, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 3 层【身法】。',
+      effects: [{ kind: 'status', status: 'dexterity', amount: 3, to: 'self' }],
+    },
+  },
+
+  /**
+   * The scene the hero is famous for, as the combo's capstone: 七探盘蛇's
+   * either/or shape, with each repetition swinging *and* guarding. Two prior 攻
+   * make it 14 伤 + 6 甲 for 2 气 — well over rate, bought with a whole turn's
+   * set-up — while the 「至少一次」 floor (7 伤 + 3 甲) keeps it above dead in
+   * an opening hand. Block accumulates across repetitions, so {B} prints the
+   * true total the way 截江's does.
+   */
+  changbanpo: {
+    id: 'changbanpo',
+    name: '长坂坡',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-changbanpo',
+    text: '连刺 {T} 次，每次造成 {D} 点伤害；共获得 {B} 点护甲。\n次数为本回合已打出的【攻】牌数，至少一次。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 1 },
+        then: [
+          {
+            kind: 'scaleWithAttacks',
+            per: [
+              { kind: 'damage', amount: 7 },
+              { kind: 'block', amount: 3 },
+            ],
+          },
+        ],
+        otherwise: [
+          { kind: 'damage', amount: 7 },
+          { kind: 'block', amount: 3 },
+        ],
+      },
+    ],
+    upgrade: {
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 1 },
+          then: [
+            {
+              kind: 'scaleWithAttacks',
+              per: [
+                { kind: 'damage', amount: 9 },
+                { kind: 'block', amount: 4 },
+              ],
+            },
+          ],
+          otherwise: [
+            { kind: 'damage', amount: 9 },
+            { kind: 'block', amount: 4 },
+          ],
+        },
+      ],
+    },
+  },
 };
 
 // -------------------------------------------------------------- 诸葛亮 · 锦囊
@@ -741,6 +1097,349 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
         { kind: 'status', status: 'vulnerable', amount: 4, to: 'allEnemies' },
         { kind: 'status', status: 'weak', amount: 4, to: 'allEnemies' },
         { kind: 'draw', amount: 2 },
+      ],
+    },
+  },
+
+  // --- Pool expansion (todos/17, 阶段四实测) --------------------------------
+  /*
+   * 11 cards taking 诸葛亮 from 9 draftable to 20 — 8 common, 8 uncommon,
+   * 4 rare, the same spread 赵云's expansion landed on. Same design brief as
+   * the section header: mint 锦囊, feed the 消耗堆, and control the room
+   * instead of racing it. Appended after the original nine and never
+   * re-ordered — `poolsOf` walks this table in declaration order and existing
+   * runs index into the derived arrays.
+   */
+
+  /**
+   * 劈砍's rate minus one point, and the point buys the 层: 怯战 on a 68 体力
+   * hero is worth more than anywhere else, because a blunted swing is 体力 he
+   * cannot buy back. The 层 is also 声东击西's fuel — the pool's control basic.
+   */
+  youdi: {
+    id: 'youdi',
+    name: '诱敌之计',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-youdi',
+    text: '造成 {D} 点伤害。\n施加 1 层【怯战】。',
+    effects: [
+      { kind: 'damage', amount: 5 },
+      { kind: 'status', status: 'weak', amount: 1, to: 'target' },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n施加 2 层【怯战】。',
+      effects: [
+        { kind: 'damage', amount: 7 },
+        { kind: 'status', status: 'weak', amount: 2, to: 'target' },
+      ],
+    },
+  },
+
+  /**
+   * 挺枪's shape with 赵云's counter swapped for the debuff this pool applies:
+   * 6 flat is rate, 9 into a 怯战 target is half again over it — paid, exactly
+   * like 斩颜良, by the card of set-up (诱敌之计 / 激将法 / 空城计) that put the
+   * 层 there. The face reads the live target, so {D} never lies.
+   */
+  shengdongjixi: {
+    id: 'shengdongjixi',
+    name: '声东击西',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-shengdongjixi',
+    text: '造成 {D} 点伤害。\n若目标有【怯战】，改为 9 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [{ kind: 'damage', amount: 9 }],
+        otherwise: [{ kind: 'damage', amount: 6 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若目标有【怯战】，改为 12 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'targetHasStatus', status: 'weak' },
+          then: [{ kind: 'damage', amount: 12 }],
+          otherwise: [{ kind: 'damage', amount: 8 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 隆中对 made draftable: 1 气 for two tokens is 8 甲 plus two cards deeper,
+   * over 铁壁 on paper — paid by arriving in pieces. Each 锦囊 still wants a
+   * beat of hand room to cash, and every one of them ends in the 消耗堆, which
+   * is the other half of what this card is buying.
+   */
+  miaosuan: {
+    id: 'miaosuan',
+    name: '妙算',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'self',
+    art: 'card-miaosuan',
+    text: '将 2 张「锦囊」置入手牌。',
+    effects: [{ kind: 'addCard', defId: 'jinnang', count: 2, to: 'hand' }],
+    upgrade: {
+      text: '将 3 张「锦囊」置入手牌。',
+      effects: [{ kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' }],
+    },
+  },
+
+  /**
+   * 火计's gate on the defensive side: 铁壁's 5 before three cards have burned,
+   * nearly double after. The common that makes the 消耗堆 a defensive stat —
+   * and the reason a 诸葛亮 deck plays its 锦囊 even on the quiet turns.
+   */
+  fubing: {
+    id: 'fubing',
+    name: '伏兵',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'self',
+    art: 'card-fubing',
+    text: '获得 {B} 点护甲。\n若消耗堆中已有 3 张牌，改为 9 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 3 },
+        then: [{ kind: 'block', amount: 9 }],
+        otherwise: [{ kind: 'block', amount: 5 }],
+      },
+    ],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n若消耗堆中已有 3 张牌，改为 12 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'exhaustedAtLeast', n: 3 },
+          then: [{ kind: 'block', amount: 12 }],
+          otherwise: [{ kind: 'block', amount: 7 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 3 伤 plus a 层 for 0 气 is over rate for the cost, and 消耗 is the price
+   * that squares it — the card is a one-shot. Burning is also half the point:
+   * it is a 火计 / 伏兵 counter that costs no 气, and the 层 it leaves is
+   * 声东击西's trigger. The pool's cheapest way to start both engines.
+   */
+  jijiangfa: {
+    id: 'jijiangfa',
+    name: '激将法',
+    type: 'attack',
+    rarity: 'common',
+    cost: 0,
+    target: 'enemy',
+    art: 'card-jijiangfa',
+    text: '造成 {D} 点伤害。\n施加 1 层【怯战】。',
+    effects: [
+      { kind: 'damage', amount: 3 },
+      { kind: 'status', status: 'weak', amount: 1, to: 'target' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 5 },
+        { kind: 'status', status: 'weak', amount: 1, to: 'target' },
+      ],
+    },
+  },
+
+  /**
+   * 虎牢关's shape for the hero whose 气 is long and hand is short: X 费, one
+   * card per 气. Dead on a 0 气 board and card-negative at 1, which is the
+   * cost of the flexibility — 羽扇's fourth 气 is what makes it his rather
+   * than anyone's. The upgrade adds 2 甲 per 气 rather than a card, so it
+   * never draws the hand past what the turn can spend.
+   */
+  guanxing: {
+    id: 'guanxing',
+    name: '观星',
+    type: 'skill',
+    rarity: 'uncommon',
+    // X_COST. `playCard` drains 气 and `scaleWithEnergy` reads back what it spent.
+    cost: -1,
+    target: 'self',
+    art: 'card-guanxing',
+    text: '消耗全部气。\n每 1 点气抽 1 张牌。',
+    effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'draw', amount: 1 }] }],
+    upgrade: {
+      text: '消耗全部气。\n每 1 点气抽 1 张牌并获得 2 点护甲。',
+      effects: [
+        {
+          kind: 'scaleWithEnergy',
+          per: [
+            { kind: 'draw', amount: 1 },
+            { kind: 'block', amount: 2 },
+          ],
+        },
+      ],
+    },
+  },
+
+  /**
+   * The pool's one repeatable AoE: 7 to the room is under 万人敌's 8 for the
+   * same 气, 11 is over — the gap is the three cards the fight has already
+   * burned. One damage instance per enemy either way, so the face prints an
+   * honest {D}.
+   */
+  huoshaobowang: {
+    id: 'huoshaobowang',
+    name: '火烧博望坡',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 2,
+    target: 'all',
+    art: 'card-huoshaobowang',
+    text: '对所有敌人造成 {D} 点伤害。\n若消耗堆中已有 3 张牌，改为 11 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 3 },
+        then: [{ kind: 'damageAll', amount: 11 }],
+        otherwise: [{ kind: 'damageAll', amount: 7 }],
+      },
+    ],
+    upgrade: {
+      text: '对所有敌人造成 {D} 点伤害。\n若消耗堆中已有 3 张牌，改为 14 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'exhaustedAtLeast', n: 3 },
+          then: [{ kind: 'damageAll', amount: 14 }],
+          otherwise: [{ kind: 'damageAll', amount: 9 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * Fewer troops, more stoves: trades the hand's worst card for 1 气 and a
+   * fresh one, and the trade itself feeds the 消耗堆 — the only card that lets
+   * the hero *choose* what burns, which is what makes a drawn 诅咒 or a spent
+   * 据守 into 火计 fuel. 气-neutral at worst; the value is all in the swap.
+   */
+  jianbingzengzao: {
+    id: 'jianbingzengzao',
+    name: '减兵增灶',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 0,
+    target: 'self',
+    art: 'card-jianbingzengzao',
+    text: '消耗手牌中 1 张牌。\n获得 1 点气。\n抽 1 张牌。',
+    effects: [
+      { kind: 'exhaustCards', amount: 1 },
+      { kind: 'energy', amount: 1 },
+      { kind: 'draw', amount: 1 },
+    ],
+    upgrade: {
+      text: '消耗手牌中 1 张牌。\n获得 1 点气。\n抽 2 张牌。',
+      effects: [
+        { kind: 'exhaustCards', amount: 1 },
+        { kind: 'energy', amount: 1 },
+        { kind: 'draw', amount: 2 },
+      ],
+    },
+  },
+
+  /**
+   * 借东风 a tier up: the extra 气 buys the extra draw, and 消耗 still prices
+   * the package — two tokens and two cards off the top would be a free turn if
+   * it stayed in the deck. The upgrade buys the 气 back, muniuliuma's bargain.
+   */
+  shenjimiaosuan: {
+    id: 'shenjimiaosuan',
+    name: '神机妙算',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-shenjimiaosuan',
+    text: '将 2 张「锦囊」置入手牌。\n抽 2 张牌。',
+    effects: [
+      { kind: 'addCard', defId: 'jinnang', count: 2, to: 'hand' },
+      { kind: 'draw', amount: 2 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: { cost: 0 },
+  },
+
+  /**
+   * 结营 prints 14 甲 for the same 气; this prints 12 and spends the other two
+   * points on a 层 for the whole room — armour against this turn's swings plus
+   * a discount on next turn's. The strategist's version of a defensive turn:
+   * it answers the room, not the biggest number in it.
+   */
+  anjupingwulu: {
+    id: 'anjupingwulu',
+    name: '安居平五路',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 2,
+    target: 'all',
+    art: 'card-anjupingwulu',
+    text: '获得 {B} 点护甲。\n对所有敌人施加 1 层【怯战】。',
+    effects: [
+      { kind: 'block', amount: 12 },
+      { kind: 'status', status: 'weak', amount: 1, to: 'allEnemies' },
+    ],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n对所有敌人施加 2 层【怯战】。',
+      effects: [
+        { kind: 'block', amount: 15 },
+        { kind: 'status', status: 'weak', amount: 2, to: 'allEnemies' },
+      ],
+    },
+  },
+
+  /**
+   * The 消耗 deck's finisher, and it burns like everything it counts: 12 for
+   * 2 气 is exactly rate, 24 is 火计's doubling at rare scale — five burned
+   * cards is a fight spent minting and spending 锦囊, and this is that fight's
+   * payoff. 消耗 keeps it one strike per battle: the 藤甲 only burns once.
+   */
+  huoshaotengjia: {
+    id: 'huoshaotengjia',
+    name: '火烧藤甲',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-huoshaotengjia',
+    text: '造成 {D} 点伤害。\n若消耗堆中已有 5 张牌，改为 24 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 5 },
+        then: [{ kind: 'damage', amount: 24 }],
+        otherwise: [{ kind: 'damage', amount: 12 }],
+      },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若消耗堆中已有 5 张牌，改为 28 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'exhaustedAtLeast', n: 5 },
+          then: [{ kind: 'damage', amount: 28 }],
+          otherwise: [{ kind: 'damage', amount: 14 }],
+        },
       ],
     },
   },

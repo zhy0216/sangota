@@ -153,7 +153,7 @@ export interface RunState {
    - `priceOf`（[05 商店](05-shop-done.md)）：`shopPriceMult`
 3. `AscensionProgress` 持久化（localStorage，和 [08 存档](08-save-resume-done.md)
    分开存——难度进度不该被跑团存档清除影响）。
-4. 选将界面（[17](17-multiple-heroes.md)）加天命选择器：
+4. 选将界面（[17](17-multiple-heroes-done.md)）加天命选择器：
    左右箭头调级，只能选到 `cleared[heroId] + 1`。
    显示该级的**新增**修改（高亮）和全部累积修改（列表）。
 5. 通关（[22 结算](22-run-summary.md) 胜利分支）时更新
@@ -183,6 +183,6 @@ export interface RunState {
 
 - [09 多幕](09-acts-and-progression-done.md)——`actStartHpLossPercent` 和双 Boss 需要多幕
 - [22 结算界面](22-run-summary.md)——通关记录的写入点
-- [17 多武将](17-multiple-heroes.md)——难度进度是按武将分的
+- [17 多武将](17-multiple-heroes-done.md)——难度进度是按武将分的
 - [25 无头模拟](25-headless-sim-and-tests-done.md)——**强依赖**，20 级难度不可能手调
 - 各修饰点分别依赖 04 / 05 / 11 / 14 / 16

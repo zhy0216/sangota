@@ -45,8 +45,9 @@ import {
 } from '../src/combat/rewards';
 import type { CombatState } from '../src/combat/types';
 import { Rng } from '../src/core/rng';
-import { DEFAULT_HERO } from '../src/data/heroes';
+import { DEFAULT_HERO, HEROES } from '../src/data/heroes';
 import { stream } from '../src/rooms/rng';
+import { generateStock } from '../src/rooms/shop';
 import { ensureLoot } from '../src/rooms/treasure';
 import { addGold, addRelic, newDeckCard, startRun, type RunState } from '../src/state/run';
 
@@ -819,6 +820,73 @@ describe('新增遗物 · 坊市', () => {
     r.hp = r.maxHp;
     expect(fireRunHook(r, 'roomEnter', 'rest')).toEqual([]);
     expect(r.hp).toBe(r.maxHp);
+  });
+});
+
+describe('todos/17 · 武将专属遗物只归其主', () => {
+  // 「赵云专属遗物只在玩赵云时出现」. The gate (`unowned`, the one place
+  // `RelicDef.hero` is read) predates these relics; what these pin is that the
+  // table now has entries the gate is true *of*, on tiers the sources roll.
+  const heroRun = (id: string, seed = 'hero-gate'): RunState => startRun(HEROES[id], seed);
+  const ownerOf = (id: string): string | undefined => RELICS[id].hero;
+
+  it('locks at least one droppable relic to each hero, and to no ghost', () => {
+    const owned: Record<string, number> = {};
+    for (const def of Object.values(RELICS)) {
+      if (!def.hero) continue;
+      expect(HEROES[def.hero], def.id).toBeDefined();
+      // On the open ladder — a hero-locked 'starter'/'boss'/'shop' relic would
+      // be gated twice over and never seen at all.
+      expect(RELIC_LADDER, def.id).toContain(def.tier);
+      owned[def.hero] = (owned[def.hero] ?? 0) + 1;
+    }
+    for (const hero of ['guanyu', 'zhaoyun', 'zhugeliang']) {
+      expect(owned[hero], hero).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('keeps 赵云 and 诸葛亮 exclusives out of every pool 关羽 can roll', () => {
+    const r = heroRun('guanyu');
+    for (const tier of RELIC_LADDER) {
+      for (const id of relicPool(r, tier)) {
+        expect(ownerOf(id) ?? 'guanyu', `${tier}/${id}`).toBe('guanyu');
+      }
+    }
+    // ...while his own exclusive is genuinely in there, not gated to nobody.
+    expect(relicPool(r, 'uncommon')).toContain('hanshoutinghouyin');
+  });
+
+  it('deals 赵云 his own exclusives and nobody else’s', () => {
+    const r = heroRun('zhaoyun');
+    expect(relicPool(r, 'common')).toContain('liangyinjia');
+    expect(relicPool(r, 'uncommon')).toContain('qinggangjian');
+    for (const tier of RELIC_LADDER) {
+      for (const id of relicPool(r, tier)) {
+        expect(ownerOf(id) ?? 'zhaoyun', `${tier}/${id}`).toBe('zhaoyun');
+      }
+    }
+  });
+
+  it('never stocks another hero’s relic on 关羽’s 坊市 shelf', () => {
+    for (const seed of ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8']) {
+      const stock = generateStock(heroRun('guanyu', seed), new Rng(seed));
+      for (const offer of stock.relics) {
+        expect(ownerOf(offer.id) ?? 'guanyu', `${seed}/${offer.id}`).toBe('guanyu');
+      }
+    }
+  });
+
+  it('shelves 赵云’s exclusives for 赵云 once the shared pool is his', () => {
+    // Own every unlocked relic (starters stay out — 布衣 would bar the shelf
+    // entirely): the 常见 and 罕见 slots then have nothing left to sell *but*
+    // the exclusives, so the membership check above becomes a certainty here.
+    const r = heroRun('zhaoyun', 'shelf');
+    for (const def of Object.values(RELICS)) {
+      if (!def.hero && def.tier !== 'starter') addRelic(r, def.id);
+    }
+    const ids = generateStock(r, new Rng('shelf')).relics.map((o) => o.id);
+    expect(ids).toContain('liangyinjia');
+    expect(ids).toContain('qinggangjian');
   });
 });
 

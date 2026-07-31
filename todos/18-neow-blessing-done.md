@@ -139,7 +139,7 @@ export interface EventOutcome {
    （[11](11-card-rarity-and-rewards-done.md) 的 `CARD_POOL_BY_RARITY`）
    抽一张不同的牌加入。原版转化会跳过同名牌，照做。
 5. 流程接线：`TitleScene`「出征」（`TitleScene.ts:130`）→
-   `HeroSelectScene`（若 [17](17-multiple-heroes.md) 已做）→
+   `HeroSelectScene`（若 [17](17-multiple-heroes-done.md) 已做）→
    `BlessingScene` → `MapScene`。
 6. **祝福必须在存档之前完成**：[08 存档](08-save-resume-done.md) 的第一次
    autosave 应该在祝福选完之后，否则读档会重新弹祝福（或者要在

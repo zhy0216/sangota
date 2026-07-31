@@ -190,6 +190,6 @@ export interface CustomRunConfig {
 
 - [22 结算与统计](22-run-summary.md)——**强依赖**，解锁进度来自局末分数
 - [07 牌堆查看器](07-deck-viewer-done.md)——牌卷的网格
-- [17 多武将](17-multiple-heroes.md)——武将解锁的对象
+- [17 多武将](17-multiple-heroes-done.md)——武将解锁的对象
 - [19 天命](19-ascension.md)——难度进度与解锁并列显示
 - 过滤点分别依赖 05 / 06 / 10 / 11 / 18

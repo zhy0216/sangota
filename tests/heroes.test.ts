@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CARDS, COLORLESS_POOL, poolFor, resolveCard } from '../src/combat/cards';
 import { X_COST, previewValues, startCombat, type StartCombatOptions } from '../src/combat/engine';
 import { getEncounter } from '../src/combat/enemies';
-import { playCard } from '../src/combat/engine';
+import { playCard, resolveChoice } from '../src/combat/engine';
 import { RELICS, relicText, relicsOfTier } from '../src/combat/relics';
 import { relicPool, rollCardReward } from '../src/combat/rewards';
 import { HEROES, HEROES_IN_ORDER, HERO_ORDER, DEFAULT_HERO, type HeroDef } from '../src/data/heroes';
@@ -423,6 +423,55 @@ describe('诸葛亮 · 锦囊', () => {
     });
     expect(hit(state, 'yuanrongnu')).toBe(6);
   });
+
+  // --- Pool expansion (todos/17) -------------------------------------------
+
+  it('flips 声东击西 from 6 to 9 once the target is 怯战', () => {
+    const state = bench(['shengdongjixi', 'jijiangfa', 'shengdongjixi']);
+    expect(hit(state, 'shengdongjixi')).toBe(6); // cold: printed rate
+    expect(hit(state, 'jijiangfa')).toBe(3); // leaves 1 层【怯战】 and burns
+    expect(state.exhaustPile).toHaveLength(1);
+    expect(hit(state, 'shengdongjixi')).toBe(9);
+  });
+
+  it('reads the 消耗堆 for 伏兵 the way 火计 does', () => {
+    const cold = bench(['fubing']);
+    expect(playCard(cold, uidOf(cold, 'fubing'))).toBe(true);
+    expect(cold.player.block).toBe(5);
+
+    const hot = bench(['longzhongdui', 'fubing', 'jushou', 'jushou', 'jushou']);
+    expect(playCard(hot, uidOf(hot, 'longzhongdui'))).toBe(true);
+    expect(playCard(hot, uidOf(hot, 'jinnang'))).toBe(true);
+    expect(playCard(hot, uidOf(hot, 'jinnang'))).toBe(true);
+    expect(hot.exhaustPile).toHaveLength(3); // 隆中对 + two 锦囊
+    expect(playCard(hot, uidOf(hot, 'fubing'))).toBe(true);
+    expect(hot.player.block).toBe(4 + 4 + 9); // two 锦囊, then the hot branch
+  });
+
+  it('lets 减兵增灶 pick what burns, then pays the 气', () => {
+    const state = bench(['jianbingzengzao', 'jushou', 'jushou']);
+    expect(state.energy).toBe(3);
+    expect(playCard(state, uidOf(state, 'jianbingzengzao'))).toBe(true);
+    // The choice interrupts the queue; the 气 and the draw land after it.
+    expect(state.pendingChoice).toMatchObject({ kind: 'exhaust', min: 1, max: 1 });
+    const pick = uidOf(state, 'jushou');
+    expect(resolveChoice(state, [pick])).toBe(true);
+    expect(state.pendingChoice).toBeNull();
+    expect(state.exhaustPile).toEqual([pick]);
+    expect(state.energy).toBe(4); // cost 0, +1 refunded after the pick
+  });
+
+  it('lets 火烧藤甲 cash a fight spent burning', () => {
+    const state = bench(['longzhongdui', 'jianbingzengzao', 'jijiangfa', 'huoshaotengjia', 'jushou']);
+    expect(playCard(state, uidOf(state, 'longzhongdui'))).toBe(true);
+    expect(playCard(state, uidOf(state, 'jinnang'))).toBe(true);
+    expect(playCard(state, uidOf(state, 'jinnang'))).toBe(true);
+    expect(hit(state, 'jijiangfa')).toBe(3);
+    expect(playCard(state, uidOf(state, 'jianbingzengzao'))).toBe(true);
+    expect(resolveChoice(state, [uidOf(state, 'jushou')])).toBe(true);
+    expect(state.exhaustPile).toHaveLength(5); // 隆中对、两张锦囊、激将法、据守
+    expect(hit(state, 'huoshaotengjia')).toBe(24);
+  });
 });
 
 // ------------------------------------------------------------------- 卡池
@@ -441,15 +490,27 @@ const GUANYU = {
 };
 
 const ZHAOYUN = {
-  common: ['tingqiang', 'qitanpanshe', 'kongyingji'],
-  uncommon: ['sanjinsanchu', 'jiejiang', 'xueranzhengpao'],
-  rare: ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang'],
+  common: [
+    'tingqiang', 'qitanpanshe', 'kongyingji',
+    'lianhuanqiang', 'jici', 'duojian', 'qianghua', 'chenshi',
+  ],
+  uncommon: [
+    'sanjinsanchu', 'jiejiang', 'xueranzhengpao',
+    'yinqiang', 'hengsaoqianjun', 'longxiang', 'yanqixigu', 'huwei',
+  ],
+  rare: ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang', 'changbanpo'],
 };
 
 const ZHUGELIANG = {
-  common: ['jiejianzhiji', 'jiedongfeng', 'huoji'],
-  uncommon: ['kongchengji', 'qixingdeng', 'muniuliuma'],
-  rare: ['wolongchushan', 'chushibiao', 'qiqinqizong'],
+  common: [
+    'jiejianzhiji', 'jiedongfeng', 'huoji',
+    'youdi', 'shengdongjixi', 'miaosuan', 'fubing', 'jijiangfa',
+  ],
+  uncommon: [
+    'kongchengji', 'qixingdeng', 'muniuliuma',
+    'guanxing', 'huoshaobowang', 'jianbingzengzao', 'shenjimiaosuan', 'anjupingwulu',
+  ],
+  rare: ['wolongchushan', 'chushibiao', 'qiqinqizong', 'huoshaotengjia'],
 };
 
 const POOLS: Record<string, typeof GUANYU> = {
@@ -549,9 +610,17 @@ describe('专属卡的表面', () => {
     Object.keys(CARDS).filter((id) => CARDS[id].hero === heroId);
 
   it('gives 赵云 and 诸葛亮 a full pool plus their starters', () => {
-    // 3 起手 + 9 draftable, and 诸葛亮 additionally owns the 锦囊 token.
-    expect(heroCards('zhaoyun')).toHaveLength(12);
-    expect(heroCards('zhugeliang')).toHaveLength(13);
+    // 赵云: 3 起手 + 20 draftable (8/8/4, against 关羽's 10/8/3 — the todos/17
+    // 「20+ 张」 bar). 诸葛亮: 3 起手 + 20 draftable (8/8/4 as well) plus the
+    // 锦囊 token.
+    expect(heroCards('zhaoyun')).toHaveLength(23);
+    expect(heroCards('zhugeliang')).toHaveLength(24);
+    expect(
+      ZHAOYUN.common.length + ZHAOYUN.uncommon.length + ZHAOYUN.rare.length,
+    ).toBeGreaterThanOrEqual(20);
+    expect(
+      ZHUGELIANG.common.length + ZHUGELIANG.uncommon.length + ZHUGELIANG.rare.length,
+    ).toBeGreaterThanOrEqual(20);
   });
 
   it('leaves every drafted card forgeable, and the 令牌 not', () => {
@@ -599,7 +668,9 @@ describe('武将机制互不串味', () => {
     const readers = Object.keys(CARDS).filter((id) =>
       JSON.stringify(CARDS[id].effects).includes('exhaustedAtLeast'),
     );
-    expect(readers.sort()).toEqual(['chushibiao', 'huoji', 'muniuliuma']);
+    expect(readers.sort()).toEqual([
+      'chushibiao', 'fubing', 'huoji', 'huoshaobowang', 'huoshaotengjia', 'muniuliuma',
+    ]);
     for (const id of readers) expect(CARDS[id].hero, id).toBe('zhugeliang');
   });
 
@@ -608,7 +679,10 @@ describe('武将机制互不串味', () => {
       const json = JSON.stringify(CARDS[id].effects);
       return json.includes('attacksAtLeast') || json.includes('scaleWithAttacks');
     });
-    expect(readers.sort()).toEqual(['jiejiang', 'longdan', 'qitanpanshe', 'tingqiang']);
+    expect(readers.sort()).toEqual([
+      'changbanpo', 'chenshi', 'duojian', 'hengsaoqianjun', 'jici', 'jiejiang',
+      'longdan', 'qianghua', 'qitanpanshe', 'tingqiang',
+    ]);
     for (const id of readers) expect(CARDS[id].hero, id).toBe('zhaoyun');
   });
 });
@@ -633,6 +707,30 @@ describe('引擎不认识 HeroDef', () => {
     const body = head.slice(0, head.indexOf('\n}'));
     expect(body).toContain('heroName: string');
     expect(body).not.toContain('HeroDef');
+  });
+});
+
+/**
+ * The 连击 readout on the fight HUD, checked as source text — CombatScene
+ * imports Phaser and cannot be constructed here. Same technique as
+ * `tests/save.test.ts`'s 「where the save is actually written」.
+ */
+describe('连击数上了战斗 HUD', () => {
+  const SCENES: Record<string, string> = import.meta.glob('../src/scenes/CombatScene.ts', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  });
+
+  it('draws the counter only for 赵云 and repaints it in refresh', () => {
+    const scene = SCENES['../src/scenes/CombatScene.ts'];
+    // Built only for the combo hero — 关羽/诸葛亮 get no dead zero.
+    expect(scene).toContain("this.run.hero.id === 'zhaoyun'");
+    // And repainted from the engine's own counter inside `refresh`, which runs
+    // both after a card is played and after the turn-start reset — so the HUD
+    // number can never be anything but `state.attacksThisTurn`.
+    const body = scene.slice(scene.indexOf('private refresh(): void'));
+    expect(body.slice(0, body.indexOf('\n  }'))).toContain('this.state.attacksThisTurn');
   });
 });
 

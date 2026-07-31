@@ -5,6 +5,7 @@ import {
   applyDamage,
   drawCards,
   gainBlock,
+  hasKeyword,
   healCombatant,
 } from './engine';
 import type { CardDef, CombatEvent, CombatState } from './types';
@@ -724,6 +725,144 @@ export const RELICS: Record<string, RelicDef> = {
         if (run.hp >= run.maxHp) return;
         trigger();
         heal(run, value);
+      },
+    },
+  },
+
+  // ------------------------------------------------------- todos/17 additions
+  //
+  // 武将专属遗物 — the first entries to carry `RelicDef.hero`. The gate itself
+  // (`unowned` in `rewards.ts`) predates them; until here nothing declared an
+  // owner, so 「赵云专属遗物只在玩赵云时出现」 had no relic to be true of.
+  // Each exclusive reads the thing its owner's pool is already built around —
+  // 关羽's few fat 【攻】 cards, 赵云's `attacksThisTurn`, 诸葛亮's 「锦囊」 and
+  // the 消耗 keyword his deck burns — so one found mid-run bends the run toward
+  // its owner's plan instead of being a stat stick with a name on it.
+  //
+  // The ladder stays fed per hero: todos/10 sized it against 9 常见 / 8 罕见,
+  // and while the table now holds 11 / 11, what one hero can actually roll is
+  // 10 / 9 (关羽 9 / 9) — above the floor, so no degradation path shortened.
+
+  /**
+   * 关羽 exclusive. 古锭刀 narrowed to the cards his pool is built around: only
+   * 【攻】 costing 2 气 or more collect it — a bigger number per swing than the
+   * 稀有 relic pays, but only for a deck of few, heavy cards. `X_COST` (-1)
+   * falls outside the comparison on purpose: a card whose printed cost is X is
+   * a cheap card played expensively, not a fat one.
+   */
+  hanshoutinghouyin: {
+    id: 'hanshoutinghouyin',
+    name: '汉寿亭侯印',
+    tier: 'uncommon',
+    hero: 'guanyu',
+    art: 'relic-hanshoutinghouyin',
+    text: '你打出的费用 2 及以上的【攻】牌额外造成 {N} 点伤害。',
+    value: 3,
+    damageBonus: ({ def, value }) => (def.type === 'attack' && def.cost >= 2 ? value : 0),
+  },
+
+  /**
+   * 赵云 exclusive — the sword taken at 长坂坡, paying the way he fights: the
+   * turn's third 【攻】 draws, feeding the very spiral his 连击 cards scale
+   * from. `attacksThisTurn` is incremented *before* `attackPlayed` fires, so
+   * `=== 3` reads exactly the third attack — once a turn, never on the fourth.
+   * No counter of its own: the state field already resets in `startPlayerTurn`,
+   * and a per-fight relic counter could only drift from it.
+   */
+  qinggangjian: {
+    id: 'qinggangjian',
+    name: '青釭剑',
+    tier: 'uncommon',
+    hero: 'zhaoyun',
+    art: 'relic-qinggangjian',
+    text: '每回合第 3 次打出【攻】牌时，抽 {N} 张牌。',
+    value: 2,
+    hooks: {
+      attackPlayed: ({ state, value, trigger }) => {
+        if (state.attacksThisTurn !== 3) return;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  /**
+   * 赵云 exclusive. 玄武甲's slot moved behind his own condition: 6 甲 for a
+   * turn that ended bare becomes {N} 甲 for a turn that attacked twice — which
+   * the 涯角枪 starter already wants every turn to do. Armour for aggression,
+   * so committing the whole hand to 【攻】 is not automatically the defenceless
+   * line.
+   */
+  liangyinjia: {
+    id: 'liangyinjia',
+    name: '亮银甲',
+    tier: 'common',
+    hero: 'zhaoyun',
+    art: 'relic-liangyinjia',
+    text: '回合结束时，若本回合已打出至少 2 张【攻】牌，获得 {N} 点护甲。',
+    value: 4,
+    hooks: {
+      turnEnd: ({ state, value, trigger }) => {
+        if (state.attacksThisTurn < 2) return;
+        trigger();
+        gainBlock(state, state.player, value, 'relic');
+      },
+    },
+  },
+
+  /**
+   * 诸葛亮 exclusive. 金疮药 rewritten onto his own clock: his pool burns
+   * itself — 「锦囊」 and most of the deck carry 消耗 — so every third such
+   * card *played* pays 体力 back to the hero whose 68 体力 funds everything
+   * else. The keyword, not the 消耗堆: a card exhausted from the hand by an
+   * effect was a cost, not a play. Holds the charge at full 体力 the way 连弩
+   * holds its shot with nothing left to hit.
+   */
+  kongmingdeng: {
+    id: 'kongmingdeng',
+    name: '孔明灯',
+    tier: 'common',
+    hero: 'zhugeliang',
+    art: 'relic-kongmingdeng',
+    text: '每打出 3 张【消耗】牌，回复 {N} 点体力。',
+    value: 2,
+    hooks: {
+      cardPlayed: ({ state, payload, counter, value, trigger }) => {
+        const def = payload as CardDef | undefined;
+        if (!def || !hasKeyword(def, 'exhaust')) return;
+        counter.value += 1;
+        if (counter.value < 3) return;
+        // Full 体力: hold the charge rather than waste it.
+        if (state.player.hp >= state.player.maxHp) return;
+        counter.value = 0;
+        trigger();
+        healCombatant(state, state.player, value);
+      },
+    },
+  },
+
+  /**
+   * 诸葛亮 exclusive. The 妙计 pay double: every second 「锦囊」 played leaves
+   * 【神力】 behind, turning the card-neutral tempo token into his damage
+   * curve. Checked by id, not by keyword — it is the 锦囊 plan being paid here,
+   * not 消耗 in general (孔明灯 above already pays that).
+   */
+  qimendunjia: {
+    id: 'qimendunjia',
+    name: '奇门遁甲',
+    tier: 'uncommon',
+    hero: 'zhugeliang',
+    art: 'relic-qimendunjia',
+    text: '每打出 2 张「锦囊」，获得 {N} 点【神力】。',
+    value: 1,
+    hooks: {
+      cardPlayed: ({ state, payload, counter, value, trigger }) => {
+        if ((payload as CardDef | undefined)?.id !== 'jinnang') return;
+        counter.value += 1;
+        if (counter.value < 2) return;
+        counter.value = 0;
+        trigger();
+        addStatus(state, state.player, 'strength', value);
       },
     },
   },

@@ -10,7 +10,7 @@ import {
   poolsOf,
 } from '../src/combat/cards';
 import { relicPool } from '../src/combat/rewards';
-import { RELICS, relicModifiers } from '../src/combat/relics';
+import { RELICS, relicModifiers, relicsOfTier } from '../src/combat/relics';
 import { ACT1_LAYOUT, generateFinalAct, generateMap } from '../src/map/generateMap';
 import { RUN_SCOPE, runStream, streamSeed } from '../src/rooms/rng';
 import { payTheft } from '../src/rooms/fight';
@@ -123,11 +123,17 @@ describe('宝物按武将分流', () => {
     shop: ['geban', 'jubaopen', 'xingshangfujie', 'jiuhulu'],
   };
 
-  it('leaves 关羽 the pool he had before relics could belong to a hero', () => {
+  it('leaves 关羽 every relic he had before they could belong to a hero', () => {
+    // todos/17 gave him exclusives of his own (`RelicDef.hero`), which append —
+    // the property frozen here is that the *shared* baseline survives to the
+    // letter and in order, not that his pool never grows.
     const r = run();
     r.relics = [];
     for (const [tier, ids] of Object.entries(BASELINE)) {
-      expect(relicPool(r, tier as keyof typeof BASELINE), tier).toEqual(ids);
+      const his = relicsOfTier(tier as keyof typeof BASELINE)
+        .filter((def) => def.hero === 'guanyu')
+        .map((def) => def.id);
+      expect(relicPool(r, tier as keyof typeof BASELINE), tier).toEqual([...ids, ...his]);
     }
   });
 

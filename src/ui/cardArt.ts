@@ -4,9 +4,9 @@ import { CARDS, CARD_TYPE_META } from '../combat/cards';
 import { Rng } from '../core/rng';
 
 /**
- * PLACEHOLDER ART — a fallback, not the normal path. Every card in `CARDS` now
- * ships a painting, so this draws nothing on a healthy boot; it exists for the
- * card whose plate fails to load and for the next card added ahead of its art.
+ * PLACEHOLDER ART — a fallback, not the normal path. Most cards in `CARDS`
+ * ship a painting; this covers the card whose plate fails to load and every
+ * card added ahead of its art (currently the 22 阶段七 赵云/诸葛亮 cards).
  * Dropping a real plate into `assets/cards/` and listing it in BootScene's
  * `CARD_KEYS` takes over with no code change here.
  *

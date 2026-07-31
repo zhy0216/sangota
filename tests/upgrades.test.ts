@@ -205,6 +205,100 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   },
   lizhanwujiang: { effects: [{ kind: 'damage', amount: 7, times: 5 }] },
 
+  // --- todos/17 赵云 pool expansion (9 → 20 draftable) ----------------------
+  lianhuanqiang: { effects: [{ kind: 'damage', amount: 4, times: 2 }] },
+  jici: {
+    effects: [
+      { kind: 'damage', amount: 5 },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [{ kind: 'energy', amount: 1 }],
+      },
+    ],
+  },
+  duojian: {
+    effects: [
+      { kind: 'damage', amount: 8 },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [{ kind: 'status', status: 'vulnerable', amount: 2, to: 'target' }],
+      },
+    ],
+  },
+  qianghua: {
+    effects: [
+      { kind: 'block', amount: 8 },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 1 },
+        then: [{ kind: 'draw', amount: 1 }],
+      },
+    ],
+  },
+  chenshi: {
+    effects: [
+      { kind: 'draw', amount: 2 },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 1 },
+        then: [{ kind: 'draw', amount: 1 }],
+      },
+    ],
+  },
+  yinqiang: {
+    effects: [
+      { kind: 'damage', amount: 8 },
+      { kind: 'draw', amount: 1 },
+    ],
+  },
+  hengsaoqianjun: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [{ kind: 'damageAll', amount: 13 }],
+        otherwise: [{ kind: 'damageAll', amount: 8 }],
+      },
+    ],
+  },
+  longxiang: {
+    effects: [
+      { kind: 'loseHp', amount: 1 },
+      { kind: 'energy', amount: 1 },
+      { kind: 'draw', amount: 1 },
+    ],
+  },
+  yanqixigu: {
+    effects: [
+      { kind: 'status', status: 'weak', amount: 2, to: 'allEnemies' },
+      { kind: 'block', amount: 7 },
+    ],
+  },
+  huwei: { effects: [{ kind: 'status', status: 'dexterity', amount: 3, to: 'self' }] },
+  changbanpo: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 1 },
+        then: [
+          {
+            kind: 'scaleWithAttacks',
+            per: [
+              { kind: 'damage', amount: 9 },
+              { kind: 'block', amount: 4 },
+            ],
+          },
+        ],
+        otherwise: [
+          { kind: 'damage', amount: 9 },
+          { kind: 'block', amount: 4 },
+        ],
+      },
+    ],
+  },
+
   // --- todos/17 诸葛亮 · 锦囊 -----------------------------------------------
   yuanrongnu: { effects: [{ kind: 'damage', amount: 4, times: 2 }] },
   jushou: { effects: [{ kind: 'block', amount: 8 }] },
@@ -269,6 +363,88 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       { kind: 'status', status: 'vulnerable', amount: 4, to: 'allEnemies' },
       { kind: 'status', status: 'weak', amount: 4, to: 'allEnemies' },
       { kind: 'draw', amount: 2 },
+    ],
+  },
+
+  // --- todos/17 诸葛亮 pool expansion (9 → 20 draftable) --------------------
+  youdi: {
+    effects: [
+      { kind: 'damage', amount: 7 },
+      { kind: 'status', status: 'weak', amount: 2, to: 'target' },
+    ],
+  },
+  shengdongjixi: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [{ kind: 'damage', amount: 12 }],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+  },
+  miaosuan: {
+    effects: [{ kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' }],
+  },
+  fubing: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 3 },
+        then: [{ kind: 'block', amount: 12 }],
+        otherwise: [{ kind: 'block', amount: 7 }],
+      },
+    ],
+  },
+  jijiangfa: {
+    effects: [
+      { kind: 'damage', amount: 5 },
+      { kind: 'status', status: 'weak', amount: 1, to: 'target' },
+    ],
+  },
+  guanxing: {
+    effects: [
+      {
+        kind: 'scaleWithEnergy',
+        per: [
+          { kind: 'draw', amount: 1 },
+          { kind: 'block', amount: 2 },
+        ],
+      },
+    ],
+  },
+  huoshaobowang: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 3 },
+        then: [{ kind: 'damageAll', amount: 14 }],
+        otherwise: [{ kind: 'damageAll', amount: 9 }],
+      },
+    ],
+  },
+  jianbingzengzao: {
+    effects: [
+      { kind: 'exhaustCards', amount: 1 },
+      { kind: 'energy', amount: 1 },
+      { kind: 'draw', amount: 2 },
+    ],
+  },
+  shenjimiaosuan: { cost: 0 },
+  anjupingwulu: {
+    effects: [
+      { kind: 'block', amount: 15 },
+      { kind: 'status', status: 'weak', amount: 2, to: 'allEnemies' },
+    ],
+  },
+  huoshaotengjia: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 5 },
+        then: [{ kind: 'damage', amount: 28 }],
+        otherwise: [{ kind: 'damage', amount: 14 }],
+      },
     ],
   },
 };
