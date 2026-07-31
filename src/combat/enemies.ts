@@ -259,11 +259,12 @@ export const ENEMIES: Record<string, EnemyDef> = {
     ],
   },
 
-  // ------------------------------------------- 未上阵（见 PENDING_ENCOUNTERS）
+  // ------------------------------------ 一 · 讨黄巾（会动的身体：夺 / 遁 / 召 / 裂）
 
   /**
    * 摸金 twice, then away with the purse. The theft is reported as a `steal`
-   * event and costs nothing until the scene pays it — see `PENDING_ENCOUNTERS`.
+   * event; `CombatScene.payTheft` is what actually moves 资财, so the purse only
+   * moves once per event however often the scene replays it (todos/15).
    * Killing it before the third turn is the whole minigame.
    */
   liukou: {
@@ -351,7 +352,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     ],
   },
 
-  // ---------------------------------- 二 · 战虎牢（表未建，见 todos/09）
+  // ------------------------------------------------------- 二 · 战虎牢（新增）
 
   /** 扬尘 buries two 创伤 in the draw pile — the deck-pollution archetype. */
   tieqi: {
@@ -397,6 +398,567 @@ export const ENEMIES: Record<string, EnemyDef> = {
       },
     ],
   },
+
+  /**
+   * The 第二幕 rank and file. Two hits of eight rather than one of sixteen, so
+   * 护甲 answers it far better than it answers 西凉铁骑 — the act's opening
+   * lesson is that the same 16 points of incoming want different cards.
+   */
+  qiangbing: {
+    id: 'qiangbing',
+    name: '羌兵',
+    art: 'enemy-bandit', // TODO(art): 皮裘辫发，短弯刀与投矛
+    hp: [30, 34],
+    height: 226,
+    moves: [
+      { id: 'blade', label: '弯刀', damage: 5, hits: 2, weight: 3, maxRepeat: 2 },
+      {
+        id: 'javelin',
+        label: '掷矛',
+        damage: 10,
+        status: { status: 'weak', amount: 1, to: 'player' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'rally',
+        label: '结阵',
+        block: 8,
+        status: { status: 'strength', amount: 1, to: 'self' },
+        weight: 1,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  /**
+   * 董卓's household guard, and the 第二幕 body that punishes a slow clock:
+   * 重甲 4 every turn on top of 列阵 14 means a deck that cannot put ~20 on the
+   * board in one turn never gets ahead of it.
+   */
+  feixiongjun: {
+    id: 'feixiongjun',
+    name: '飞熊军',
+    art: 'enemy-huaxiong', // TODO(art): 熊头兜鍪，玄甲重戟
+    hp: [48, 54],
+    height: 256,
+    passives: { metallicize: 3 },
+    moves: [
+      { id: 'charge', label: '突击', damage: 12, weight: 3, maxRepeat: 2 },
+      {
+        id: 'caltrop',
+        label: '铁蒺藜',
+        damage: 6,
+        addCards: { defId: 'chuangshang', count: 1, to: 'draw' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      { id: 'wall', label: '列阵', block: 12, weight: 1, maxRepeat: 1 },
+    ],
+  },
+
+  /**
+   * 第二幕's support piece, and deliberately the mirror of 黄巾祭酒: that one
+   * bought its allies 神力 one layer at a time, this one hands out two and
+   * softens the player at the same time. Kill order is the whole fight.
+   */
+  xiliangduwei: {
+    id: 'xiliangduwei',
+    name: '西凉督尉',
+    art: 'enemy-huaxiong', // TODO(art): 执旗督战的西凉军官
+    hp: [26, 30],
+    height: 248,
+    moves: [
+      { id: 'hack', label: '挥刀', damage: 7, weight: 3, maxRepeat: 2 },
+      {
+        id: 'whistle',
+        label: '鸣镝',
+        damage: 5,
+        status: { status: 'vulnerable', amount: 1, to: 'player' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'drive',
+        label: '督战',
+        statusAll: { status: 'strength', amount: 1 },
+        weight: 2,
+        maxRepeat: 1,
+        when: { c: 'alliesAtLeast', n: 2 },
+      },
+    ],
+  },
+
+  /**
+   * 第二幕 精英. 长驱 22 is one point of incoming above anything 第一幕 fields,
+   * and the half-HP lump makes the back half worse rather than better — the
+   * fight the act uses to teach that 精英 are now a real resource decision.
+   */
+  licui: {
+    id: 'licui',
+    name: '李傕',
+    art: 'enemy-huaxiong', // TODO(art): 西凉猛将，赤帻长刀
+    hp: [100, 110],
+    height: 302,
+    thresholds: [{ percent: 50, gain: { strength: 2 }, shout: '「大军在此，谁敢当锋！」' }],
+    moves: [
+      { id: 'drive', label: '长驱', damage: 19, weight: 3, maxRepeat: 2 },
+      {
+        id: 'pillage',
+        label: '纵兵',
+        damage: 7,
+        hits: 2,
+        addCards: { defId: 'chuangshang', count: 1, to: 'discard' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'hold',
+        label: '据关',
+        block: 14,
+        status: { status: 'strength', amount: 2, to: 'self' },
+        weight: 1,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  /**
+   * The other 第二幕 精英, and the answer to a pure 护甲 deck: 毒计 goes past
+   * armour for 6 and clogs the draw pile, while 结寨 puts 重甲 4 on a body that
+   * already blocked 18. Racing it is correct; grinding it is not.
+   */
+  guosi: {
+    id: 'guosi',
+    name: '郭汜',
+    art: 'enemy-lubu', // TODO(art): 西凉马贼出身的将领，短须重铠
+    hp: [100, 110],
+    height: 298,
+    moves: [
+      { id: 'raid', label: '掠阵', damage: 7, hits: 3, weight: 3, maxRepeat: 2 },
+      {
+        id: 'poison',
+        label: '毒计',
+        loseHp: 5,
+        addCards: { defId: 'nining', count: 1, to: 'draw' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'camp',
+        label: '结寨',
+        block: 16,
+        status: { status: 'metallicize', amount: 3, to: 'self' },
+        weight: 1,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  /**
+   * 第二幕 首领, scripted like 张梁 and for the same reason: a 首领 whose 套路 can
+   * be learned rewards the second attempt at an act. Five beats, looping whole
+   * — 焚京 lands on beat five every single cycle, so the player either has 24
+   * points of answer ready on that turn or does not.
+   */
+  liru: {
+    id: 'liru',
+    name: '李儒',
+    art: 'enemy-lubu', // TODO(art): 文士深衣，捧鸩觞
+    hp: [194, 194],
+    height: 314,
+    script: { order: ['jiaozhao', 'luanzheng', 'chenmou', 'zhenjiu', 'fenjing'], loopFrom: 0 },
+    moves: [
+      {
+        id: 'jiaozhao',
+        label: '矫诏',
+        damage: 10,
+        addCards: { defId: 'xuanyun', count: 1, to: 'draw' },
+      },
+      {
+        id: 'luanzheng',
+        label: '乱政',
+        damage: 7,
+        hits: 2,
+        status: { status: 'weak', amount: 2, to: 'player' },
+      },
+      {
+        id: 'chenmou',
+        label: '沉谋',
+        block: 14,
+        status: { status: 'ritual', amount: 1, to: 'self' },
+      },
+      {
+        id: 'zhenjiu',
+        label: '鸩酒',
+        loseHp: 8,
+        addCards: { defId: 'nining', count: 1, to: 'discard' },
+      },
+      { id: 'fenjing', label: '焚京', damage: 26 },
+    ],
+  },
+
+  /**
+   * 第二幕 首领. Weighted where 李儒 is scripted, so the act's two 首领 ask
+   * different questions: this one cannot be planned around, only out-paced.
+   * 重甲 4 on 205 体力 makes chip damage a losing proposition outright.
+   */
+  dongzhuo: {
+    id: 'dongzhuo',
+    name: '董卓',
+    art: 'enemy-lubu', // TODO(art): 相国朝服外罩明光铠，肥硕
+    hp: [196, 196],
+    height: 332,
+    passives: { metallicize: 3 },
+    moves: [
+      { id: 'might', label: '相国之威', damage: 19, weight: 3, maxRepeat: 2 },
+      { id: 'trample', label: '铁骑碾压', damage: 6, hits: 3, weight: 2, maxRepeat: 1 },
+      {
+        id: 'burn',
+        label: '焚宫',
+        damage: 10,
+        addCards: { defId: 'chuangshang', count: 1, to: 'draw' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'fortress',
+        label: '筑坞',
+        block: 16,
+        status: { status: 'strength', amount: 2, to: 'self' },
+        weight: 1,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  // ------------------------------------------------------- 三 · 征汉中（新增）
+
+  /**
+   * 第三幕's baseline body, and it is heavier than anything 第二幕 fields on its
+   * own. 重甲 5 with no defensive move at all: it never stops swinging, and the
+   * armour is what a 多段 deck has to chew through every single turn.
+   */
+  hubaoqi: {
+    id: 'hubaoqi',
+    name: '虎豹骑',
+    art: 'enemy-bandit', // TODO(art): 曹军精锐骑兵，黑马玄甲
+    hp: [72, 78],
+    height: 252,
+    passives: { metallicize: 3 },
+    moves: [
+      { id: 'hoof', label: '铁蹄', damage: 10, weight: 3, maxRepeat: 2 },
+      {
+        id: 'encircle',
+        label: '合围',
+        damage: 4,
+        hits: 2,
+        status: { status: 'vulnerable', amount: 1, to: 'player' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  /**
+   * Four hits of five. Every point of 护甲 is worth four times as much here as
+   * it is against 虎豹骑, and every point of 神力 the enemy owns is worth four
+   * times as much to it — which is exactly why 军师祭酒 stands behind these.
+   */
+  lianubing: {
+    id: 'lianubing',
+    name: '连弩兵',
+    art: 'enemy-yellowturban', // TODO(art): 蜀制连弩，皮甲轻装
+    hp: [40, 44],
+    height: 234,
+    moves: [
+      { id: 'volley', label: '连弩', damage: 4, hits: 4, weight: 3, maxRepeat: 2 },
+      {
+        id: 'wind',
+        label: '上弦',
+        block: 6,
+        status: { status: 'strength', amount: 2, to: 'self' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  /**
+   * 第三幕's support, and the reason 连弩兵 come in pairs: 布阵 puts 2 神力 on
+   * every body on the field, which on a four-hit volley is +8 a turn each.
+   */
+  junshi: {
+    id: 'junshi',
+    name: '军师祭酒',
+    art: 'enemy-yellowturban', // TODO(art): 羽扇纶巾的曹营谋士
+    hp: [50, 56],
+    height: 250,
+    moves: [
+      { id: 'fan', label: '挥扇', damage: 10, weight: 3, maxRepeat: 2 },
+      {
+        id: 'firescheme',
+        label: '火计',
+        damage: 7,
+        addCards: { defId: 'chuangshang', count: 1, to: 'discard' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'array',
+        label: '布阵',
+        statusAll: { status: 'strength', amount: 1 },
+        weight: 2,
+        maxRepeat: 1,
+        when: { c: 'alliesAtLeast', n: 2 },
+      },
+    ],
+  },
+
+  /**
+   * 暴怒 2 — twice what 管亥 walks in with. Chip damage feeds it, so the pack
+   * that looks like the softest room on the floor is the one that punishes a
+   * 多段 deck hardest.
+   */
+  qingzhoubing: {
+    id: 'qingzhoubing',
+    name: '青州兵',
+    art: 'enemy-yellowturban', // TODO(art): 收编的黄巾旧部，杂色号衣
+    hp: [34, 38],
+    height: 228,
+    passives: { angry: 1 },
+    moves: [
+      { id: 'loot', label: '抄掠', damage: 9, weight: 3, maxRepeat: 2 },
+      { id: 'swarm', label: '蜂拥', damage: 4, hits: 2, weight: 2, maxRepeat: 1 },
+    ],
+  },
+
+  /**
+   * 第三幕 精英. 暴怒 2 plus a half-HP lump of 神力 plus 裸衣 buffing itself: the
+   * only fight in the game that gets strictly worse the longer it runs, with no
+   * defensive move to hide behind. Burst it or lose.
+   */
+  xuchu: {
+    id: 'xuchu',
+    name: '许褚',
+    art: 'enemy-huaxiong', // TODO(art): 赤膊虎背，双手长刀
+    hp: [108, 116],
+    height: 308,
+    passives: { angry: 1 },
+    thresholds: [{ percent: 50, gain: { strength: 1 }, shout: '「痴儿在此！」' }],
+    moves: [
+      { id: 'tiger', label: '虎痴', damage: 14, weight: 3, maxRepeat: 2 },
+      {
+        id: 'bare',
+        label: '裸衣',
+        damage: 6,
+        hits: 2,
+        status: { status: 'strength', amount: 2, to: 'self' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  /**
+   * The other 第三幕 精英, and the patient one: 死战 stacks 蓄势 2 a turn behind
+   * 16 护甲, so every turn spent not killing it is compounding. 射戟's 怯战 2 is
+   * what makes racing it hard in the first place.
+   */
+  pangde: {
+    id: 'pangde',
+    name: '庞德',
+    art: 'enemy-lubu', // TODO(art): 抬棺赴战，白袍已染
+    hp: [130, 140],
+    height: 302,
+    moves: [
+      { id: 'coffin', label: '抬榇', damage: 21, weight: 3, maxRepeat: 2 },
+      {
+        id: 'arrow',
+        label: '射戟',
+        damage: 7,
+        hits: 2,
+        status: { status: 'weak', amount: 2, to: 'player' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'laststand',
+        label: '死战',
+        block: 14,
+        status: { status: 'ritual', amount: 1, to: 'self' },
+        weight: 1,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  /**
+   * 第三幕 首领, scripted. 白地 26 arrives on beat two of five and again every
+   * cycle; 立寨 gives it 蓄势 2 so the same beat is worse each time round. The
+   * loop is short on purpose — this is the act that assumes the player reads
+   * telegraphs.
+   */
+  xiahouyuan: {
+    id: 'xiahouyuan',
+    name: '夏侯渊',
+    art: 'enemy-lubu', // TODO(art): 征西将军，疾行轻甲
+    hp: [228, 228],
+    height: 328,
+    script: { order: ['gallop', 'raid', 'banner', 'strike', 'deluge'], loopFrom: 0 },
+    moves: [
+      {
+        id: 'gallop',
+        label: '疾行',
+        damage: 8,
+        hits: 2,
+        status: { status: 'strength', amount: 2, to: 'self' },
+      },
+      { id: 'raid', label: '白地', damage: 26 },
+      {
+        id: 'banner',
+        label: '立寨',
+        block: 16,
+        status: { status: 'ritual', amount: 1, to: 'self' },
+      },
+      {
+        id: 'strike',
+        label: '妙才',
+        damage: 13,
+        status: { status: 'vulnerable', amount: 2, to: 'player' },
+      },
+      {
+        id: 'deluge',
+        label: '定军',
+        damage: 8,
+        addCards: { defId: 'chuangshang', count: 1, to: 'draw' },
+      },
+    ],
+  },
+
+  /**
+   * The other 第三幕 首领, weighted. 八百破十万 is four hits of seven — the exact
+   * shape 护甲 answers and 破绽 does not — while 突骑 22 is the exact shape 护甲
+   * does not. Guessing wrong twice in a row is the loss.
+   */
+  zhangliao: {
+    id: 'zhangliao',
+    name: '张辽',
+    art: 'enemy-lubu', // TODO(art): 逍遥津，长枪与断旗
+    hp: [206, 206],
+    height: 326,
+    moves: [
+      { id: 'raid', label: '突骑', damage: 20, weight: 3, maxRepeat: 2 },
+      { id: 'eighthundred', label: '八百破十万', damage: 7, hits: 4, weight: 2, maxRepeat: 1 },
+      {
+        id: 'awe',
+        label: '威震逍遥津',
+        damage: 10,
+        block: 10,
+        status: { status: 'vulnerable', amount: 1, to: 'player' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'regroup',
+        label: '敛军',
+        block: 18,
+        status: { status: 'strength', amount: 3, to: 'self' },
+        weight: 1,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  // -------------------------------------------------------- 终 · 五丈原（新增）
+
+  /**
+   * 终章's single 精英, standing between the player and the last 首领 with no
+   * room to go around: 隐忍 is 20 护甲 plus 重甲 5, and the half-HP lump is the
+   * largest in the game. A run that arrives here without a finisher does not
+   * leave.
+   */
+  simayi: {
+    id: 'simayi',
+    name: '司马懿',
+    art: 'enemy-lubu', // TODO(art): 冢虎，鹰视狼顾
+    hp: [152, 162],
+    height: 308,
+    thresholds: [{ percent: 50, gain: { strength: 4 }, shout: '「天下英雄，唯忍者存。」' }],
+    moves: [
+      { id: 'hawk', label: '鹰视', damage: 23, weight: 3, maxRepeat: 2 },
+      {
+        id: 'endure',
+        label: '隐忍',
+        block: 16,
+        status: { status: 'metallicize', amount: 3, to: 'self' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'bite',
+        label: '反噬',
+        damage: 8,
+        hits: 2,
+        addCards: { defId: 'nining', count: 1, to: 'draw' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+    ],
+  },
+
+  /**
+   * 天命 — the run's last fight, and not a person. Six beats on a fixed loop,
+   * every one of them a different kind of pressure: 星落 30 raw, 秋风 as three
+   * hits plus 怯战, 五丈 as 24 护甲 and 蓄势 3, 阳寿 straight past armour, 逆天 as
+   * 破绽 3, 归尘 as deck rot. There is no beat to relax on, which is the point.
+   */
+  tianming: {
+    id: 'tianming',
+    name: '天命',
+    art: 'enemy-lubu', // TODO(art): 无面，星图与残灯，不作人形
+    hp: [252, 252],
+    height: 344,
+    passives: { metallicize: 3 },
+    script: {
+      order: ['autumnwind', 'lifespan', 'wuzhang', 'defy', 'starfall', 'dust'],
+      loopFrom: 0,
+    },
+    moves: [
+      {
+        id: 'autumnwind',
+        label: '秋风',
+        damage: 5,
+        hits: 3,
+        status: { status: 'weak', amount: 2, to: 'player' },
+      },
+      {
+        id: 'lifespan',
+        label: '阳寿',
+        loseHp: 6,
+        addCards: { defId: 'nining', count: 1, to: 'draw' },
+      },
+      {
+        id: 'wuzhang',
+        label: '五丈',
+        block: 20,
+        status: { status: 'ritual', amount: 2, to: 'self' },
+      },
+      {
+        id: 'defy',
+        label: '逆天',
+        damage: 12,
+        status: { status: 'vulnerable', amount: 2, to: 'player' },
+      },
+      { id: 'starfall', label: '星落', damage: 22 },
+      {
+        id: 'dust',
+        label: '归尘',
+        damage: 9,
+        addCards: { defId: 'chuangshang', count: 2, to: 'draw' },
+      },
+    ],
+  },
 };
 
 // ------------------------------------------------------------------ 遭遇表
@@ -420,9 +982,12 @@ export interface EncounterTable {
 /**
  * 第一幕 · 讨黄巾.
  *
- * `m1`-`m4`, `e1` and `b1` are the fights the 26 golden snapshots are built on:
- * their ids, enemy rosters and gold ranges are frozen and must not move, only
- * be joined by new rows.
+ * `m1`-`m8`, `e1`-`e2` and `b1`-`b2` are the fights the 37 golden snapshots are
+ * built on: their ids and enemy rosters are frozen and must not move, only be
+ * joined by new rows. Which *act* a frozen fight belongs to is not frozen —
+ * `simulateCombat` reaches it by id — but 吕布 stays here anyway, because the
+ * whole balance table (`sim/balance.sim.ts`) is calibrated against him as a
+ * 第一幕 首领.
  */
 export const ACT1: EncounterTable = {
   weakCount: 3,
@@ -437,58 +1002,144 @@ export const ACT1: EncounterTable = {
     { id: 'm6', name: '设坛作法', enemies: ['jijiu', 'yellowturban'], goldReward: [15, 23] },
     { id: 'm7', name: '白波马队', enemies: ['qishou', 'qishou'], goldReward: [16, 24] },
     { id: 'm8', name: '祭酒督阵', enemies: ['jijiu', 'luanmin', 'luanmin'], goldReward: [15, 23] },
+    { id: 'm9', name: '劫粮流寇', enemies: ['liukou', 'bandit'], goldReward: [12, 20] },
   ],
   elite: [
     { id: 'e1', name: '关下骁将 · 华雄', enemies: ['huaxiong'], goldReward: [28, 42] },
     { id: 'e2', name: '黄巾渠帅 · 管亥', enemies: ['guanhai'], goldReward: [28, 42] },
+    { id: 'e3', name: '神上使 · 张曼成', enemies: ['zhangmancheng'], goldReward: [28, 42] },
   ],
   boss: [
     { id: 'b1', name: '虎牢关 · 吕布', enemies: ['lubu'], goldReward: [80, 110] },
     { id: 'b2', name: '人公将军 · 张梁', enemies: ['zhangliang'], goldReward: [80, 110] },
+    { id: 'b3', name: '地公将军 · 张宝', enemies: ['zhangbao'], goldReward: [80, 110] },
   ],
 };
 
 /**
- * Every fight of an act in one flat list per tier, derived from `ACT1` so there
- * is exactly one place a fight is written down.
+ * 第二幕 · 战虎牢.
  *
- * This is a *lookup*, not a draw table: `src/rooms/fight.ts` picks through
- * `pickEncounter` against `ACT1`, which is what applies the weak/strong split
- * and the no-repeats rule. Picking uniformly out of this array — which is what
- * `CombatScene` used to do — silently discards both. todos/09 replaces `ACT1`
- * with a per-act table and this alias goes with it.
+ * The gradient over 第一幕 is deliberate and measured in `tests/acts.test.ts`
+ * rather than left to taste: mean 体力 per normal room roughly +40%, mean peak
+ * incoming per normal room roughly +50%, and every 精英 body strictly heavier
+ * than every 第一幕 精英 body.
+ *
+ * `weakCount` drops to 2. An act two floors shorter in its opening ramp is what
+ * makes 第二幕 feel like it starts mid-sentence, which is the intent.
  */
-export const ENCOUNTERS: Record<CombatTier, Encounter[]> = {
-  monster: [...ACT1.weak, ...ACT1.strong],
-  elite: [...ACT1.elite],
-  boss: [...ACT1.boss],
+export const ACT2: EncounterTable = {
+  weakCount: 2,
+  weak: [
+    { id: 'm10', name: '西凉哨骑', enemies: ['tieqi'], goldReward: [16, 24] },
+    { id: 'm11', name: '相府亲兵', enemies: ['dongzhuoqinbing', 'dongzhuoqinbing'], goldReward: [18, 26] },
+    { id: 'm12', name: '羌胡游骑', enemies: ['qiangbing', 'dongzhuoqinbing'], goldReward: [17, 25] },
+  ],
+  strong: [
+    { id: 'm13', name: '铁骑冲阵', enemies: ['tieqi', 'tieqi'], goldReward: [20, 27] },
+    { id: 'm14', name: '飞熊拒关', enemies: ['feixiongjun', 'dongzhuoqinbing'], goldReward: [21, 27] },
+    {
+      id: 'm15',
+      name: '督尉督战',
+      enemies: ['xiliangduwei', 'qiangbing', 'qiangbing'],
+      goldReward: [20, 27],
+    },
+  ],
+  elite: [
+    { id: 'e4', name: '飞熊中郎将 · 李傕', enemies: ['licui'], goldReward: [40, 56] },
+    { id: 'e5', name: '西凉都尉 · 郭汜', enemies: ['guosi'], goldReward: [38, 54] },
+  ],
+  boss: [
+    { id: 'b4', name: '相国 · 董卓', enemies: ['dongzhuo'], goldReward: [95, 130] },
+    { id: 'b5', name: '毒士 · 李儒', enemies: ['liru'], goldReward: [95, 130] },
+  ],
 };
+
+/**
+ * 第三幕 · 征汉中.
+ *
+ * `weakCount` is 2 again but the weak rows are already heavier than 第二幕's
+ * strong ones — by this act the ramp exists to place the room, not to protect
+ * the player.
+ */
+export const ACT3: EncounterTable = {
+  weakCount: 2,
+  weak: [
+    { id: 'm16', name: '虎豹游骑', enemies: ['hubaoqi'], goldReward: [20, 27] },
+    { id: 'm17', name: '青州抄掠', enemies: ['qingzhoubing', 'qingzhoubing'], goldReward: [19, 26] },
+  ],
+  strong: [
+    { id: 'm18', name: '连弩伏击', enemies: ['lianubing', 'lianubing'], goldReward: [21, 27] },
+    { id: 'm19', name: '虎豹合围', enemies: ['hubaoqi', 'hubaoqi'], goldReward: [23, 27] },
+    {
+      id: 'm20',
+      name: '军师督阵',
+      enemies: ['junshi', 'qingzhoubing', 'qingzhoubing'],
+      goldReward: [22, 27],
+    },
+    { id: 'm21', name: '阳平关哨', enemies: ['hubaoqi', 'lianubing'], goldReward: [23, 27] },
+  ],
+  elite: [
+    { id: 'e6', name: '虎痴 · 许褚', enemies: ['xuchu'], goldReward: [50, 68] },
+    { id: 'e7', name: '立义将军 · 庞德', enemies: ['pangde'], goldReward: [48, 66] },
+  ],
+  boss: [
+    { id: 'b6', name: '征西将军 · 夏侯渊', enemies: ['xiahouyuan'], goldReward: [110, 150] },
+    { id: 'b7', name: '荡寇将军 · 张辽', enemies: ['zhangliao'], goldReward: [110, 150] },
+  ],
+};
+
+/**
+ * 终 · 五丈原. Three rooms: 精英 → 营帐 → 首领, and no normal rooms at all.
+ *
+ * `weak` and `strong` are empty on purpose rather than filled with filler, and
+ * `weakCount` is 0 so the split is inert. `generateFinalAct` emits exactly one
+ * `elite`, one `rest` and the boss crown, so `pickEncounter` is never asked for
+ * a `monster` here — an empty pool would otherwise be a silent `undefined`.
+ */
+export const FINAL: EncounterTable = {
+  weakCount: 0,
+  weak: [],
+  strong: [],
+  elite: [{ id: 'e8', name: '冢虎 · 司马懿', enemies: ['simayi'], goldReward: [60, 76] }],
+  boss: [{ id: 'b8', name: '五丈原 · 天命', enemies: ['tianming'], goldReward: [150, 200] }],
+};
+
+/**
+ * Every act's table, in order. The one place that knows how many acts there
+ * are: `getEncounter` scans this, and `src/data/acts.ts` indexes into it.
+ *
+ * Append only — the index *is* `RunState.act - 1`.
+ */
+export const ACT_TABLES: readonly EncounterTable[] = [ACT1, ACT2, ACT3, FINAL];
 
 /**
  * Fights that are finished as rules and are deliberately **not** reachable from
- * the map yet. Two separate reasons, both spelled out per row:
+ * the map yet.
  *
- * 1. `CombatScene` builds one view per enemy in `create()` and never again, so
- *    a body that joins mid-fight — 召唤 or 分裂 — is invisible and unclickable.
- *    An enemy that 遁走 keeps a frozen sprite on screen for the last frame.
- *    Wiring those three events up is scene work; see the handoff in todos/16.
- * 2. Act 2 has no table of its own until todos/09 builds one.
+ * **Empty, and that is the point.** Every row that ever sat here was fenced off
+ * for one reason: `CombatScene` built one view per enemy in `create()` and
+ * never again, so a body that joined mid-fight — 召唤 or 分裂 — was invisible
+ * and unclickable, and an enemy that 遁走 left a frozen sprite behind.
  *
- * `findEncounter` sees this table, so the sim, the golden files and
- * `tests/enemies.test.ts` all drive these fights for real.
+ * todos/15 wired those events up (`playSummon` / `playSplit` / `playEscape` /
+ * `shout`, and `payTheft` for 夺财), so the fence came down:
+ *
+ * - `m9` 劫粮流寇 → `ACT1.strong` — 流寇 steals 30 and flees, and the run's
+ *   purse actually moves now.
+ * - `e3` 神上使 · 张曼成 → `ACT1.elite` — summons two 力士 that can be seen,
+ *   clicked and hit by 万人敌.
+ * - `b3` 地公将军 · 张宝 → `ACT1.boss` — splits at half HP, and the parent's
+ *   body is destroyed rather than left standing for the rest of the fight.
+ * - `m10` / `m11` → `ACT2`, by todos/09. Neither declares a mechanic the scene
+ *   could not already draw; they were only ever waiting on 第二幕 existing.
+ *
+ * Kept as an empty table rather than deleted: it is where the *next* mechanic
+ * that outruns the screen goes, and `allEncounters` already scans it.
  */
 export const PENDING_ENCOUNTERS: Record<CombatTier, Encounter[]> = {
-  monster: [
-    // needs: `steal` debits the run, `escape` clears the sprite
-    { id: 'm9', name: '劫粮流寇', enemies: ['liukou', 'bandit'], goldReward: [12, 20] },
-    // needs: act 2
-    { id: 'm10', name: '西凉哨骑', enemies: ['tieqi'], goldReward: [14, 22] },
-    { id: 'm11', name: '相府亲兵', enemies: ['dongzhuoqinbing', 'dongzhuoqinbing'], goldReward: [16, 24] },
-  ],
-  // needs: a view built for a summoned body
-  elite: [{ id: 'e3', name: '神上使 · 张曼成', enemies: ['zhangmancheng'], goldReward: [28, 42] }],
-  // needs: a view built for a split body, and the parent's exit animated
-  boss: [{ id: 'b3', name: '地公将军 · 张宝', enemies: ['zhangbao'], goldReward: [80, 110] }],
+  monster: [],
+  elite: [],
+  boss: [],
 };
 
 /**
@@ -518,16 +1169,30 @@ export function pickEncounter(
 }
 
 /**
- * An encounter by id, across both tables — a fight the map cannot open yet is
- * still a fight the rules layer has to look up. Used to read a materialised
- * `RoomRecord.combat.encounterId` back, and by the sim to name its cases.
+ * Every fight the game ships, every act and both tables, flattened.
+ *
+ * A *lookup*, never a draw pool: picking uniformly out of this array — which is
+ * what `CombatScene` did before the room layer existed — throws away both the
+ * weak/strong split and the act it belongs to. `pickEncounter` against one
+ * `EncounterTable` is the only legal way to choose a fight.
+ */
+export function allEncounters(): Encounter[] {
+  return [
+    ...ACT_TABLES.flatMap((t) => [...t.weak, ...t.strong, ...t.elite, ...t.boss]),
+    ...Object.values(PENDING_ENCOUNTERS).flat(),
+  ];
+}
+
+/**
+ * An encounter by id, across every act and both tables — a fight the map cannot
+ * open yet is still a fight the rules layer has to look up. Used to read a
+ * materialised `RoomRecord.combat.encounterId` back, and by the sim to name its
+ * cases.
  */
 export function getEncounter(id: string): Encounter {
-  for (const table of [...Object.values(ENCOUNTERS), ...Object.values(PENDING_ENCOUNTERS)]) {
-    const found = table.find((e) => e.id === id);
-    if (found) return found;
-  }
-  throw new Error(`Unknown encounter id: ${id}`);
+  const found = allEncounters().find((e) => e.id === id);
+  if (!found) throw new Error(`Unknown encounter id: ${id}`);
+  return found;
 }
 
 export const getEnemy = (id: string): EnemyDef => {

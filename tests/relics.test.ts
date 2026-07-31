@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveCard } from '../src/combat/cards';
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   BASE_ENERGY,
   HAND_SIZE,
@@ -35,7 +35,7 @@ const QINGLONG = RELICS.qinglongdao.value ?? 0;
 
 function bench(relics: string[], copies = 20, seed = 'relic-bench'): CombatState {
   return startCombat({
-    encounter: ENCOUNTERS.monster[0],
+    encounter: getEncounter('m1'),
     deck: Array.from({ length: copies }, () => newDeckCard('pikan')),
     heroName: DEFAULT_HERO.name,
     hp: DEFAULT_HERO.maxHp,

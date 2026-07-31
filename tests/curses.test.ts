@@ -7,7 +7,7 @@ import {
   isNegative,
   resolveCombatEndHooks,
 } from '../src/combat/curses';
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   canPlay,
   drawCards,
@@ -67,7 +67,7 @@ CARDS[FREE.id] = FREE;
 
 function bench(defIds: string[], seed = 'curse'): CombatState {
   return startCombat({
-    encounter: ENCOUNTERS.monster[0],
+    encounter: getEncounter('m1'),
     deck: defIds.map((id) => newDeckCard(id)),
     heroName: DEFAULT_HERO.name,
     hp: DEFAULT_HERO.maxHp,
@@ -80,7 +80,7 @@ function bench(defIds: string[], seed = 'curse'): CombatState {
 /** A fight fought with the run's own deck, the way `CombatScene` starts one. */
 const fightWith = (run: RunState, seed: string): CombatState =>
   startCombat({
-    encounter: ENCOUNTERS.monster[0],
+    encounter: getEncounter('m1'),
     deck: run.deck,
     heroName: run.hero.name,
     hp: run.hp,

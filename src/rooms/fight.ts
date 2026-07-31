@@ -1,7 +1,8 @@
-import { ACT1, getEncounter, pickEncounter, type CombatTier } from '../combat/enemies';
+import { getEncounter, pickEncounter, type CombatTier } from '../combat/enemies';
 import { RELIC_MISS_GOLD } from '../combat/relics';
 import { rollBossOffer, rollRelic } from '../combat/rewards';
 import type { Encounter } from '../combat/types';
+import { actOf } from '../data/acts';
 import { addGold, addRelic, type RunState } from '../state/run';
 import { roomCommit, roomRecord } from './commit';
 import { stream } from './rng';
@@ -32,12 +33,20 @@ import { stream } from './rng';
  * gate the shop counter and the event options use.
  */
 
-/** Read back a materialised encounter, or pick this node's fight and freeze it. */
+/**
+ * Read back a materialised encounter, or pick this node's fight and freeze it.
+ *
+ * The table comes from `actOf(run)`, never from a constant: a node id repeats
+ * every act (`3_2` exists in all of them), and so does the literal `boss`, so
+ * the *only* thing that says which act's fights a node draws from is `run.act`.
+ * Reading back is by id across every act, which is what lets a materialised
+ * record survive even if a fight is later moved between acts.
+ */
 export function ensureEncounter(run: RunState, nodeId: string, tier: CombatTier): Encounter {
   const record = roomRecord(run, nodeId, 'combat');
   if (record.encounterId) return getEncounter(record.encounterId);
 
-  const encounter = pickEncounter(stream(run, nodeId, 'encounter'), ACT1, tier, {
+  const encounter = pickEncounter(stream(run, nodeId, 'encounter'), actOf(run).table, tier, {
     combatCount: run.actCombatCount,
     used: run.usedEncounters,
   });
@@ -46,8 +55,9 @@ export function ensureEncounter(run: RunState, nodeId: string, tier: CombatTier)
   run.usedEncounters.push(encounter.id);
   // Counted on entry rather than on victory: a fight the player walked into is
   // spent whether or not they survived it, and there is no run left to tally
-  // against if they did not. `weakCount` is therefore "the first three normal
-  // rooms an act opens", which is what the table's comment promises.
+  // against if they did not. `weakCount` is therefore "the first N normal rooms
+  // *this* act opens" — 3 in 第一幕, 2 after that — and `clearActProgress`
+  // resets the counter at the seam so every act gets its own ramp.
   if (tier === 'monster') run.actCombatCount += 1;
   return encounter;
 }
@@ -130,8 +140,9 @@ export function payTheft(run: RunState, nodeId: string, index: number, amount: n
  * The three 首领 relics on offer, rolled once and then frozen on the run.
  *
  * Parked on `RunState` rather than on the node record because the 战利品 chest
- * outlives the fight that filled it — todos/09 opens it between acts, on a
- * screen that has no node of its own.
+ * outlives the fight that filled it: `advanceAct` asserts this commit before
+ * it wipes the ledger, so declining for the 宝钥 survives the act change that
+ * the decline is *for*.
  */
 export function ensureBossOffer(run: RunState, nodeId: string): string[] {
   if (run.bossRelicOffer) return run.bossRelicOffer;
@@ -148,8 +159,9 @@ export const bossOfferPending = (run: RunState, nodeId: string): boolean =>
  * already answered — a second click pays nothing, and cannot turn a relic that
  * was taken into a key.
  *
- * Declining is a real choice rather than a forfeit: todos/09 spends 宝钥 on the
- * 终章 door, so 「不取」 is trading this act's relic for the next act's room.
+ * Declining is a real choice rather than a forfeit: the 宝钥 is the only key to
+ * the 终章 door (`actExit`, `src/data/acts.ts`), so 「不取」 trades this act's
+ * relic for a whole extra act.
  */
 export function takeBossRelic(run: RunState, nodeId: string, relicId: string | null): boolean {
   const offer = ensureBossOffer(run, nodeId);

@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, MAP, css } from '../config';
 import { Rng } from '../core/rng';
+import { actLabel, actOf } from '../data/acts';
 import { ROOM_META } from '../map/roomMeta';
 import type { MapNode } from '../map/types';
+import { ensureEncounter } from '../rooms/fight';
 import {
   availableNodes,
   currentFloor,
@@ -47,7 +49,21 @@ const DEPTH = {
   drawer: 400,
 } as const;
 
-const ACT_NAME = '第一幕 · 虎牢关道';
+/**
+ * The act's 首领, read once when the map is built.
+ *
+ * This **materialises the boss's record before the player has walked to it**,
+ * which is a deliberate exception to the note in `commit.ts` that reading a
+ * room does not create one — and it is the whole point of R5 rather than a
+ * violation of it: the fight has to be decided now precisely so that the name
+ * on the map and the fight at the top of it can never disagree. Announcing the
+ * 首领 fifteen floors early is what lets a player build against it.
+ *
+ * No side effects to worry about: `ensureEncounter` only ticks
+ * `actCombatCount` on the `monster` tier, and the boss branch spends its one
+ * `encounter` draw and nothing else.
+ */
+const bossName = (run: RunState): string => ensureEncounter(run, run.map.bossId, 'boss').name;
 
 export class MapScene extends Phaser.Scene {
   /**
@@ -583,11 +599,24 @@ export class MapScene extends Phaser.Scene {
     this.potionBelt.setPotions(this.run.potions);
 
     // --- Act / floor ------------------------------------------------------
+    const act = actOf(this.run);
     fixed(
-      this.add.text(GAME_WIDTH - 24, 26, ACT_NAME, brushStyle(22, C.paper)).setOrigin(1, 0).setLetterSpacing(2),
+      this.add
+        .text(GAME_WIDTH - 24, 20, actLabel(act), brushStyle(22, C.paper))
+        .setOrigin(1, 0)
+        .setLetterSpacing(2),
     );
-    this.floorText = this.add.text(GAME_WIDTH - 24, 60, '', bodyStyle(15, C.gold)).setOrigin(1, 0);
+    this.floorText = this.add.text(GAME_WIDTH - 24, 52, '', bodyStyle(15, C.gold)).setOrigin(1, 0);
     fixed(this.floorText);
+
+    // The act's 首领, named fifteen floors ahead of time so the deck can be
+    // built against it. Cheap: the record is frozen on first read.
+    fixed(
+      this.add
+        .text(GAME_WIDTH - 24, 74, `本幕首领 · ${bossName(this.run)}`, bodyStyle(13, C.cinnabarBright))
+        .setOrigin(1, 0)
+        .setLetterSpacing(2),
+    );
 
     // --- Footer -----------------------------------------------------------
     this.hintText = this.add
@@ -657,11 +686,18 @@ export class MapScene extends Phaser.Scene {
 
   private showTooltip(node: MapNode, state: NodeState): void {
     const meta = ROOM_META[node.type];
-    this.tooltipTitle.setText(meta.label).setColor(
+    const isBoss = node.type === 'boss';
+    this.tooltipTitle.setText(isBoss ? bossName(this.run) : meta.label).setColor(
       '#' + (state === 'locked' ? C.paperFaint : meta.accent).toString(16).padStart(6, '0'),
     );
     this.tooltipDesc.setText(
-      state === 'locked' ? '此路不通。' : state === 'visited' ? '已经走过了。' : meta.desc,
+      state === 'locked'
+        ? isBoss
+          ? '本幕之主，候于道尽处。'
+          : '此路不通。'
+        : state === 'visited'
+          ? '已经走过了。'
+          : meta.desc,
     );
 
     const w = Math.max(this.tooltipTitle.width, this.tooltipDesc.width) + 28;

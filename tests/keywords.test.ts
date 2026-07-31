@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, resolveCard } from '../src/combat/cards';
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   MAX_HAND,
   X_COST,
@@ -113,7 +113,7 @@ const PROBES: CardDef[] = [
 ];
 for (const def of PROBES) CARDS[def.id] = def;
 
-const TWO_UP = ENCOUNTERS.monster[1];
+const TWO_UP = getEncounter('m3');
 
 function bench(deck: DeckCard[], seed = 'keyword-bench'): CombatState {
   const state = startCombat({

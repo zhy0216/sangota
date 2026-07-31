@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ENCOUNTERS, getEnemy } from '../src/combat/enemies';
+import { ACT1, getEncounter, getEnemy } from '../src/combat/enemies';
 import {
   BASE_ENERGY,
   HAND_SIZE,
@@ -29,7 +29,7 @@ const body = (statuses: Partial<Record<StatusId, number>> = {}): Combatant => ({
 
 function bench(
   deck: DeckCard[],
-  encounter: Encounter = ENCOUNTERS.monster[0],
+  encounter: Encounter = getEncounter('m1'),
   seed = 'engine-bench',
 ): CombatState {
   return startCombat({
@@ -200,7 +200,9 @@ describe('drawCards', () => {
 
 describe('pickIntent', () => {
   const enemyIds = [
-    ...new Set(Object.values(ENCOUNTERS).flatMap((table) => table.flatMap((e) => e.enemies))),
+    ...new Set(
+      [...ACT1.weak, ...ACT1.strong, ...ACT1.elite, ...ACT1.boss].flatMap((e) => e.enemies),
+    ),
   ];
 
   it('never repeats a move past its maxRepeat', () => {

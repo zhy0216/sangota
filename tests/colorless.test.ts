@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COLORLESS_POOL, getCard, resolveCard } from '../src/combat/cards';
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   endPlayerTurn,
   playCard,
@@ -29,7 +29,7 @@ import { newDeckCard } from '../src/state/run';
 /** One fight, one card type in hand, energy enough to actually play it. */
 function bench(deckId: string, seed = 'colorless'): CombatState {
   const state = startCombat({
-    encounter: ENCOUNTERS.monster[0],
+    encounter: getEncounter('m1'),
     deck: Array.from({ length: 12 }, () => newDeckCard(deckId)),
     heroName: DEFAULT_HERO.name,
     hp: DEFAULT_HERO.maxHp,
@@ -131,7 +131,7 @@ describe('鹿角', () => {
 describe('离间计', () => {
   it('puts 2 怯战 and 2 破绽 on every enemy, not just the targeted one', () => {
     const state = startCombat({
-      encounter: ENCOUNTERS.monster.find((e) => e.enemies.length > 1)!,
+      encounter: getEncounter('m3'),
       deck: Array.from({ length: 12 }, () => newDeckCard('lijianji')),
       heroName: DEFAULT_HERO.name,
       hp: DEFAULT_HERO.maxHp,

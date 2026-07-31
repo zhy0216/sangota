@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CARDS, resolveCard } from '../src/combat/cards';
 import { isNegative } from '../src/combat/curses';
 import { intentLabel } from '../src/combat/intent';
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   describeCard,
   playCard,
@@ -20,7 +20,7 @@ import { newDeckCard } from '../src/state/run';
  */
 
 /** Two enemies, so `damageAll` can be checked per target. */
-const TWO_UP = ENCOUNTERS.monster[1];
+const TWO_UP = getEncounter('m3');
 
 /**
  * Curses and status cards are in `CARDS` but print no numbers and mostly cannot

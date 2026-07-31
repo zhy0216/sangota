@@ -33,7 +33,8 @@ const edgeKey = (row: number, from: number, to: number) => `${row}:${from}>${to}
  * The shape of one act's map: how tall it is and which floors are fixed.
  *
  * Split out of `MAP` (which keeps the geometry — lane count, spacing, jitter)
- * because todos/09 gives every act its own shape, and the *only* honest way to
+ * because every act has its own shape (`ACTS`, `src/data/acts.ts`), and the
+ * only honest way to
  * express that is to pass it in. A module-level read would silently generate
  * 第二幕 with 第一幕's floor plan.
  *
@@ -50,8 +51,8 @@ export interface ActLayout {
 /**
  * 第一幕's shape — the numbers that lived in `MAP` before acts existed, moved
  * verbatim. `startRun` passes this, so **every existing seed generates exactly
- * the map it always did**; todos/09's `ACTS[1].layout` must keep being this
- * object, or every 第一幕 in every saved seed changes.
+ * the map it always did**; `ACTS[1].layout` is this very object by reference,
+ * and must stay that way or every 第一幕 in every saved seed changes.
  */
 export const ACT1_LAYOUT: ActLayout = {
   rows: 15,

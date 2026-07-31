@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { fireRunHook } from '../combat/relics';
 import type { MapNode } from '../map/types';
 import { roomCommit } from '../rooms/commit';
+import { bossOfferPending } from '../rooms/fight';
+import { getRun, type RunState } from '../state/run';
 import type { MapScene } from './MapScene';
 
 /**
@@ -53,8 +55,38 @@ export function enterRoom(map: MapScene, node: MapNode): void {
   }
 }
 
-/** The one way back. Wakes the sleeping map, or rebuilds it if it is gone. */
+/**
+ * The act is over: the player is standing on the 首领 node and the 战利品 chest
+ * has been answered.
+ *
+ * Both halves are needed. `currentNodeId === bossId` alone is true from the
+ * moment the fight is committed to, and the chest is answered *inside*
+ * `CombatScene` before the ordinary spoils — so this only reads true on the way
+ * out, which is exactly when the act should end. A run that ended in defeat
+ * never reaches here: `showDefeat` goes to 「Title」 and not through this door.
+ */
+export function actCleared(run: RunState): boolean {
+  const bossId = run.map.bossId;
+  return run.currentNodeId === bossId && !bossOfferPending(run, bossId);
+}
+
+/**
+ * The one way back. Wakes the sleeping map, or rebuilds it if it is gone —
+ * except when the act is finished, which routes through 幕间 instead.
+ *
+ * The act check lives here rather than in `CombatScene` on purpose: this is the
+ * single funnel every room and every fight leaves through, so an act can only
+ * ever end in one place, and `advanceAct` can only ever be reached one way.
+ */
 export function returnToMap(from: Phaser.Scene): void {
+  if (actCleared(getRun())) {
+    // A map left asleep under the interlude would wake up still drawing the act
+    // that just ended, complete with its stale node views.
+    if (from.scene.isSleeping('Map')) from.scene.stop('Map');
+    from.scene.start('Interlude');
+    return;
+  }
+
   if (from.scene.isSleeping('Map')) {
     from.scene.wake('Map');
     from.scene.stop();

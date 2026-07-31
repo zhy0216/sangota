@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   addStatus,
   drawCards,
@@ -41,9 +41,7 @@ import {
  */
 
 function bench(deck: DeckCard[], encounterId = 'b1', seed = 'potion-bench'): CombatState {
-  const encounter = [...ENCOUNTERS.monster, ...ENCOUNTERS.elite, ...ENCOUNTERS.boss].find(
-    (e) => e.id === encounterId,
-  )!;
+  const encounter = getEncounter(encounterId);
   return startCombat({
     encounter,
     deck,

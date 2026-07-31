@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, UPGRADE_SUFFIX, canUpgrade, getCard, resolveCard } from '../src/combat/cards';
 import { isNegative } from '../src/combat/curses';
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   canPlay,
   defOf,
@@ -132,7 +132,7 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
 /** Minimal combat state to preview a card face against — no enemies needed. */
 function bench(deck: DeckCard[]): CombatState {
   return startCombat({
-    encounter: ENCOUNTERS.monster[0],
+    encounter: getEncounter('m1'),
     deck,
     heroName: DEFAULT_HERO.name,
     hp: DEFAULT_HERO.maxHp,

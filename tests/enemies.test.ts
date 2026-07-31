@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/core/rng';
 import {
   ACT1,
-  ENCOUNTERS,
+  ACT_TABLES,
   ENEMIES,
   PENDING_ENCOUNTERS,
+  allEncounters,
   getEncounter,
   getEnemy,
   pickEncounter,
@@ -792,14 +793,36 @@ describe('goldReward', () => {
     m7: [16, 24],
     m8: [15, 23],
     m9: [12, 20],
-    m10: [14, 22],
-    m11: [16, 24],
+    // 第二幕 · 战虎牢
+    m10: [16, 24],
+    m11: [18, 26],
+    m12: [17, 25],
+    m13: [20, 27],
+    m14: [21, 27],
+    m15: [20, 27],
+    // 第三幕 · 征汉中
+    m16: [20, 27],
+    m17: [19, 26],
+    m18: [21, 27],
+    m19: [23, 27],
+    m20: [22, 27],
+    m21: [23, 27],
     e1: [28, 42],
     e2: [28, 42],
     e3: [28, 42],
+    e4: [40, 56],
+    e5: [38, 54],
+    e6: [50, 68],
+    e7: [48, 66],
+    e8: [60, 76],
     b1: [80, 110],
     b2: [80, 110],
     b3: [80, 110],
+    b4: [95, 130],
+    b5: [95, 130],
+    b6: [110, 150],
+    b7: [110, 150],
+    b8: [150, 200],
   };
 
   it('pays every fight the band printed against it', () => {
@@ -809,19 +832,24 @@ describe('goldReward', () => {
   });
 
   it('covers every shipped encounter, so a new fight cannot slip in untested', () => {
-    const shipped = [
-      ...Object.values(ENCOUNTERS).flat(),
-      ...Object.values(PENDING_ENCOUNTERS).flat(),
-    ].map((e) => e.id);
+    const shipped = allEncounters().map((e) => e.id);
     expect([...shipped].sort()).toEqual(Object.keys(PRINTED).sort());
   });
 
   it('keeps the tiers apart — an elite always outpays a normal fight', () => {
     const top = (id: string): number => getEncounter(id).goldReward[1];
     const bottom = (id: string): number => getEncounter(id).goldReward[0];
-    const monsters = Object.values(ENCOUNTERS.monster).map((e) => e.id);
-    const elites = Object.values(ENCOUNTERS.elite).map((e) => e.id);
-    const bosses = Object.values(ENCOUNTERS.boss).map((e) => e.id);
+    // Across every act at once, deliberately: the bands stratify by tier and
+    // not by act, so a 第三幕 normal room must still pay less than a 第一幕 精英.
+    const idsOf = (pick: (t: (typeof ACT_TABLES)[number]) => readonly { id: string }[]) => [
+      ...ACT_TABLES.flatMap((t) => pick(t).map((e) => e.id)),
+    ];
+    const monsters = [
+      ...idsOf((t) => [...t.weak, ...t.strong]),
+      ...PENDING_ENCOUNTERS.monster.map((e) => e.id),
+    ];
+    const elites = [...idsOf((t) => t.elite), ...PENDING_ENCOUNTERS.elite.map((e) => e.id)];
+    const bosses = [...idsOf((t) => t.boss), ...PENDING_ENCOUNTERS.boss.map((e) => e.id)];
 
     expect(Math.max(...monsters.map(top))).toBeLessThan(Math.min(...elites.map(bottom)));
     expect(Math.max(...elites.map(top))).toBeLessThan(Math.min(...bosses.map(bottom)));

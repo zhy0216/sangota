@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ENCOUNTERS } from '../src/combat/enemies';
+import { getEncounter } from '../src/combat/enemies';
 import {
   addStatus,
   canPlay,
@@ -25,9 +25,7 @@ import { newDeckCard, type DeckCard } from '../src/state/run';
  */
 
 function bench(deck: DeckCard[], encounterId = 'm1', seed = 'status-bench'): CombatState {
-  const encounter = [...ENCOUNTERS.monster, ...ENCOUNTERS.elite, ...ENCOUNTERS.boss].find(
-    (e) => e.id === encounterId,
-  )!;
+  const encounter = getEncounter(encounterId);
   return startCombat({
     encounter,
     deck,

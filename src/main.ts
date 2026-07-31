@@ -5,6 +5,7 @@ import { TitleScene } from './scenes/TitleScene';
 import { MapScene } from './scenes/MapScene';
 import { CombatScene } from './scenes/CombatScene';
 import { RoomScene } from './scenes/RoomScene';
+import { InterludeScene } from './scenes/InterludeScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -25,7 +26,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   // RoomScene sits after MapScene: a room runs as a second scene on top of a
   // sleeping map, and render order follows this array.
-  scene: [BootScene, TitleScene, MapScene, CombatScene, RoomScene],
+  scene: [BootScene, TitleScene, MapScene, CombatScene, RoomScene, InterludeScene],
 };
 
 const game = new Phaser.Game(config);
