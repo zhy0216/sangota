@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sangota",
+  "compatibility_date": "2026-08-01",
+  // Pure static site — no Worker script. Wrangler uploads ./dist to Cloudflare's
+  // asset store and serves it from the edge.
+  "assets": {
+    "directory": "./dist"
+    // No SPA fallback on purpose. The game has no client-side routing — it all
+    // lives at "/" — so index.html-for-everything would only serve to turn a
+    // missing image or audio file into a silent 200 of HTML. A real 404 keeps
+    // asset typos visible in the network tab.
+  }
+}

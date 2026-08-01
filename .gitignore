@@ -11,5 +11,9 @@ out/
 .claude/
 .cursor/
 
+# Cloudflare credentials + wrangler state
+.env
+.wrangler/
+
 # OS
 .DS_Store
