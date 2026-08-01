@@ -239,15 +239,20 @@ describe('the gear entries of t6, and the Esc pecking order', () => {
     }
   });
 
-  it('战斗 Esc 分层：overlay 让位 → 收气泡 → 取消选敌 → 都空才开设置', () => {
+  it('战斗 Esc 分层：overlay 让位 → 收气泡 → 拖拽回弹 → 取消选敌 → 都空才开设置', () => {
     const handler = escHandler(read('src/scenes/CombatScene.ts'));
     // 牌堆 overlay 开着：覆盖层栈自己收顶层，这里整个让位，不开设置。
     expect(handler).toContain('if (isCardGridOpen(this)) return;');
-    // 选敌/拖拽态（选中卡或丹药）：只取消，随手 return，轮不到设置。
-    expect(handler).toContain('if (this.selectedUid !== null || this.selectedPotion !== null) {');
+    // 拖拽态 (24 k6)：自成一档排在选敌之前——只回弹，不顺手收丹药。
+    expect(handler).toContain('if (this.dragUid !== null) {');
+    // 选敌态（选中卡或丹药）：只取消，随手 return，轮不到设置。
+    expect(handler).toContain(
+      'if (this.selectedUid !== null || this.selectedPotion !== null) {',
+    );
     const order = [
       'isCardGridOpen(this)',
       'this.dismissEndTurnConfirm();',
+      'this.cancelDrag();',
       'this.clearSelection();',
       'openSettings(this);',
     ].map((mark) => handler.indexOf(mark));

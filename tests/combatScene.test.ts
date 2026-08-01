@@ -624,10 +624,12 @@ describe('the intent marker is drawn, not written', () => {
   });
 
   it('gives the badge and the status chips one tooltip between them', () => {
-    expect(scene).toMatch(/private showTip\(x: number, y: number, title: string/);
+    // todos/24 k2：两者都走场景级 TooltipManager，同一时刻只有一块面板。
+    expect(scene).toContain('new TooltipManager(this, DEPTH.float)');
     // The pointer is a caller of the tooltip, not the owner of it — todos/24
-    // needs the same panel off a keyboard cursor.
-    expect(scene).toContain('private showIntentTip(view: EnemyViewParts)');
+    // needs the same panel off a keyboard cursor, so the content stays a method.
+    expect(scene).toContain('private intentTipContent(view: EnemyViewParts)');
+    expect(scene).toContain('content: () => this.intentTipContent(view)');
   });
 
   it('keeps the icons resolution-free', () => {

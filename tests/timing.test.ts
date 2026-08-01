@@ -201,13 +201,14 @@ describe('CombatScene 的时长接线', () => {
     expect(scene).not.toMatch(/this\.wait\(dur\(/);
   });
 
-  it('裸时长字面量只剩三个 repeat: -1 的环境循环（呼吸 ×2、致死脉冲）', () => {
+  it('裸时长字面量只剩四个 repeat: -1 的环境循环（呼吸 ×2、致死脉冲、必杀闪烁）', () => {
     // 机械接线的「别漏」守护：新加一段动画忘了 dur()，这里第一时间响。
     // 环境循环故意不缩放（timing.ts 文件头），也逐个钉死它们真是循环。
     const bare = scene.match(/(?:duration|delay): \d[^,\n]*/g) ?? [];
     expect(bare.sort()).toEqual([
       'duration: 1700', // recoil 里恢复的呼吸
       'duration: 1700 + Math.random() * 600', // makeActorView 的呼吸
+      'duration: 300', // setHpPreview 的必杀闪烁 (todos/24 k5)
       'duration: 520', // paintIntent 的致死脉冲
     ]);
     for (const at of [...scene.matchAll(/(?:duration|delay): \d/g)].map((m) => m.index)) {

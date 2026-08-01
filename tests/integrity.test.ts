@@ -301,13 +301,12 @@ describe('scene state does not survive into the next visit', () => {
     expect(initBody).toContain('this.claimed = false');
   });
 
-  it('drops the tooltip handles, which point at destroyed Game Objects', () => {
-    // `DisplayList.shutdown` destroys every object in the list, and `Text`'s
-    // own `preDestroy` nulls its frame source. Hovering a status chip in the
-    // second fight then called `setText` straight through to a null texture.
-    expect(initBody).toContain('this.statusTip = null');
-    expect(initBody).toContain('this.statusTipBg = null');
-    expect(initBody).toContain('this.statusTipText = null');
+  it('carries no lazy tooltip handles at all — the manager is rebuilt in create', () => {
+    // 旧版在字段里攥着懒建的三件套（statusTip/Bg/Text）并靠 init 置空——漏一个
+    // 就是对着已销毁的 Text 调 setText。todos/24 k2 统一走 TooltipManager，
+    // 每次 create 新建、shutdown 连 Game Object 一起销毁，没有旧句柄可漏。
+    expect(scene).toContain('new TooltipManager(this, DEPTH.float)');
+    expect(scene).not.toContain('statusTip');
   });
 
   it('takes the 奇遇 relic off the scene data it was started with', () => {

@@ -9,6 +9,7 @@ import {
   canPlay,
   endPlayerTurn,
   playCard,
+  previewValues,
   resolveChoice,
   runEnemyTurn,
   startCombat,
@@ -54,9 +55,14 @@ import {
   writeSave,
   type SavedCombat,
 } from '../state/save';
+import { getSettings, type KeyAction } from '../state/settings';
 import { recordSeenEnemies } from '../state/unlocks';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
-import { CARD_W, CardView } from '../ui/CardView';
+import { CARD_H, CARD_W, CardView } from '../ui/CardView';
+import { cardIndexOf, combatKeyEvents, potionIndexOf, soleLivingEnemy } from '../ui/combatKeys';
+import { PLAY_LINE_Y, dropVerdict, hitIndex, pastPlayLine } from '../ui/dragPlay';
+import { HAND_Y, fanLayout, rowLayout } from '../ui/handLayout';
+import { hpPreviewSeg, type HpPreviewSeg } from '../ui/hpPreview';
 import type { ActorView, EnemyView, EnemyViewParts } from '../ui/actorView';
 import { EnemyRoster } from '../ui/EnemyRoster';
 import { stageChange, type StageChange } from '../ui/enemyStage';
@@ -72,7 +78,8 @@ import {
 } from '../ui/confirm';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
-import { bodyStyle, brushStyle, inkButton, inkPanel, paintInkPanel } from '../ui/theme';
+import { TooltipManager, type TipSegment } from '../ui/Tooltip';
+import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
 import { dur } from '../ui/timing';
 import {
   burst,
@@ -110,8 +117,14 @@ interface CombatSceneData {
 
 const BASELINE_Y = 420;
 const PLAYER_X = 244;
-const HAND_Y = 604;
-const HAND_MAX_SPREAD = 760;
+
+/** 悬停放大 (todos/24 k3)：~1.35 即全尺寸——13px 的规则文本放大到可读。 */
+const HAND_HOVER_SCALE = 1.35;
+/**
+ * 拖拽中指向牌的卡位下限 (k3)：卡不跟着指针进敌阵挡住目标，停在这条线，
+ * 剩下的路交给瞄准箭头——和原版「卡停在下半屏、箭头去点人」同一个手感。
+ */
+const DRAG_HOLD_Y = 520;
 
 const DEPTH = {
   bg: 0,
@@ -203,6 +216,35 @@ export class CombatScene extends Phaser.Scene {
   private selectedUid: string | null = null;
   /** A 丹药 waiting for an enemy click, by belt slot. Mutually exclusive with a card. */
   private selectedPotion: number | null = null;
+  /**
+   * 拖拽出牌 (todos/24 k3)：正被拖着的手牌 uid，非空即拖拽态。与点击出牌
+   * 并存——dragDistanceThreshold 之内是点击，之外才起拖。
+   */
+  private dragUid: string | null = null;
+  /**
+   * 拖拽收尾的点击压制 (k3)：Phaser 的 dragend **先于** pointerup 派发
+   * (InputPlugin 先收 drag 后收 up)，所以 onCardDragEnd 清掉 dragUid 之后
+   * 同一记抬手还会作为 pointerup 打到牌上——不压住它，回弹取消的牌会被
+   * 这记尾随的「点击」原路打出去，防误触就形同虚设。一次性消费，
+   * 兜底延时清掉（抬手落在牌外时 pointerup 不来）。
+   */
+  private clickSuppressedUid: string | null = null;
+  /** 拖拽的原位占位影子：半透明牌框留在手位，松手回弹有处可归。 */
+  private dragGhost: Phaser.GameObjects.Graphics | null = null;
+  /**
+   * Tab 展开手牌 (todos/24 k6)：按住 Tab 为 true，layoutHand 换成一排
+   * 端平的展开槽位；松开恢复扇形。keydown/keyup 在 create 里配对接线。
+   */
+  private handExpanded = false;
+  /**
+   * HP 条伤害预览 (todos/24 k5)：选敌/拖拽中悬停的目标，及其条上要标红的
+   * 段。非空即在预览；`paintBar` 按 enemyId 认领各自的段。
+   */
+  private hpPreview: { enemyId: string; seg: HpPreviewSeg } | null = null;
+  /** 预览的去重键：拖拽每帧都问一遍，同目标同段不重画、闪烁不重启。 */
+  private hpPreviewKey = '';
+  /** 「必杀」小签，非空即挂在目标 HP 条旁——随预览一起收。 */
+  private killTag: Phaser.GameObjects.Container | null = null;
   private busy = false;
   private finished = false;
   /**
@@ -237,15 +279,11 @@ export class CombatScene extends Phaser.Scene {
   private fightDamageTaken = 0;
 
   /**
-   * Built on the first hover — most fights never show a status tooltip. All
-   * three are cleared in `init`: `shutdown` destroys every Game Object in the
-   * display list, and a field still pointing at a destroyed `Text` makes the
-   * next fight's first hover call `setText` on a texture whose frame source is
-   * already null.
+   * 统一 tooltip 管理器 (todos/24 k2)：状态图标、意图徽章、卡面关键词全部
+   * `register` 进这一个。每次 `create` 新建——它名下的 Game Object 随
+   * `shutdown` 一起销毁，不像旧的三件套句柄那样能把上一场的尸体带进下一场。
    */
-  private statusTip: Phaser.GameObjects.Container | null = null;
-  private statusTipBg: Phaser.GameObjects.Graphics | null = null;
-  private statusTipText: Phaser.GameObjects.Text | null = null;
+  private tips!: TooltipManager;
 
   /** 「← 12」 beside the player's block badge: what the field will land next turn. */
   private incomingText!: Phaser.GameObjects.Text;
@@ -299,8 +337,8 @@ export class CombatScene extends Phaser.Scene {
    * ones a class-field initialiser looks like it already handles. Phaser reuses
    * the instance across `scene.start`, so `init` is the *only* per-fight hook —
    * a field left out of it keeps the previous fight's value for the rest of the
-   * run. `claimed` left behind froze the second victory screen; the three
-   * tooltip handles left behind pointed at destroyed Game Objects.
+   * run. `claimed` left behind froze the second victory screen. (`tips` is not
+   * here: `create` reassigns it before anything can register.)
    */
   init(data: CombatSceneData): void {
     this.nodeType = data?.nodeType ?? 'monster';
@@ -317,16 +355,23 @@ export class CombatScene extends Phaser.Scene {
     this.fightDamageTaken = 0;
     this.selectedUid = null;
     this.selectedPotion = null;
+    // 影子的 Game Object 本体随 shutdown 销毁，这里只放引用（同下面的气泡）。
+    this.dragUid = null;
+    this.clickSuppressedUid = null;
+    this.dragGhost = null;
+    // Tab 摊着牌离开战斗，下一场不能还摊着 (k6)。
+    this.handExpanded = false;
+    // 伤害预览 (k5) 同理：小签本体随 shutdown 销毁，这里只放引用清预览态。
+    this.hpPreview = null;
+    this.hpPreviewKey = '';
+    this.killTag = null;
     this.busy = false;
     this.finished = false;
     this.claimed = false;
-    this.statusTip = null;
-    this.statusTipBg = null;
-    this.statusTipText = null;
     this.currentAttacker = null;
     this.lastEnemyMoveName = null;
     // 气泡和定时器的 Game Object / TimerEvent 本体随 shutdown 一起销毁，
-    // 这里只把手上的引用放掉——同 statusTip 三件套的理由。
+    // 这里只把手上的引用放掉——攥着已销毁对象的句柄就是下一场的空指针。
     this.endTurnConfirm = null;
     this.autoEndTimer = null;
     this.lastEnergy = 0;
@@ -399,12 +444,19 @@ export class CombatScene extends Phaser.Scene {
           mods: this.run.mods,
         });
 
+    // 建在所有 build* 之前：敌人视图一出生就要把意图徽章注册进来。
+    this.tips = new TooltipManager(this, DEPTH.float);
+
     this.buildBackground();
     this.buildPlayer();
     this.buildEnemies();
     this.buildHud();
 
     this.arrow = this.add.graphics().setDepth(DEPTH.dragArrow);
+
+    // 拖拽出牌 (todos/24 k3)：8px 以内算点击，之外才起拖——两种出牌方式
+    // 并存的分界。阈值是画布像素，Retina 上更细，只会更偏向点击。
+    this.input.dragDistanceThreshold = 8;
 
     // A card grid owns the input while it is up: Game Objects under it are
     // frozen, but scene-level pointer and key handlers still fire.
@@ -433,7 +485,14 @@ export class CombatScene extends Phaser.Scene {
         this.dismissEndTurnConfirm();
         return;
       }
-      // 选敌/拖拽态只取消，不开设置 (t6 验收)。
+      // 拖拽中回弹取消 (k6)：在 21 t6 定好的链里自成一档，排在选敌之前
+      // ——拖着牌那一按只回弹 (k3：牌 tween 回手位，气一分不动；随后
+      // 松手的 dragend 摸不到 dragUid)，不顺手把选中的丹药也收了。
+      if (this.dragUid !== null) {
+        this.cancelDrag();
+        return;
+      }
+      // 选敌态只取消，不开设置 (t6 验收)。
       if (this.selectedUid !== null || this.selectedPotion !== null) {
         this.clearSelection();
         return;
@@ -441,9 +500,19 @@ export class CombatScene extends Phaser.Scene {
       // 都空了才轮到设置——t6 只加的这一层。
       openSettings(this);
     });
-    this.input.keyboard?.on('keydown-E', () => {
-      if (!isCardGridOpen(this)) void this.onEndTurn();
-    });
+    // Tab 展开手牌 (todos/24 k6)：按住展开、松开恢复——keydown/keyup
+    // 配对。addCapture 让 Phaser 对 Tab preventDefault：不拦的话浏览器
+    // 把焦点切出画布，keyup 就永远听不见，手牌永远摊着。
+    this.input.keyboard?.addCapture('TAB');
+    this.input.keyboard?.on('keydown-TAB', () => this.setHandExpanded(true));
+    this.input.keyboard?.on('keyup-TAB', () => this.setHandExpanded(false));
+    // 键位 (todos/24 k4)：整表从 21 的设置账读，一个键名都不硬编码——
+    // E 结束回合只是默认键帽，重绑了就听重绑的。Esc 不进这张表：它的
+    // 分层在上面单独一根线。按键改不了中途换（设置里第一版只读），
+    // create 时接一次线足够。
+    for (const { action, event } of combatKeyEvents(getSettings().keys)) {
+      this.input.keyboard?.on(event, () => this.onKeyAction(action));
+    }
 
     this.cameras.main.fadeIn(dur(340), 8, 6, 4);
     this.syncHand();
@@ -676,11 +745,10 @@ export class CombatScene extends Phaser.Scene {
     };
 
     // The pointer is only *one* caller of the tooltip — todos/24 wants the same
-    // panel off a keyboard cursor — so the hover handler does nothing but ask
-    // for it. Read at hover time rather than captured, because the telegraph
-    // changes under the badge every turn.
-    intentHit.on('pointerover', () => this.showIntentTip(view));
-    intentHit.on('pointerout', () => this.hideStatusTip());
+    // panel off a keyboard cursor — so the zone only asks the shared manager,
+    // and the content is read at show time rather than captured, because the
+    // telegraph changes under the badge every turn.
+    this.tips.register({ zone: intentHit, content: () => this.intentTipContent(view) });
 
     return view;
   }
@@ -795,6 +863,10 @@ export class CombatScene extends Phaser.Scene {
 
     // Relic bar, clear of the encounter name on the left and of the boss's
     // intent marker, which rides high over the middle of the top edge.
+    //
+    // 宝物条**保留**自己的悬停说明而不并进 `tips` (todos/24 k2 的取舍)：
+    // RelicBar 还活在地图 HUD 和战利品 overlay（深度 200+）里，场景级
+    // 管理器要伺候它就得学会逐目标深度和滚动锁定——保留是侵入最小的一边。
     this.relicBar = new RelicBar(this, {
       x: 196,
       y: 18,
@@ -910,17 +982,20 @@ export class CombatScene extends Phaser.Scene {
     container.add([bg, label, this.deckCount, hit]);
     hit.on('pointerover', () => paint(true));
     hit.on('pointerout', () => paint(false));
-    hit.on('pointerup', () => {
-      openCardGrid(this, {
-        title: '牌 组',
-        subtitle: `共 ${this.run.deck.length} 张`,
-        entries: this.run.deck.map((card) => ({ ...card })),
-        mode: 'view',
-        state: this.state,
-      });
-    });
+    hit.on('pointerup', () => this.openDeck());
 
     return container;
+  }
+
+  /** 牌组一览——「牌组」按钮与 viewDeck 键 (todos/24 k4) 的同一入口。 */
+  private openDeck(): void {
+    openCardGrid(this, {
+      title: '牌 组',
+      subtitle: `共 ${this.run.deck.length} 张`,
+      entries: this.run.deck.map((card) => ({ ...card })),
+      mode: 'view',
+      state: this.state,
+    });
   }
 
   private openPile(title: string, uids: readonly string[], shuffleDisplay = false): void {
@@ -984,7 +1059,11 @@ export class CombatScene extends Phaser.Scene {
     for (const uid of this.state.hand) {
       if (this.cardViews.has(uid)) continue;
       const inst = this.state.cards[uid];
-      const view = new CardView(this, uid, inst.defId, inst.upgraded, this.state);
+      // 手牌递 tips 进去：卡面规则文本里的关键词长出悬停热区 (todos/24 k2)。
+      const view = new CardView(this, uid, inst.defId, inst.upgraded, this.state, 'hand', this.tips, {
+        hoverScale: HAND_HOVER_SCALE,
+        draggable: true,
+      });
       view.setDepth(DEPTH.hand);
       view.setAlpha(0);
       view.setPosition(DRAW_PILE.x, DRAW_PILE.y);
@@ -994,6 +1073,10 @@ export class CombatScene extends Phaser.Scene {
       view.hitZone.on('pointerover', () => this.onCardOver(view, true));
       view.hitZone.on('pointerout', () => this.onCardOver(view, false));
       view.hitZone.on('pointerup', () => this.onCardClick(view));
+      // 拖拽出牌 (todos/24 k3)：三个 drag 事件都从主点击区来。
+      view.hitZone.on('dragstart', () => this.onCardDragStart(view));
+      view.hitZone.on('drag', (p: Phaser.Input.Pointer) => this.onCardDrag(view, p));
+      view.hitZone.on('dragend', (p: Phaser.Input.Pointer) => this.onCardDragEnd(view, p));
       this.cardViews.set(uid, view);
     }
 
@@ -1005,20 +1088,19 @@ export class CombatScene extends Phaser.Scene {
     const n = hand.length;
     if (n === 0) return;
 
-    const spacing = Math.min(CARD_W - 22, HAND_MAX_SPREAD / Math.max(1, n));
-    const totalWidth = spacing * (n - 1);
+    // 槽位表在 handLayout（k6，纯函数）：扇形随牌数收窄间距和旋转角
+    // （实现步骤 9），Tab 按住时换成一排端平的展开位（步骤 8）。
+    const slots = this.handExpanded ? rowLayout(n, CARD_W) : fanLayout(n, CARD_W);
 
     hand.forEach((uid, i) => {
       const view = this.cardViews.get(uid);
       if (!view) return;
-      const t = n === 1 ? 0 : i / (n - 1) - 0.5; // -0.5 .. 0.5
-      const x = GAME_WIDTH / 2 + t * totalWidth;
-      const angle = t * Math.min(12, n * 2.2);
-      const y = HAND_Y + Math.abs(t) * 26;
+      const slot = slots[i];
 
-      view.homeX = x;
-      view.homeY = y;
-      view.homeAngle = angle;
+      view.homeX = slot.x;
+      view.homeY = slot.y;
+      view.homeAngle = slot.angle;
+      view.homeScale = slot.scale;
       view.setDepth(DEPTH.hand + i);
 
       const delay = (view.getData('dealDelay') as number | undefined) ?? 0;
@@ -1026,11 +1108,11 @@ export class CombatScene extends Phaser.Scene {
 
       this.tweens.add({
         targets: view,
-        x,
-        y,
-        angle,
+        x: slot.x,
+        y: slot.y,
+        angle: slot.angle,
         alpha: 1,
-        scale: 1,
+        scale: slot.scale,
         delay: dur(delay),
         duration: dur(delay > 0 ? 330 : 260),
         ease: delay > 0 ? 'Back.easeOut' : 'Cubic.easeOut',
@@ -1038,38 +1120,43 @@ export class CombatScene extends Phaser.Scene {
     });
   }
 
-  private onCardOver(view: CardView, over: boolean): void {
-    if (this.busy || this.finished) return;
-    if (this.selectedUid && this.selectedUid !== view.uid) return;
-
-    this.tweens.killTweensOf(view);
-    if (over) {
-      view.setDepth(DEPTH.hand + 40);
-      this.tweens.add({
-        targets: view,
-        y: HAND_Y - 78,
-        angle: 0,
-        scale: 1.18,
-        duration: dur(150),
-        ease: 'Back.easeOut',
-      });
-    } else {
-      view.setDepth(DEPTH.hand + this.state.hand.indexOf(view.uid));
-      this.tweens.add({
-        targets: view,
-        x: view.homeX,
-        y: view.homeY,
-        angle: view.homeAngle,
-        scale: 1,
-        duration: dur(160),
-        ease: 'Quad.easeOut',
-      });
-    }
+  /**
+   * Tab 展开手牌 (todos/24 k6)。按住的 keydown 自动重复靠「状态没变」
+   * 挡掉；拖拽中不切——layoutHand 会把叼在指针上的牌也拽回槽位。切换
+   * 先收选中/选敌（抬着的牌不归槽位表管，摊开合上都得先放下），再整手
+   * 重排；松开那一下同一条路收回扇形。
+   */
+  private setHandExpanded(on: boolean): void {
+    if (this.handExpanded === on || this.dragUid !== null) return;
+    this.handExpanded = on;
+    this.clearSelection();
+    this.layoutHand();
   }
 
-  private onCardClick(view: CardView): void {
+  private onCardOver(view: CardView, over: boolean): void {
+    if (this.busy || this.finished || this.dragUid) return;
+    if (this.selectedUid && this.selectedUid !== view.uid) return;
+
+    // 抬牌的画法搬进了 CardView (todos/24 k3)：放大、归零旋转、pointerout
+    // 恢复都是它自己的事，这里只留 gate 和深度的账。
+    if (over) view.hoverLift(DEPTH.hand + 40);
+    else view.hoverDrop(DEPTH.hand + this.state.hand.indexOf(view.uid));
+  }
+
+  /**
+   * 点击出牌，也是数字键的落点 (todos/24 k4)——`directTargetId` 只有
+   * `onCardKey` 在单敌直打时才传：指向牌的目标没有第二个答案，选敌与
+   * 打出并成一步。点击路径永远不传，选敌模式原样。
+   */
+  private onCardClick(view: CardView, directTargetId?: string): void {
     this.cancelAutoEnd();
     if (this.busy || this.finished) return;
+    // 拖拽的抬手不是点击 (k3)：dragend 先到、dragUid 已空，靠压制账认它。
+    if (this.clickSuppressedUid === view.uid) {
+      this.clickSuppressedUid = null;
+      return;
+    }
+    if (this.dragUid) return;
     if (!canPlay(this.state, view.uid)) {
       popText(this, view.x, view.y - 118, '气不足', { color: C.cinnabarBright, size: 22 });
       this.tweens.add({
@@ -1083,6 +1170,19 @@ export class CombatScene extends Phaser.Scene {
     }
 
     if (view.def.target === 'enemy') {
+      if (directTargetId !== undefined) {
+        // 单敌直打 (k4)。照 onEnemyClick 的收法手工放下选中，不走
+        // clearSelection——那会把牌往手位回收，跟 play 的上挥打架。
+        if (this.selectedUid === view.uid) {
+          this.selectedUid = null;
+          this.arrow.clear();
+          view.setSelected(false);
+        } else {
+          this.clearSelection();
+        }
+        void this.play(view.uid, directTargetId);
+        return;
+      }
       // Toggle targeting mode; the actual play happens on the enemy click.
       if (this.selectedUid === view.uid) this.clearSelection();
       else this.select(view);
@@ -1166,6 +1266,70 @@ export class CombatScene extends Phaser.Scene {
     });
   }
 
+  // ------------------------------------------------- 键位分发 (todos/24 k4)
+
+  /**
+   * 键位表的总入口。overlay 开着（牌堆/设置/选牌）整表拦下——与原
+   * keydown-E 的门同一扇；finished 后战场已交给结算画面，键一并失效。
+   * busy 不在这里拦：每个键都只是现有点击入口的另一个开口（onCardClick /
+   * onPotionClick / onEndTurn 自己的门再拦一道），不长第二套判定。
+   */
+  private onKeyAction(action: KeyAction): void {
+    if (this.finished || isCardGridOpen(this)) return;
+    // 拖着牌时整表拦下 (k4 校验指出的两处竞态)：D/A/S 会在拖拽中开牌堆
+    // overlay、Q/W/R 会在拖拽中灌药，随后的 dragend 都可能穿过各自的门
+    // 把牌打进乱掉的局面。拖拽中的键只留 Esc（它走自己的处理器）。
+    if (this.dragUid) return;
+    if (action === 'endTurn') {
+      // 走 21 的 confirmEndTurn 逻辑——气泡该弹 onEndTurn 自己弹，再按
+      // 一次同键就是确认，三条确认路照旧汇在那里。
+      void this.onEndTurn();
+      return;
+    }
+    // 按了别的键就是「别处」——与 create 里 pointerdown 的收法同一语义，
+    // 免得出一张牌之后气泡上「气还剩几点」成了旧账。
+    if (this.endTurnConfirm) this.dismissEndTurnConfirm();
+    // 牌堆三键接到与角落按钮相同的入口，抽牌堆照旧乱序展示。
+    if (action === 'viewDeck') {
+      this.openDeck();
+      return;
+    }
+    if (action === 'viewDraw') {
+      this.openPile('抽 牌 堆', this.state.drawPile, true);
+      return;
+    }
+    if (action === 'viewDiscard') {
+      this.openPile('弃 牌 堆', this.state.discardPile);
+      return;
+    }
+    const card = cardIndexOf(action);
+    if (card >= 0) {
+      this.onCardKey(card);
+      return;
+    }
+    const potion = potionIndexOf(action);
+    if (potion >= 0) this.onPotionKey(potion);
+  }
+
+  /**
+   * 数字键出牌（实现步骤 5）：第 N 张手牌，与点击同一条路——无目标牌
+   * 直接打（confirmPlay 拦的档位照样先高亮，再按一次才出）；指向牌只剩
+   * 一个活敌时把目标直接递进去，原版行为省一步，多敌照旧进选敌模式。
+   */
+  private onCardKey(index: number): void {
+    const uid = this.state.hand[index];
+    const view = uid ? this.cardViews.get(uid) : undefined;
+    if (!view) return;
+    const sole = view.def.target === 'enemy' ? soleLivingEnemy(this.state.enemies) : null;
+    this.onCardClick(view, sole?.id);
+  }
+
+  /** 丹药键：与点击腰带同一入口——指向性丹药照样进选敌模式。 */
+  private onPotionKey(slot: number): void {
+    const id = this.run.potions[slot];
+    if (id) this.onPotionClick(slot, getPotion(id));
+  }
+
   private select(view: CardView): void {
     this.clearSelection();
     this.selectedUid = view.uid;
@@ -1182,6 +1346,8 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private clearSelection(): void {
+    // 取消选择即收预览 (k5)——选敌模式下点空地/Esc，条上的红段一起消失。
+    this.setHpPreview(null, null);
     if (this.selectedPotion !== null) {
       this.selectedPotion = null;
       this.arrow.clear();
@@ -1198,9 +1364,207 @@ export class CombatScene extends Phaser.Scene {
       x: view.homeX,
       y: view.homeY,
       angle: view.homeAngle,
-      scale: 1,
+      // 回 homeScale 不回 1 (k6)：Tab 展开排在 9-10 张时整排微缩过。
+      scale: view.homeScale,
       duration: dur(160),
       ease: 'Quad.easeOut',
+    });
+  }
+
+  // ------------------------------------------------- 拖拽出牌 (todos/24 k3)
+
+  /**
+   * 起拖。点击出牌完整保留（验收点名两种并存）：阈值之内 pointerup 照走
+   * `onCardClick`，这里只接真拖出去的那种。打不出的牌不起拖——抬手时
+   * onCardClick 会喊「气不足」，比拖到一半被弹回去讲得明白，也免得
+   * 一次误拖喊两声。
+   */
+  private onCardDragStart(view: CardView): void {
+    this.cancelAutoEnd();
+    if (this.busy || this.finished || isCardGridOpen(this)) return;
+    if (!canPlay(this.state, view.uid)) return;
+
+    // 选中态（选敌中的牌、确认中的稀有牌）让位给拖拽——先收再拖，
+    // clearSelection 的回位 tween 随手被下面的 kill 掐掉。
+    this.clearSelection();
+    this.dragUid = view.uid;
+    this.tweens.killTweensOf(view);
+    view.setDepth(DEPTH.dragArrow + 1);
+    view.setAngle(0);
+    // 悬停时已放大到 1.35，缩回原尺寸再上路——全尺寸的卡叼在指针上，
+    // 半个敌阵都在它底下。
+    this.tweens.add({ targets: view, scale: 1, duration: dur(90), ease: 'Quad.easeOut' });
+
+    // 原位半透明占位：一圈墨框留在手位，牌去了哪儿、松手回哪儿，一眼有数。
+    const ghost = this.add.graphics().setDepth(DEPTH.hand);
+    ghost.fillStyle(C.ink, 0.3);
+    ghost.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
+    ghost.lineStyle(1.5, C.gold, 0.4);
+    ghost.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
+    ghost.setPosition(view.homeX, view.homeY);
+    ghost.setAngle(view.homeAngle);
+    // Tab 展开排微缩过的槽位 (k6)，影子跟着缩才对得上位。
+    ghost.setScale(view.homeScale);
+    this.dragGhost = ghost;
+  }
+
+  /**
+   * 卡片跟随。指向牌被 DRAG_HOLD_Y 拦腰扣住——卡不进敌阵，箭头替它去
+   * （update 里画）。敌人高亮只能逐帧自己点名：拖拽中卡片热区压在最上层
+   * （topOnly），敌人的 pointerover 根本到不了。
+   */
+  private onCardDrag(view: CardView, p: Phaser.Input.Pointer): void {
+    if (this.dragUid !== view.uid) return;
+    const px = toDesign(p.x);
+    const py = toDesign(p.y);
+    view.x = px;
+    view.y = view.def.target === 'enemy' ? Math.max(py, DRAG_HOLD_Y) : py;
+
+    const living = this.roster.living();
+    const idx = view.def.target === 'enemy' ? hitIndex(px, py, living.map((v) => v.hit)) : -1;
+    living.forEach((v, i) => {
+      if (i === idx) v.sprite.setTint(0xffcfae);
+      else v.sprite.clearTint();
+    });
+    // HP 条伤害预览 (k5)：悬停在活敌热区上点亮，拖走即收。逐帧调用没关系
+    // ——setHpPreview 自己按「同目标同段」去重。
+    this.setHpPreview(idx >= 0 ? view.uid : null, idx >= 0 ? (living[idx]?.enemy.id ?? null) : null);
+  }
+
+  /**
+   * 松手裁决（`dropVerdict`，纯函数）：指向牌落在活敌热区上、无目标牌过了
+   * 打出线才算打出，其余一律回弹——不消耗气，是拖到一半反悔的防误触。
+   *
+   * 确认设置（todos/21 的 confirmPlay）在这里**不问**：点击是「可能点错」，
+   * 把牌拽过半个屏幕再松手就是明确意图本身，再问一遍只剩烦人——这是
+   * 拖拽绕过二次确认的取舍，todo 点名要说明。
+   */
+  private onCardDragEnd(view: CardView, p: Phaser.Input.Pointer): void {
+    // 这记 dragend 后面还跟着同一记抬手的 pointerup（Phaser 先派 drag 后派
+    // up）——无论这场拖是在这里正常收尾还是 Esc 里已经取消（dragUid 已空），
+    // 那记 pointerup 都不是点击。压制账一次性消费，兜底给一拍清掉：
+    // 抬手落在牌外时 pointerup 不打到牌上，账不能烂在手里挡住下一次真点击。
+    this.clickSuppressedUid = view.uid;
+    this.time.delayedCall(dur(80), () => {
+      if (this.clickSuppressedUid === view.uid) this.clickSuppressedUid = null;
+    });
+    if (this.dragUid !== view.uid) return;
+    this.dragUid = null;
+    this.endDragVisuals();
+
+    const living = this.roster.living();
+    const call = dropVerdict(
+      view.def.target,
+      toDesign(p.x),
+      toDesign(p.y),
+      living.map((v) => v.hit),
+    );
+    if (call.verdict === 'bounce') {
+      this.bounceBack(view);
+      return;
+    }
+    const targetId = call.enemyIndex === undefined ? undefined : living[call.enemyIndex]?.enemy.id;
+    void this.play(view.uid, targetId);
+  }
+
+  /** 拖拽视觉清场：占位影子、箭头、敌人高亮、伤害预览一起收。松手与取消共用。 */
+  private endDragVisuals(): void {
+    this.dragGhost?.destroy();
+    this.dragGhost = null;
+    this.arrow.clear();
+    this.setHpPreview(null, null);
+    for (const v of this.roster.all()) v.sprite.clearTint();
+  }
+
+  /** Esc 的取消 (k3)：牌回弹回手位，气一分不动。没在拖时无害空转。 */
+  private cancelDrag(): void {
+    if (!this.dragUid) return;
+    const view = this.cardViews.get(this.dragUid);
+    this.dragUid = null;
+    this.endDragVisuals();
+    if (view) this.bounceBack(view);
+  }
+
+  // ------------------------------------------- HP 条伤害预览 (todos/24 k5)
+
+  /**
+   * 选敌/拖拽攻击卡悬停目标时，把「这一击会打掉的段」标到目标 HP 条上；
+   * 会致死时条身闪烁、条旁挂朱红「必杀」小签。任一参数传 null 即收——
+   * 取消选择/拖走时预览消失。
+   *
+   * 伤害数字走引擎的 `previewValues`——与卡面同一套算法，目标破绽、神力
+   * 全折进去；多段攻击（hits×n）按总伤算。段几何在 `hpPreview.ts`（纯函数），
+   * 非指向牌/丹药递进来算不出段，各自的门不必再拦一道。
+   */
+  private setHpPreview(uid: string | null, enemyId: string | null): void {
+    const view = uid ? this.cardViews.get(uid) : undefined;
+    const enemy = enemyId ? this.state.enemies.find((e) => e.id === enemyId) : undefined;
+    let next: { enemyId: string; seg: HpPreviewSeg } | null = null;
+    if (view && enemy?.alive && view.def.target === 'enemy') {
+      const { D, T } = previewValues(this.state, view.def, enemy);
+      const seg = hpPreviewSeg(enemy.hp, enemy.maxHp, enemy.block, D, T);
+      if (seg) next = { enemyId: enemy.id, seg };
+    }
+
+    // 拖拽每帧都问一遍——同目标同段直接走人，免得闪烁 tween 被逐帧重启。
+    const key = next
+      ? `${next.enemyId}:${next.seg.from}:${next.seg.to}:${next.seg.lethal}`
+      : '';
+    if (key === this.hpPreviewKey) return;
+    this.hpPreviewKey = key;
+
+    // 收旧的：闪烁停、透明度归位、小签销毁。
+    if (this.hpPreview) {
+      const old = this.roster.get(this.hpPreview.enemyId);
+      if (old) {
+        this.tweens.killTweensOf(old.bar);
+        old.bar.setAlpha(1);
+      }
+    }
+    this.killTag?.destroy();
+    this.killTag = null;
+
+    this.hpPreview = next;
+    this.paintHpBars();
+    if (!next || !next.seg.lethal) return;
+
+    const target = this.roster.get(next.enemyId);
+    if (!target) return;
+    // 必杀：条身闪烁。警示循环故意不过 dur()——同致死意图的脉冲一个理
+    // （timing.ts 文件头），加速档里警报变快只会像坏了。
+    this.tweens.add({
+      targets: target.bar,
+      alpha: 0.35,
+      duration: 300,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    // 「必杀」小签（inkPanel 样式），挂条右侧——左侧是护甲徽章的位置。
+    const tagW = 48;
+    const tagH = 24;
+    const tag = this.add.container(target.barWidth / 2 + 6, 21);
+    const bg = inkPanel(this, 0, -tagH / 2, tagW, tagH, { border: C.cinnabarBright });
+    const label = this.add
+      .text(tagW / 2, 1, '必杀', brushStyle(16, C.cinnabarBright))
+      .setOrigin(0.5);
+    tag.add([bg, label]);
+    target.ui.add(tag);
+    this.killTag = tag;
+  }
+
+  /** 回弹：tween 回扇形原位。落空、取消共用的一条路——不走 playCard。 */
+  private bounceBack(view: CardView): void {
+    view.setDepth(DEPTH.hand + this.state.hand.indexOf(view.uid));
+    this.tweens.add({
+      targets: view,
+      x: view.homeX,
+      y: view.homeY,
+      angle: view.homeAngle,
+      // 回 homeScale 不回 1 (k6)：Tab 展开排在 9-10 张时整排微缩过。
+      scale: view.homeScale,
+      duration: dur(220),
+      ease: 'Back.easeOut',
     });
   }
 
@@ -1211,6 +1575,10 @@ export class CombatScene extends Phaser.Scene {
     // Only light up while a card or potion is actually waiting for a target.
     if (over && (this.selectedUid || this.selectedPotion !== null)) view.sprite.setTint(0xffcfae);
     else view.sprite.clearTint();
+    // HP 条伤害预览 (todos/24 k5)：点击选敌模式下悬停目标点亮，移开即收。
+    // 收的时候认目标——迟到的 pointerout 不许把新目标刚点亮的预览带走。
+    if (over) this.setHpPreview(this.selectedUid, view.enemy.id);
+    else if (this.hpPreview?.enemyId === view.enemy.id) this.setHpPreview(null, null);
   }
 
   private onEnemyClick(view: EnemyView): void {
@@ -1246,6 +1614,9 @@ export class CombatScene extends Phaser.Scene {
     const def = view.def;
 
     this.busy = true;
+    // 兜底收预览 (k5)：点敌人打出、数字键直打都从这过——真伤害要落条了，
+    // 预告没有留到结算动画里的道理。
+    this.setHpPreview(null, null);
 
     // Sweep the card up to centre stage, then burst it into ink.
     this.tweens.add({
@@ -1463,6 +1834,9 @@ export class CombatScene extends Phaser.Scene {
   private async onEndTurn(): Promise<void> {
     this.cancelAutoEnd();
     if (this.busy || this.finished || this.state.phase !== 'player') return;
+    // 拖到一半按 E (k3)：先把牌弹回手位再谈结束——回合一换，拖着的牌
+    // 已不是能打的牌。
+    this.cancelDrag();
     // 结束确认 (todos/21 t3)：气未用尽且手里还有可打的牌，先弹气泡等一句
     // 准话；气泡已在，这一按——再按 E、点气泡、再点按钮——就是确认。
     // 气为 0 或无可打牌不问，直接结束。自动结束也从这里过，但它触发的
@@ -2236,11 +2610,19 @@ export class CombatScene extends Phaser.Scene {
     this.paintBar(this.playerView, this.state.player.hp, this.state.player.maxHp, C.blood);
     for (const view of this.roster.all()) {
       if (!view.enemy.alive) continue;
-      this.paintBar(view, view.enemy.hp, view.enemy.maxHp, 0x7a2f2f);
+      // 伤害预览段 (k5) 按 enemyId 认领——只有被瞄着的那条挨标。
+      const seg = this.hpPreview?.enemyId === view.enemy.id ? this.hpPreview.seg : undefined;
+      this.paintBar(view, view.enemy.hp, view.enemy.maxHp, 0x7a2f2f, seg);
     }
   }
 
-  private paintBar(view: ActorView, hp: number, maxHp: number, fill: number): void {
+  private paintBar(
+    view: ActorView,
+    hp: number,
+    maxHp: number,
+    fill: number,
+    preview?: HpPreviewSeg,
+  ): void {
     const width = view.barWidth;
     const h = 14;
     const x = -width / 2;
@@ -2262,6 +2644,15 @@ export class CombatScene extends Phaser.Scene {
     view.bar.fillRect(x, y, width * ratio, h);
     view.bar.fillStyle(C.cinnabar, 0.7);
     view.bar.fillRect(x, y, width * ratio, h * 0.45);
+
+    // 伤害预览段 (todos/24 k5)：盖在活条上的半透明红——选中/拖拽的攻击卡
+    // 这一击会打掉的部分。画在拖尾段之后、描边之前，红段压着活条才读得出
+    // 「打完剩下的是左边这截」。
+    if (preview) {
+      view.bar.fillStyle(C.cinnabarBright, 0.55);
+      view.bar.fillRect(x + width * preview.from, y, width * (preview.to - preview.from), h);
+    }
+
     view.bar.lineStyle(1, C.gold, 0.5);
     view.bar.strokeRect(x - 1, y - 1, width + 2, h + 2);
 
@@ -2281,8 +2672,9 @@ export class CombatScene extends Phaser.Scene {
    * text on hover — an icon nobody can read is worse than a word.
    */
   private paintStatuses(view: ActorView, statuses: Partial<Record<StatusId, number>>): void {
+    // removeAll(true) 连热区一起销毁；正开着的面板由管理器接热区的
+    // destroy 事件自己收，不必在这里全局 hide 把无关的意图面板也带走。
     view.statusRow.removeAll(true);
-    this.hideStatusTip();
 
     // `!== 0`: 神力 and 身法 are signed, and a -2 神力 must show as a chip
     // reading "-2" rather than quietly vanishing off the row.
@@ -2313,74 +2705,43 @@ export class CombatScene extends Phaser.Scene {
         .setOrigin(1, 0.5);
 
       const hit = this.add.zone(0, 0, chipW, chipH).setInteractive();
-      hit.on('pointerover', () =>
-        this.showStatusTip(view.container.x + x, view.container.y + view.statusRow.y, id, count),
-      );
-      hit.on('pointerout', () => this.hideStatusTip());
+      // 内容是函数：层数从闭包里的 statuses 读，面板弹出的那一刻才取值,
+      // 名目与层数、规则文本合成一段（多段拼装见 composeTip）。
+      this.tips.register({
+        zone: hit,
+        content: () => [
+          {
+            title: `【${meta.label}】${statuses[id] ?? 0}`,
+            body: meta.desc,
+            color: meta.color,
+          },
+        ],
+      });
 
       chip.add([bg, icon, label, hit]);
       view.statusRow.add(chip);
     });
   }
 
-  /** Rules text for the hovered chip, floated above it. */
-  private showStatusTip(x: number, y: number, id: StatusId, count: number): void {
-    const meta = STATUS_META[id];
-    this.showTip(x, y, `【${meta.label}】${count}`, meta.desc, meta.color);
-  }
-
   /**
-   * The招式 behind the hovered badge, in full.
+   * The 招式 behind the hovered badge, in full.
    *
    * Kept off the pointer handler on purpose: the panel is asked for, never
    * triggered. todos/24's keyboard cursor is the second caller, and a tooltip
    * whose only entry point is `pointerover` is one that cannot be reached
-   * without a mouse.
+   * without a mouse. 空数组 = 「现在没什么可说」，管理器一块面板也不出。
    */
-  private showIntentTip(view: EnemyViewParts): void {
-    if (!view.enemy.alive || this.finished) return;
+  private intentTipContent(view: EnemyViewParts): TipSegment[] {
+    if (!view.enemy.alive || this.finished) return [];
     const display = intentOf(this.state, view.enemy);
-    if (!display || !view.intent.visible) return;
-    this.showTip(
-      view.intent.x,
-      view.intent.y - INTENT_H / 2,
-      display.tooltip.title,
-      display.tooltip.body,
-      intentBadge(display).color,
-    );
-  }
-
-  /** One ink panel, shared by every hover in the fight. */
-  private showTip(x: number, y: number, title: string, body: string, border: number): void {
-    if (!this.statusTip) {
-      const bg = this.add.graphics();
-      const text = this.add.text(0, 0, '', {
-        ...bodyStyle(13, C.paper),
-        wordWrap: { width: 240 },
-        lineSpacing: 4,
-      });
-      this.statusTip = this.add
-        .container(0, 0, [bg, text])
-        .setDepth(DEPTH.float)
-        .setVisible(false);
-      this.statusTipBg = bg;
-      this.statusTipText = text;
-    }
-
-    const text = this.statusTipText!;
-    text.setText(`${title}\n${body}`);
-    const w = text.width + 24;
-    const h = text.height + 20;
-    text.setPosition(-w / 2 + 12, -h + 10);
-    paintInkPanel(this.statusTipBg!, -w / 2, -h, w, h, { border });
-
-    // Clamped so a chip at the screen edge doesn't push its tip off-canvas.
-    this.statusTip!.setPosition(Phaser.Math.Clamp(x, w / 2 + 8, GAME_WIDTH - w / 2 - 8), y - 16);
-    this.statusTip!.setVisible(true);
-  }
-
-  private hideStatusTip(): void {
-    this.statusTip?.setVisible(false);
+    if (!display || !view.intent.visible) return [];
+    return [
+      {
+        title: display.tooltip.title,
+        body: display.tooltip.body,
+        color: intentBadge(display).color,
+      },
+    ];
   }
 
   /**
@@ -2497,6 +2858,23 @@ export class CombatScene extends Phaser.Scene {
     this.arrow.clear();
     if (this.finished) return;
 
+    const p = this.input.activePointer;
+    const px = toDesign(p.x);
+    const py = toDesign(p.y);
+
+    // 拖拽态 (todos/24 k3)：指向牌画瞄准箭头，无目标牌画「打出线」。
+    if (this.dragUid) {
+      const view = this.cardViews.get(this.dragUid);
+      if (!view) return;
+      if (view.def.target === 'enemy') {
+        // 指针越过卡顶才起弧——卡还叼在指针上时，箭头只会是一坨。
+        if (py < view.y - 110) this.drawAimCurve(view.x, view.y - 110, px, py);
+      } else {
+        this.drawPlayLine(pastPlayLine(py));
+      }
+      return;
+    }
+
     let from: { x: number; y: number } | null = null;
     if (this.selectedPotion !== null) {
       from = this.potionBelt.slotAt(this.selectedPotion);
@@ -2507,13 +2885,11 @@ export class CombatScene extends Phaser.Scene {
       if (view && view.def.target === 'enemy') from = { x: view.x, y: view.y - 100 };
     }
     if (!from) return;
+    this.drawAimCurve(from.x, from.y, px, py);
+  }
 
-    const p = this.input.activePointer;
-    const px = toDesign(p.x);
-    const py = toDesign(p.y);
-    const sx = from.x;
-    const sy = from.y;
-
+  /** 选敌与拖拽共用的贝塞尔瞄准线——从起点弓到指针，越近头越粗。 */
+  private drawAimCurve(sx: number, sy: number, px: number, py: number): void {
     const steps = 22;
     for (let i = 0; i < steps; i++) {
       const t = i / (steps - 1);
@@ -2523,6 +2899,17 @@ export class CombatScene extends Phaser.Scene {
       const y = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * py;
       this.arrow.fillStyle(C.goldBright, 0.35 + t * 0.6);
       this.arrow.fillCircle(x, y, 2 + t * 3.5);
+    }
+  }
+
+  /**
+   * 打出线 (todos/24 k3)：拖着无目标牌时横在敌阵脚下的一道虚线，指针
+   * 过线即亮——亮着松手就打出，暗着松手是回弹。阈值本身在 `dragPlay.ts`。
+   */
+  private drawPlayLine(armed: boolean): void {
+    this.arrow.lineStyle(2, armed ? C.goldBright : C.paperDim, armed ? 0.9 : 0.4);
+    for (let x = 90; x < GAME_WIDTH - 90; x += 36) {
+      this.arrow.lineBetween(x, PLAY_LINE_Y, x + 20, PLAY_LINE_Y);
     }
   }
 

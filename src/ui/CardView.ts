@@ -4,13 +4,30 @@ import { CARD_TYPE_META, KEYWORD_LABEL, resolveCard } from '../combat/cards';
 import { X_COST, canPlay, describeCard, hasKeyword } from '../combat/engine';
 import type { CardDef, CombatState } from '../combat/types';
 import { Rng } from '../core/rng';
+import { KEYWORDS, findKeywords } from './keywords';
+import type { TooltipManager } from './Tooltip';
 import { bodyStyle, brushStyle } from './theme';
+import { dur } from './timing';
 
 export const CARD_W = 144;
 export const CARD_H = 200;
 
+/** 悬停抬升的高度（相对手位）。放大后的卡底仍留在屏内。 */
+const HOVER_LIFT = 90;
+
+/** 交互增补 (todos/24 k3)。都不传就是老样子——奖励卡、牌堆查看器不动。 */
+export interface CardViewOptions {
+  /** 悬停放大倍率，~1.35 即全尺寸可读；0 = 沿用旧式轻抬（1.18）。 */
+  hoverScale?: number;
+  /** 拖拽出牌：把主点击区标成可拖拽，dragstart/drag/dragend 由场景接线。 */
+  draggable?: boolean;
+}
+
 /** Art window, in card-local coordinates. Matches the 3:2 crop of the plates. */
 const ART = { y: -44, w: 136, h: 91 };
+
+/** 规则文本的行距。热区定位（todos/24 k2）要按它算行高，抽出来两处共用。 */
+const DESC_LINE_SPACING = 6;
 
 /**
  * One card in hand. Owns its own face rendering so the scene only has to move
@@ -31,12 +48,25 @@ export class CardView extends Phaser.GameObjects.Container {
   homeX = 0;
   homeY = 0;
   homeAngle = 0;
+  /** Tab 展开排 (todos/24 k6) 在 9-10 张时整排微缩，恢复时回它不回 1。 */
+  homeScale = 1;
 
   private playable = true;
   /** 'display' cards (reward picks, deck viewers) never grey out on energy. */
   private readonly mode: 'hand' | 'display';
   /** Frame + text colour: gold for type, bright gold once forged. */
   private readonly accent: number;
+  /**
+   * 关键词 tooltip (todos/24 k2)：手牌把战斗场景的管理器递进来，规则文本
+   * 里的「破绽」「消耗」就长出悬停热区。不递（奖励卡、牌堆查看器）则
+   * 一个热区都不建——那些卡活在 overlay 深度里，场景级面板会被盖住。
+   */
+  private readonly tips?: TooltipManager;
+  private keywordZones: Phaser.GameObjects.Zone[] = [];
+  /** 悬停放大倍率 (todos/24 k3)。0 = 旧式轻抬。 */
+  private readonly hoverScale: number;
+  /** 拖拽出牌 (k3)。关键词热区要按它决定转不转发 drag 三件事。 */
+  private readonly draggable: boolean;
 
   constructor(
     scene: Phaser.Scene,
@@ -45,11 +75,16 @@ export class CardView extends Phaser.GameObjects.Container {
     upgraded: number,
     state: CombatState | undefined,
     mode: 'hand' | 'display' = 'hand',
+    tips?: TooltipManager,
+    opts: CardViewOptions = {},
   ) {
     super(scene, 0, 0);
     this.uid = uid;
     this.upgraded = upgraded;
     this.mode = mode;
+    this.tips = tips;
+    this.hoverScale = opts.hoverScale ?? 0;
+    this.draggable = opts.draggable === true;
 
     const def = resolveCard(defId, upgraded);
     this.def = def;
@@ -90,7 +125,7 @@ export class CardView extends Phaser.GameObjects.Container {
         ...bodyStyle(13, upgraded > 0 ? C.goldBright : C.paperDim),
         align: 'center',
         wordWrap: { width: CARD_W - 22 },
-        lineSpacing: 6,
+        lineSpacing: DESC_LINE_SPACING,
       })
       .setOrigin(0.5, 0);
 
@@ -137,7 +172,12 @@ export class CardView extends Phaser.GameObjects.Container {
     this.dimmer.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
     this.dimmer.setVisible(false);
 
-    this.hit = scene.add.zone(0, 0, CARD_W, CARD_H).setInteractive({ useHandCursor: true });
+    // 拖拽出牌 (todos/24 k3)：draggable 只在这里标一次，三个 drag 事件的
+    // 接线在场景层——CardView 不知道箭头和敌人热区长什么样。
+    this.hit = scene.add.zone(0, 0, CARD_W, CARD_H).setInteractive({
+      useHandCursor: true,
+      draggable: this.draggable,
+    });
 
     this.add([shadow, this.frame, art, artFade, rule, name, this.descText, keywords, orb, this.costText, typeTag, this.dimmer, this.hit]);
     this.setSize(CARD_W, CARD_H);
@@ -183,11 +223,145 @@ export class CardView extends Phaser.GameObjects.Container {
   /** Re-read the combat state: playability and the live damage/block numbers. */
   refresh(state: CombatState | undefined): void {
     this.descText.setText(describeCard(state, this.def));
+    // 文本可能换行不同了（数字随状态变宽），热区跟着文本重铺。
+    this.rebuildKeywordZones();
     // The engine's own gate, so 束缚 / 不可打出 / X 费 grey the face by exactly
     // the rule that will refuse the click.
     this.playable = this.mode === 'display' || (!!state && canPlay(state, this.uid));
     this.dimmer.setVisible(!this.playable);
     this.costText.setColor(this.playable ? '#f0d67a' : '#8a7f66');
+  }
+
+  /**
+   * 规则文本里的关键词热区 (todos/24 k2)。`findKeywords` 在**折行后的每一
+   * 行**里找词——`getWrappedText` 跑的就是渲染用的同一套折行算法，量出来
+   * 的位置和画出来的字不会漂。Phaser 的 `Text` 不吐字符坐标，只能拿同字体
+   * 的隐藏 Text 逐段测宽。颜色高亮是第二步，todo 明说可以不做。
+   *
+   * 热区叠在主点击区 `this.hit` 之上（输入 topOnly 只喂最上层），四个指针
+   * 事件原样转发回去——不转发，出牌那一下和悬停抬卡就被词条吞了。可拖拽
+   * 的牌 (k3) 连 drag 三件事一起转发：不然从「消耗」两个字上起手就拖不动。
+   */
+  private rebuildKeywordZones(): void {
+    const tips = this.tips;
+    if (!tips) return;
+    for (const zone of this.keywordZones) zone.destroy();
+    this.keywordZones = [];
+
+    const text = this.descText.text;
+    if (!text) return;
+
+    const ruler = this.scene.make.text({ style: bodyStyle(13), add: false });
+    const measure = (s: string): number => {
+      ruler.setText(s);
+      return ruler.width;
+    };
+    ruler.setText('永');
+    const lineH = ruler.height;
+
+    this.descText.getWrappedText(text).forEach((line, row) => {
+      const hits = findKeywords(line);
+      if (hits.length === 0) return;
+      // descText 原点 (0.5, 0)、align center：每一行都以 x=0 为中心。
+      const lineW = measure(line);
+      const rowY = this.descText.y + row * (lineH + DESC_LINE_SPACING) + lineH / 2;
+      for (const hit of hits) {
+        const termW = measure(hit.term);
+        const x = -lineW / 2 + measure(line.slice(0, hit.index)) + termW / 2;
+        this.addKeywordZone(tips, hit.term, x, rowY, termW + 4, lineH + 2);
+      }
+    });
+    ruler.destroy();
+
+    // 卡底关键词行：「消耗」「虚无」印在这行小字里，规则文本未必再提
+    // 它们——热区只铺规则文本时，悬停真正的「消耗」二字反而什么都不出
+    // (验收点名这一条)。行文本是 KEYWORD_LABEL 按「 · 」拼的，逐词量宽。
+    const terms = (this.def.keywords ?? []).map((k) => KEYWORD_LABEL[k]);
+    if (terms.length > 0) {
+      const rowRuler = this.scene.make.text({ style: bodyStyle(11), add: false });
+      rowRuler.setLetterSpacing(1);
+      const mw = (s: string): number => {
+        rowRuler.setText(s);
+        return rowRuler.width;
+      };
+      const joined = terms.join(' · ');
+      const rowW = mw(joined);
+      rowRuler.setText('永');
+      const rowH = rowRuler.height;
+      let from = 0;
+      for (const term of terms) {
+        const at = joined.indexOf(term, from);
+        from = at + term.length;
+        const termW = mw(term);
+        const x = -rowW / 2 + mw(joined.slice(0, at)) + termW / 2;
+        this.addKeywordZone(tips, term, x, CARD_H / 2 - 13, termW + 4, rowH + 2);
+      }
+      rowRuler.destroy();
+    }
+  }
+
+  /** 一块词条热区：叠在主点击区之上，指针/拖拽事件原样转发回去。 */
+  private addKeywordZone(
+    tips: TooltipManager,
+    term: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ): void {
+    const def = KEYWORDS[term];
+    if (!def) return;
+    const zone = this.scene.add
+      .zone(x, y, w, h)
+      .setInteractive({ useHandCursor: true, draggable: this.draggable });
+    zone.on('pointerover', () => this.hit.emit('pointerover'));
+    zone.on('pointerout', () => this.hit.emit('pointerout'));
+    zone.on('pointerdown', () => this.hit.emit('pointerdown'));
+    zone.on('pointerup', () => this.hit.emit('pointerup'));
+    if (this.draggable) {
+      zone.on('dragstart', (p: Phaser.Input.Pointer) => this.hit.emit('dragstart', p));
+      zone.on('drag', (p: Phaser.Input.Pointer) => this.hit.emit('drag', p));
+      zone.on('dragend', (p: Phaser.Input.Pointer) => this.hit.emit('dragend', p));
+    }
+    tips.register({
+      zone,
+      content: () => [{ title: def.title, body: def.body, color: def.color }],
+    });
+    this.add(zone);
+    this.keywordZones.push(zone);
+  }
+
+  /**
+   * 悬停抬牌 (todos/24 k3)：放大到 hoverScale（~1.35 即全尺寸）、抬深度、
+   * **旋转归零**——扇形排布的牌带着角度放大，规则文本斜着读不了。深度由
+   * 场景传入：手牌的层叠账在场景手里。gate（busy/选敌中）也在场景。
+   */
+  hoverLift(depth: number): void {
+    this.scene.tweens.killTweensOf(this);
+    this.setDepth(depth);
+    this.scene.tweens.add({
+      targets: this,
+      y: this.homeY - (this.hoverScale > 0 ? HOVER_LIFT : 78),
+      angle: 0,
+      scale: this.hoverScale > 0 ? this.hoverScale : 1.18,
+      duration: dur(150),
+      ease: 'Back.easeOut',
+    });
+  }
+
+  /** pointerout 恢复：回扇形原位、原角度、原大小（homeScale，k6）。 */
+  hoverDrop(depth: number): void {
+    this.scene.tweens.killTweensOf(this);
+    this.setDepth(depth);
+    this.scene.tweens.add({
+      targets: this,
+      x: this.homeX,
+      y: this.homeY,
+      angle: this.homeAngle,
+      scale: this.homeScale,
+      duration: dur(160),
+      ease: 'Quad.easeOut',
+    });
   }
 
   get isPlayable(): boolean {

@@ -55,7 +55,7 @@
 | [21](done/21-settings.md) ✅ | 设置菜单 |
 | [22](done/22-run-summary.md) ✅ | 结算界面与评分统计 |
 | [23](done/23-compendium-and-unlocks.md) ✅ | 图鉴与解锁进度 |
-| [24](24-combat-input.md) | 战斗交互与关键词提示 |
+| [24](done/24-combat-input.md) ✅ | 战斗交互与关键词提示 |
 | [25](25-headless-sim-and-tests-done.md) ✅ | 无头模拟与自动化测试 |
 
 ## 已知遗留
@@ -255,11 +255,31 @@
   战利品层不在 overlay 栈里,奖励画面上按 Esc 会叠开设置(再按即关,
   不违验收字面)。
 - **按键 tab 只读**(todo 允许);`KeyAction` 20 个动作已定义全,
-  [24 战斗交互](24-combat-input.md) 共用。
+  [24 战斗交互](done/24-combat-input.md) 共用。**注意**:24 把丹药默认键
+  Z/X/C 改成 Q/W/R,但 sanitize 把已存账的旧键当用户选择不迁移——
+  老账玩家仍是 Z/X/C 且按键 tab 只读改不了,按键重绑做的时候一并解。
 - 全屏开关在浏览器拒绝时仍落账,重载后不能自动回全屏(浏览器要手势),
   可能出现「显示开着实际窗口化」,两次点击可复位——面板注释已说明。
 - `autoEndTurn` 的 700ms 缓冲也过 `dur()`,极速档缩到 280ms——偏离
   todo 钉的 700,但仍可打断。
+
+### [24 战斗交互](done/24-combat-input.md) ✅ — 阶段八归档
+
+验收全数达成（含两处校验揪出后补修的：Phaser 先派 dragend 后派
+pointerup,回弹取消曾被尾随抬手原路打出——现在用一次性压制账拦住;
+卡底关键词行曾无热区,「悬停『消耗』二字出说明」现已铺上）。遗留：
+
+- **拖拽绕过 confirmPlay 二次确认**——拽过半个屏幕就是明确意图,
+  代码注释里写明的取舍。
+- **战斗里 Esc/Tab 是硬编码键**,`cancel` 虽是可重绑的 KeyAction 但战斗
+  不读它——combatKeys.ts 文件头写明,按键重绑落地时一并接。
+- **拖拽中除 Esc 外整个键位表拦下**(防 D/A/S 开 overlay、Q/W/R 灌药
+  与 dragend 竞态)。
+- Tab 按住时窗口失焦(cmd-tab)会丢 keyup,手牌摊到下一次按 Tab;
+  10 张手牌时 76px 条里牌名被邻牌半遮,悬停抬起后可读(验收实质满足)。
+- 遗物图标的 tooltip 仍是 RelicBar 私有实现,没并进 TooltipManager
+  (它活在地图 HUD 与 depth-200+ overlay 上,并账反而更侵入——
+  做键盘光标 tooltip 时再还)。
 
 ### 平衡：三张表要分开读，带外行数分别是 15 / 5 / 26
 

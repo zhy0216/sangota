@@ -96,7 +96,8 @@ export function defaultSettings(): Settings {
       settings: 'O',
       card1: 'ONE', card2: 'TWO', card3: 'THREE', card4: 'FOUR', card5: 'FIVE',
       card6: 'SIX', card7: 'SEVEN', card8: 'EIGHT', card9: 'NINE', card10: 'ZERO',
-      potion1: 'Z', potion2: 'X', potion3: 'C',
+      // 24 键位表：Q/W/R 服第 1/2/3 瓶丹药（W 夹在中间，三键一排好摸）。
+      potion1: 'Q', potion2: 'W', potion3: 'R',
     },
   };
 }
