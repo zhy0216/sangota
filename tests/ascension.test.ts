@@ -81,7 +81,7 @@ describe('modsFor', () => {
     expect(nine.actStartHpLossPercent).toBe(10); // 六重
     expect(nine.damageMult.monster).toBeCloseTo(1.05, 10); // 七重
     expect(nine.damageMult.elite).toBeCloseTo(1.05, 10); // 三重
-    expect(nine.damageMult.boss).toBeCloseTo(1, 10); // 标定后首领只涨体力
+    expect(nine.damageMult.boss).toBeCloseTo(1.05, 10); // 九重（2026-08 复标定）
   });
 
   it('倍率相乘而不是覆盖——todo 点名最容易写错的地方', () => {

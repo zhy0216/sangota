@@ -38,7 +38,7 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       { kind: 'status', status: 'vulnerable', amount: 2, to: 'target' },
     ],
   },
-  wanren: { effects: [{ kind: 'damageAll', amount: 12 }] },
+  wanren: { effects: [{ kind: 'damageAll', amount: 15 }] },
   quedi: {
     effects: [
       { kind: 'block', amount: 11 },
@@ -72,7 +72,7 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   yeduchunqiu: { effects: [{ kind: 'draw', amount: 3 }] },
   shuiyanqijun: {
     effects: [
-      { kind: 'damageAll', amount: 7, times: 2 },
+      { kind: 'damageAll', amount: 8, times: 2 },
       {
         kind: 'conditional',
         when: { c: 'enemyCountAtLeast', n: 2 },
@@ -90,7 +90,7 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       },
     ],
   },
-  hulaoguan: { effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 7 }] }] },
+  hulaoguan: { effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 8 }] }] },
   tushanyuesanshi: {
     effects: [
       { kind: 'loseHp', amount: 3 },
@@ -104,12 +104,12 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   guaguliaodu: {
     effects: [
       { kind: 'loseHp', amount: 3 },
-      { kind: 'status', status: 'regen', amount: 5, to: 'self' },
+      { kind: 'status', status: 'regen', amount: 6, to: 'self' },
     ],
   },
   weizhenhuaxia: { effects: [{ kind: 'status', status: 'ritual', amount: 2, to: 'self' }] },
   wuguanliujiang: { effects: [{ kind: 'status', status: 'slayer', amount: 3, to: 'self' }] },
-  shengougaolei: { cost: 2 },
+  shengougaolei: { cost: 1 },
 
   // --- todos/05 无色 stock, sold only over a 商旅's counter -----------------
   qingnangshu: { effects: [{ kind: 'heal', amount: 9 }] },
@@ -556,7 +556,7 @@ describe('upgraded card faces', () => {
     expect(canPlay(state, uid)).toBe(true);
 
     playCard(state, uid);
-    expect(state.player.block).toBe(14);
+    expect(state.player.block).toBe(15);
   });
 
   it('keeps unupgraded copies of the same id on their base numbers', () => {

@@ -38,14 +38,14 @@
     {
       "t": "damage",
       "targetId": "bandit-0",
-      "amount": 11,
+      "amount": 14,
       "blocked": 0,
       "lethal": false
     },
     {
       "t": "damage",
       "targetId": "yellowturban-1",
-      "amount": 11,
+      "amount": 14,
       "blocked": 0,
       "lethal": false
     },
@@ -170,7 +170,7 @@
     {
       "t": "damage",
       "targetId": "yellowturban-1",
-      "amount": 5,
+      "amount": 6,
       "blocked": 0,
       "lethal": false
     },
@@ -384,15 +384,8 @@
     {
       "t": "damage",
       "targetId": "yellowturban-1",
-      "amount": 3,
-      "blocked": 6,
-      "lethal": false
-    },
-    {
-      "t": "damage",
-      "targetId": "yellowturban-1",
       "amount": 6,
-      "blocked": 0,
+      "blocked": 6,
       "lethal": true
     },
     {

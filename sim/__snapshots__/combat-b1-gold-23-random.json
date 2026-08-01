@@ -4,9 +4,9 @@
   "policy": "random",
   "deck": "wide",
   "result": {
-    "won": false,
+    "won": true,
     "turns": 7,
-    "hpLeft": 0,
+    "hpLeft": 7,
     "hpMax": 82,
     "aborted": null
   },
@@ -38,7 +38,7 @@
     {
       "t": "damage",
       "targetId": "lubu-0",
-      "amount": 11,
+      "amount": 14,
       "blocked": 0,
       "lethal": false
     },
@@ -307,6 +307,13 @@
     {
       "t": "passive",
       "label": "青龙偃月"
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 11,
+      "blocked": 0,
+      "lethal": false
     },
     {
       "t": "damage",
@@ -590,44 +597,13 @@
     {
       "t": "damage",
       "targetId": "lubu-0",
-      "amount": 19,
-      "blocked": 0,
-      "lethal": false
-    },
-    {
-      "t": "damage",
-      "targetId": "lubu-0",
-      "amount": 13,
-      "blocked": 0,
-      "lethal": false
-    },
-    {
-      "t": "status",
-      "targetId": "player",
-      "status": "strength",
-      "amount": 1
-    },
-    {
-      "t": "status",
-      "targetId": "player",
-      "status": "weak",
-      "amount": 1
-    },
-    {
-      "t": "discard",
-      "uid": "d25"
-    },
-    {
-      "t": "enemyMove",
-      "enemyId": "lubu-0",
-      "label": "方天画戟"
-    },
-    {
-      "t": "damage",
-      "targetId": "player",
-      "amount": 14,
+      "amount": 24,
       "blocked": 0,
       "lethal": true
+    },
+    {
+      "t": "death",
+      "targetId": "lubu-0"
     }
   ]
 }

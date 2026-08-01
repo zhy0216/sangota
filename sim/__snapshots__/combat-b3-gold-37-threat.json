@@ -38,26 +38,20 @@
     {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 11,
+      "amount": 14,
       "blocked": 0,
       "lethal": false
     },
     {
-      "t": "status",
-      "targetId": "zhangbao-0",
-      "status": "vulnerable",
-      "amount": 2
-    },
-    {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 9,
+      "amount": 6,
       "blocked": 0,
       "lethal": false
     },
     {
       "t": "discard",
-      "uid": "d20"
+      "uid": "d14"
     },
     {
       "t": "discard",
@@ -106,7 +100,7 @@
     {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 15,
+      "amount": 10,
       "blocked": 0,
       "lethal": false
     },
@@ -173,14 +167,14 @@
     {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 13,
+      "amount": 9,
       "blocked": 0,
       "lethal": false
     },
     {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 6,
+      "amount": 4,
       "blocked": 0,
       "lethal": false
     },
@@ -196,7 +190,7 @@
     {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 7,
+      "amount": 6,
       "blocked": 0,
       "lethal": false
     },
@@ -328,7 +322,7 @@
     },
     {
       "t": "draw",
-      "uid": "d20"
+      "uid": "d14"
     },
     {
       "t": "draw",
@@ -350,10 +344,16 @@
       "lethal": false
     },
     {
+      "t": "status",
+      "targetId": "zhangbao-0",
+      "status": "vulnerable",
+      "amount": 2
+    },
+    {
       "t": "damage",
       "targetId": "zhangbao-0",
       "amount": 0,
-      "blocked": 4,
+      "blocked": 6,
       "lethal": false
     },
     {
@@ -387,7 +387,7 @@
     },
     {
       "t": "draw",
-      "uid": "d14"
+      "uid": "d20"
     },
     {
       "t": "draw",
@@ -412,15 +412,9 @@
     {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 7,
+      "amount": 17,
       "blocked": 4,
       "lethal": false
-    },
-    {
-      "t": "status",
-      "targetId": "zhangbao-0",
-      "status": "vulnerable",
-      "amount": 2
     },
     {
       "t": "damage",
@@ -529,12 +523,12 @@
     {
       "t": "status",
       "targetId": "player",
-      "status": "strength",
-      "amount": 2
+      "status": "ritual",
+      "amount": 1
     },
     {
       "t": "exhaust",
-      "uid": "d21"
+      "uid": "d24"
     },
     {
       "t": "damage",
@@ -544,12 +538,18 @@
       "lethal": false
     },
     {
-      "t": "discard",
-      "uid": "d24"
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 1
     },
     {
       "t": "discard",
       "uid": "d26"
+    },
+    {
+      "t": "discard",
+      "uid": "d21"
     },
     {
       "t": "enemyMove",
@@ -602,7 +602,7 @@
     {
       "t": "damage",
       "targetId": "zhangbaofenshen-2",
-      "amount": 12,
+      "amount": 11,
       "blocked": 0,
       "lethal": false
     },
@@ -619,6 +619,12 @@
     {
       "t": "exhaust",
       "uid": "g0"
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 1
     },
     {
       "t": "status",
@@ -673,7 +679,7 @@
     },
     {
       "t": "draw",
-      "uid": "d20"
+      "uid": "d14"
     },
     {
       "t": "draw",
@@ -686,25 +692,11 @@
     },
     {
       "t": "draw",
-      "uid": "d26"
-    },
-    {
-      "t": "damage",
-      "targetId": "player",
-      "amount": 1,
-      "blocked": 0,
-      "lethal": false
+      "uid": "d21"
     },
     {
       "t": "passive",
       "label": "青龙偃月"
-    },
-    {
-      "t": "damage",
-      "targetId": "zhangbaofenshen-1",
-      "amount": 9,
-      "blocked": 0,
-      "lethal": false
     },
     {
       "t": "damage",
@@ -714,18 +706,16 @@
       "lethal": false
     },
     {
-      "t": "damage",
-      "targetId": "player",
-      "amount": 1,
-      "blocked": 0,
-      "lethal": false
+      "t": "status",
+      "targetId": "zhangbaofenshen-2",
+      "status": "vulnerable",
+      "amount": 2
     },
     {
-      "t": "damage",
+      "t": "status",
       "targetId": "player",
-      "amount": 1,
-      "blocked": 0,
-      "lethal": false
+      "status": "strength",
+      "amount": 1
     },
     {
       "t": "status",
@@ -743,7 +733,7 @@
     },
     {
       "t": "discard",
-      "uid": "d26"
+      "uid": "d21"
     },
     {
       "t": "enemyMove",
@@ -785,7 +775,7 @@
     },
     {
       "t": "draw",
-      "uid": "d24"
+      "uid": "d26"
     },
     {
       "t": "block",
@@ -793,9 +783,23 @@
       "amount": 5
     },
     {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
       "t": "block",
       "targetId": "player",
       "amount": 5
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
     },
     {
       "t": "passive",
@@ -804,9 +808,22 @@
     {
       "t": "damage",
       "targetId": "zhangbaofenshen-2",
-      "amount": 8,
+      "amount": 13,
       "blocked": 0,
       "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "player",
+      "amount": 1,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "status",
+      "targetId": "player",
+      "status": "strength",
+      "amount": 1
     },
     {
       "t": "discard",
@@ -814,7 +831,7 @@
     },
     {
       "t": "discard",
-      "uid": "d24"
+      "uid": "d26"
     },
     {
       "t": "enemyMove",

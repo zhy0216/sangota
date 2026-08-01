@@ -230,7 +230,14 @@
     {
       "t": "damage",
       "targetId": "lubu-0",
-      "amount": 13,
+      "amount": 16,
+      "blocked": 0,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 10,
       "blocked": 0,
       "lethal": false
     },
@@ -239,13 +246,6 @@
       "targetId": "lubu-0",
       "status": "vulnerable",
       "amount": 2
-    },
-    {
-      "t": "damage",
-      "targetId": "lubu-0",
-      "amount": 15,
-      "blocked": 0,
-      "lethal": false
     },
     {
       "t": "damage",
@@ -403,27 +403,27 @@
       "t": "damage",
       "targetId": "lubu-0",
       "amount": 0,
-      "blocked": 10,
-      "lethal": false
-    },
-    {
-      "t": "damage",
-      "targetId": "lubu-0",
-      "amount": 8,
-      "blocked": 2,
+      "blocked": 11,
       "lethal": false
     },
     {
       "t": "damage",
       "targetId": "lubu-0",
       "amount": 10,
+      "blocked": 1,
+      "lethal": false
+    },
+    {
+      "t": "damage",
+      "targetId": "lubu-0",
+      "amount": 11,
       "blocked": 0,
       "lethal": false
     },
     {
       "t": "damage",
       "targetId": "lubu-0",
-      "amount": 10,
+      "amount": 11,
       "blocked": 0,
       "lethal": false
     },
@@ -462,7 +462,7 @@
     },
     {
       "t": "draw",
-      "uid": "d14"
+      "uid": "d20"
     },
     {
       "t": "draw",
@@ -483,7 +483,7 @@
     {
       "t": "damage",
       "targetId": "lubu-0",
-      "amount": 13,
+      "amount": 16,
       "blocked": 0,
       "lethal": true
     },
@@ -500,12 +500,6 @@
       "targetId": "player",
       "status": "strength",
       "amount": 1
-    },
-    {
-      "t": "status",
-      "targetId": "lubu-0",
-      "status": "vulnerable",
-      "amount": 2
     }
   ]
 }

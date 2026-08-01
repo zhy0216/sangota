@@ -282,6 +282,19 @@ keeps up more or less permanently. Everything else in the 13 is neutral or a sli
 at boss scale. Left as-is and recorded rather than quietly re-tuned — the numbers above
 are the brief for that decision.
 
+**2026-08 · 关羽 starter-hero pass.** 关羽 is the first hero a player picks, so his
+天命零重 full-run clear was retuned from 41% to ~50% — and the entire budget went into
+raising the pool's *floor*, not its ceiling. The per-card sweep (`npm run eval`) flagged
+万人敌 −32 / 虎牢关 −15 / 水淹七军 −12 / 结营 −11 and all three rares at −9: the cards a
+new player drafts on instinct and loses runs to. Those seven were raised to par (per-card
+rationale beside each def in `cards.ts`); 土山约三事 and 白马义从 were left alone. Three
+of the seven sit in the golden `wide` deck, so six snapshots were re-recorded under the
+约定 3 content-change protocol. The stronger pool lifted 天命十重 to 30% and out of its
+15–25% acceptance band, so the ladder was re-calibrated where the original notes said the
+budget lives: 九重 now adds 首领伤害 +5% and 十重 adds 体力上限 −5%, landing 十重 threat
+at 24% — 一至八重 untouched, so the lower rungs a new player actually climbs kept their
+slope. Full ladder after the pass: 52/45/35/19–24% at 天命 0/3/5/10.
+
 Deck profile turns out to matter more than policy, which is why all three are reported. 吕布
 is close to unwinnable against the bare starting deck (12% / 7%) and a real fight once
 the deck has grown (53% / 62%) — quoting one number per tier without saying which deck

@@ -118,6 +118,11 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
       ],
     },
   },
+  /**
+   * 2026-08 新手武将调参（见 pool expansion 段的说明）：8 → 11。原 8 点对单体
+   * 是半张劈砍的效率，逐卡扫描量出 Δ胜率 −32——整个池最深的陷阱签。11 仍低于
+   * 两张劈砍的 12，单体依旧亏，群战才回本，AoE 的身份没动。
+   */
   wanren: {
     id: 'wanren',
     name: '万人敌',
@@ -127,8 +132,8 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     target: 'all',
     art: 'card-wanren',
     text: '对所有敌人造成 {D} 点伤害。',
-    effects: [{ kind: 'damageAll', amount: 8 }],
-    upgrade: { effects: [{ kind: 'damageAll', amount: 12 }] },
+    effects: [{ kind: 'damageAll', amount: 11 }],
+    upgrade: { effects: [{ kind: 'damageAll', amount: 15 }] },
   },
   quedi: {
     id: 'quedi',
@@ -189,7 +194,7 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     target: 'self',
     art: 'card-jieying',
     text: '获得 {B} 点护甲。',
-    effects: [{ kind: 'block', amount: 14 }],
+    effects: [{ kind: 'block', amount: 15 }],
     upgrade: { cost: 1 },
   },
   guanzhen: {
@@ -232,9 +237,19 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
   // --- Pool expansion (todos/11) ------------------------------------------
   /*
    * 13 cards taking 关羽 from 11 to 24. Balance is white-boxed against the
-   * three printed baselines — 劈砍 1气/6伤, 铁壁 1气/5甲, 结营 2气/14甲 — i.e.
+   * three printed baselines — 劈砍 1气/6伤, 铁壁 1气/5甲, 结营 2气/15甲 — i.e.
    * roughly 6 damage or 5–7 block per 气 at basic rarity. Anything above that
    * rate here pays for it with a keyword, a condition, or 体力.
+   *
+   * ### 2026-08 新手武将调参
+   *
+   * 关羽是玩家的第一个武将，整局天命零重通关率要向 ~50% 靠（原 41%）。加成
+   * 全部花在**抬高池底**上：`npm run eval` 的逐卡扫描标出 万人敌 −32、虎牢关
+   * −15、水淹七军 −12、结营 −11、三张 rare 各 −9 —— 新手按直觉乱拿时，这些
+   * 就是把一局拿输的签。天花板（土山约三事 +19、白马义从 +18）一张没动：
+   * 上抬天花板是给熟手加速，抬底才是给新手兜底。改动逐张记在各卡注释里；
+   * 万人敌 / 虎牢关 / 威震华夏 在 golden `wide` 牌组里，六份快照按 约定 3
+   * 的内容型规程随本次调参重录。
    */
 
   /**
@@ -327,9 +342,10 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
   },
 
   /**
-   * 10 per enemy against 万人敌's 8 for the same 气, but split in two: each hit
+   * 12 per enemy against 万人敌's 11 for the same 气, but split in two: each hit
    * takes 神力 separately, and each floors 怯战/破绽 on its own, so the printed
    * total is lower than 万人敌 the moment either side is scaled down.
+   * （2026-08 新手武将调参：5×2 → 6×2，与万人敌同一轮抬底。）
    */
   shuiyanqijun: {
     id: 'shuiyanqijun',
@@ -341,7 +357,7 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     art: 'card-shuiyanqijun',
     text: '对所有敌人造成 {D} 点伤害 {T} 次。\n若敌人不少于 2 名，抽 1 张牌。',
     effects: [
-      { kind: 'damageAll', amount: 5, times: 2 },
+      { kind: 'damageAll', amount: 6, times: 2 },
       {
         kind: 'conditional',
         when: { c: 'enemyCountAtLeast', n: 2 },
@@ -350,7 +366,7 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     ],
     upgrade: {
       effects: [
-        { kind: 'damageAll', amount: 7, times: 2 },
+        { kind: 'damageAll', amount: 8, times: 2 },
         {
           kind: 'conditional',
           when: { c: 'enemyCountAtLeast', n: 2 },
@@ -395,10 +411,12 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
   },
 
   /**
-   * X 费. 5 per 气 is under 劈砍's rate on purpose: the card's real payment is
-   * that every repetition takes 神力 and the starter relic's bonus in full, so
-   * at 3 神力 a 3 气 cast already beats three 劈砍 while spending two fewer
-   * cards. Dead on a 0 气 board — that is the cost of the flexibility.
+   * X 费. 6 per 气 sits at 劈砍's rate: the 5 it shipped at priced the
+   * flexibility twice over — the card is already dead on a 0 气 board, and the
+   * 2026-08 逐卡扫描 measured the under-rate print at Δ胜率 −15. What it keeps
+   * paying with is the deadness; what it earns is that every repetition takes
+   * 神力 and the starter relic's bonus in full, so a scaled 3 气 cast beats
+   * three 劈砍 while spending two fewer cards.
    */
   hulaoguan: {
     id: 'hulaoguan',
@@ -410,9 +428,9 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     target: 'enemy',
     art: 'card-hulaoguan',
     text: '消耗全部气。\n每 1 点气造成 {D} 点伤害。',
-    effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 5 }] }],
+    effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 6 }] }],
     upgrade: {
-      effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 7 }] }],
+      effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 8 }] }],
     },
   },
 
@@ -472,9 +490,11 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
   },
 
   /**
-   * 调息 4 pays out 4+3+2+1 = 10 体力 across four turns, so the card is worth
-   * +7 in a long fight and a straight loss in a short one. Deliberately the
-   * only sustain in the pool that is not a relic.
+   * 调息 5 pays out 5+4+3+2+1 = 15 体力 across five turns, so the card is worth
+   * +12 in a long fight and a straight loss in a short one. Deliberately the
+   * only sustain in the pool that is not a relic — which is exactly why the
+   * 2026-08 新手武将调参 raised it a tier: 整局通关卡在血线上，池里唯一的
+   * 续航签不该同时是张亏牌（扫描 Δ −6）。
    */
   guaguliaodu: {
     id: 'guaguliaodu',
@@ -484,33 +504,35 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     cost: 1,
     target: 'self',
     art: 'card-guaguliaodu',
-    text: '失去 3 点体力。\n获得 4 层【调息】。',
+    text: '失去 3 点体力。\n获得 5 层【调息】。',
     effects: [
       { kind: 'loseHp', amount: 3 },
-      { kind: 'status', status: 'regen', amount: 4, to: 'self' },
+      { kind: 'status', status: 'regen', amount: 5, to: 'self' },
     ],
     keywords: ['exhaust'],
     upgrade: {
-      text: '失去 3 点体力。\n获得 5 层【调息】。',
+      text: '失去 3 点体力。\n获得 6 层【调息】。',
       effects: [
         { kind: 'loseHp', amount: 3 },
-        { kind: 'status', status: 'regen', amount: 5, to: 'self' },
+        { kind: 'status', status: 'regen', amount: 6, to: 'self' },
       ],
     },
   },
 
   /**
-   * 1 层【蓄势】 is half what the genre usually prints on a 3 气 scaling power,
+   * 1 层【蓄势】 is half what the genre usually prints on a scaling power,
    * and that is intentional: this pool has three cards that hit more than once
    * per play (水淹七军, 五百校刀手, 虎牢关), so a point of 神力 is worth two to
-   * three damage a turn here rather than one.
+   * three damage a turn here rather than one. The 气 is where the 2026-08
+   * 新手武将调参 spent its buff — 3 费的启动回合太重（扫描 Δ −9），2 费让它
+   * 首回合就能和一张劈砍同场落地；每回合的产出率没动。
    */
   weizhenhuaxia: {
     id: 'weizhenhuaxia',
     name: '威震华夏',
     type: 'power',
     rarity: 'rare',
-    cost: 3,
+    cost: 2,
     target: 'self',
     art: 'card-weizhenhuaxia',
     text: '获得 1 层【蓄势】。',
@@ -546,22 +568,23 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
   },
 
   /**
-   * Turns 结营's 14 甲 from a one-turn wall into a running total. 3 气 means it
-   * cannot land before turn two even with 赤兔马, and it produces nothing by
-   * itself — the whole cost is paid by the block cards it makes compound.
+   * Turns 结营's 15 甲 from a one-turn wall into a running total. It produces
+   * nothing by itself — the whole cost is paid by the block cards it makes
+   * compound. 2026-08 新手武将调参把 3 费降到 2：产出为零的一张牌再占掉大半个
+   * 回合，扫描量出 Δ −9；降一费后首回合 赤兔马 也追得上它。
    */
   shengougaolei: {
     id: 'shengougaolei',
     name: '深沟高垒',
     type: 'power',
     rarity: 'rare',
-    cost: 3,
+    cost: 2,
     target: 'self',
     art: 'card-shengougaolei',
     text: '获得【深沟高垒】。',
     effects: [{ kind: 'status', status: 'barricade', amount: 1, to: 'self' }],
     keywords: ['exhaust'],
-    upgrade: { cost: 2 },
+    upgrade: { cost: 1 },
   },
 });
 

@@ -6,7 +6,7 @@
   "result": {
     "won": true,
     "turns": 6,
-    "hpLeft": 33,
+    "hpLeft": 47,
     "hpMax": 82,
     "aborted": null
   },
@@ -125,15 +125,16 @@
     {
       "t": "damage",
       "targetId": "yellowturban-0",
-      "amount": 8,
+      "amount": 10,
       "blocked": 0,
       "lethal": false
     },
     {
-      "t": "status",
-      "targetId": "yellowturban-0",
-      "status": "vulnerable",
-      "amount": 2
+      "t": "damage",
+      "targetId": "yellowturban-1",
+      "amount": 10,
+      "blocked": 0,
+      "lethal": false
     },
     {
       "t": "damage",
@@ -144,15 +145,15 @@
     },
     {
       "t": "discard",
+      "uid": "d14"
+    },
+    {
+      "t": "discard",
       "uid": "d24"
     },
     {
       "t": "discard",
       "uid": "d27"
-    },
-    {
-      "t": "discard",
-      "uid": "d20"
     },
     {
       "t": "discard",
@@ -219,21 +220,21 @@
     {
       "t": "damage",
       "targetId": "yellowturban-0",
-      "amount": 7,
+      "amount": 3,
       "blocked": 6,
       "lethal": false
     },
     {
       "t": "damage",
       "targetId": "yellowturban-0",
-      "amount": 7,
+      "amount": 9,
       "blocked": 0,
       "lethal": false
     },
     {
       "t": "damage",
       "targetId": "yellowturban-0",
-      "amount": 7,
+      "amount": 9,
       "blocked": 0,
       "lethal": true
     },
@@ -251,6 +252,10 @@
     {
       "t": "discard",
       "uid": "d13"
+    },
+    {
+      "t": "discard",
+      "uid": "d11"
     },
     {
       "t": "discard",
@@ -285,11 +290,11 @@
     },
     {
       "t": "draw",
-      "uid": "d13"
+      "uid": "d11"
     },
     {
       "t": "draw",
-      "uid": "d22"
+      "uid": "d17"
     },
     {
       "t": "passive",
@@ -305,20 +310,25 @@
     {
       "t": "damage",
       "targetId": "yellowturban-1",
-      "amount": 5,
+      "amount": 6,
       "blocked": 0,
       "lethal": false
     },
     {
       "t": "damage",
       "targetId": "yellowturban-1",
-      "amount": 5,
+      "amount": 4,
       "blocked": 0,
       "lethal": false
     },
     {
-      "t": "discard",
-      "uid": "d16"
+      "t": "block",
+      "targetId": "player",
+      "amount": 8
+    },
+    {
+      "t": "draw",
+      "uid": "d20"
     },
     {
       "t": "discard",
@@ -326,7 +336,7 @@
     },
     {
       "t": "discard",
-      "uid": "d13"
+      "uid": "d20"
     },
     {
       "t": "enemyMove",
@@ -336,13 +346,9 @@
     {
       "t": "damage",
       "targetId": "player",
-      "amount": 9,
-      "blocked": 0,
+      "amount": 1,
+      "blocked": 8,
       "lethal": false
-    },
-    {
-      "t": "draw",
-      "uid": "d14"
     },
     {
       "t": "draw",
@@ -354,11 +360,15 @@
     },
     {
       "t": "draw",
-      "uid": "d20"
+      "uid": "d27"
     },
     {
       "t": "draw",
-      "uid": "d17"
+      "uid": "d13"
+    },
+    {
+      "t": "draw",
+      "uid": "d14"
     },
     {
       "t": "passive",
@@ -378,21 +388,9 @@
       "amount": 2
     },
     {
-      "t": "damage",
-      "targetId": "yellowturban-1",
-      "amount": 6,
-      "blocked": 0,
-      "lethal": false
-    },
-    {
-      "t": "status",
+      "t": "block",
       "targetId": "player",
-      "status": "strength",
-      "amount": 2
-    },
-    {
-      "t": "exhaust",
-      "uid": "d21"
+      "amount": 5
     },
     {
       "t": "status",
@@ -402,11 +400,15 @@
     },
     {
       "t": "discard",
+      "uid": "d21"
+    },
+    {
+      "t": "discard",
       "uid": "d25"
     },
     {
       "t": "discard",
-      "uid": "d20"
+      "uid": "d27"
     },
     {
       "t": "enemyMove",
@@ -421,17 +423,13 @@
     {
       "t": "damage",
       "targetId": "player",
-      "amount": 5,
-      "blocked": 0,
+      "amount": 0,
+      "blocked": 5,
       "lethal": false
     },
     {
       "t": "draw",
-      "uid": "d24"
-    },
-    {
-      "t": "draw",
-      "uid": "d11"
+      "uid": "d22"
     },
     {
       "t": "draw",
@@ -439,11 +437,15 @@
     },
     {
       "t": "draw",
-      "uid": "d27"
+      "uid": "d24"
     },
     {
       "t": "draw",
       "uid": "d19"
+    },
+    {
+      "t": "draw",
+      "uid": "d12"
     },
     {
       "t": "passive",
@@ -452,15 +454,8 @@
     {
       "t": "damage",
       "targetId": "yellowturban-1",
-      "amount": 6,
+      "amount": 3,
       "blocked": 6,
-      "lethal": false
-    },
-    {
-      "t": "damage",
-      "targetId": "player",
-      "amount": 1,
-      "blocked": 0,
       "lethal": false
     },
     {

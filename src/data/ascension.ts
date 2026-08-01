@@ -92,8 +92,8 @@ export const ASCENSION_STEP_DESC: Record<number, string> = {
   6: '每幕开始失去 10% 当前体力',
   7: '杂兵伤害 +5%',
   8: '精英体力再 +2%',
-  9: '首领体力再 +2%',
-  10: '开局携带诅咒「宿业」',
+  9: '首领体力再 +2%、伤害 +5%',
+  10: '开局携带诅咒「宿业」、体力上限 −5%',
 };
 
 /**
@@ -104,8 +104,13 @@ export const ASCENSION_STEP_DESC: Record<number, string> = {
  * 十重通关率直接砍到 0%。标定过程和预算记在 `sim/balance.sim.ts` 的
  * 「天命连场」一节；结论是四条规则行（1/5/6/10）保持设计原值，六条
  * 倍率行合计只有 ~10 个通关点的预算，且**伤害倍率比体力倍率贵得多**
- * ——所以 4/8/9 动的是体力。改这里任何一个数，先跑 `npm run sim`：
+ * ——所以 4/8/9 初版动的是体力。改这里任何一个数，先跑 `npm run sim`：
  * 「天命连场」的断言把十重 threat 通关率钉在 15-25%。
+ *
+ * 2026-08 复标定：新手武将调参把关羽的卡池底抬高（`cards.ts` pool
+ * expansion 段），零重通关 41%→~50%，十重跟着涨到 30%、破带。多出的
+ * 预算按原笔记的汇率花回九重——「首领伤害 +5%」一刀约值 10 个通关点，
+ * 十重 threat 落回带内；一至八重不动，新手爬梯的前段坡度保持原样。
  */
 export const ASCENSION_STEPS: Record<number, Partial<AscensionMods>> = {
   1: { extraElites: 1 },
@@ -122,8 +127,11 @@ export const ASCENSION_STEPS: Record<number, Partial<AscensionMods>> = {
   6: { actStartHpLossPercent: 10 },
   7: { damageMult: { monster: 1.05, elite: 1, boss: 1 } },
   8: { hpMult: { monster: 1, elite: 1.02, boss: 1 } },
-  9: { hpMult: { monster: 1, elite: 1, boss: 1.02 } },
-  10: { startingCurses: [SUYE_ID] },
+  9: {
+    hpMult: { monster: 1, elite: 1, boss: 1.02 },
+    damageMult: { monster: 1, elite: 1, boss: 1.05 },
+  },
+  10: { startingCurses: [SUYE_ID], maxHpMult: 0.95 },
 };
 
 /**
