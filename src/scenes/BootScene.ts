@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { SFX_IDS } from '../audio/sfx';
 import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { makeCardArt } from '../ui/cardArt';
 import { useDesignSpace } from '../ui/designSpace';
@@ -71,11 +72,20 @@ export class BootScene extends Phaser.Scene {
     for (const key of CARD_KEYS) {
       this.load.image(`card-${key}`, `cards/${key}.jpg`);
     }
+    // 音效 (todos/20 b4)：25 个短音效全量进 boot——加起来远小于一张卡图，
+    // 顺带被上面的进度条计入总进度。音乐大件不在此列：由 `Audio.ensureMusic`
+    // 延迟到对应场景首次要用时再载（标题曲在 TitleScene.create 起载）。
+    // 双格式数组让 Phaser 按浏览器挑：Safari 不解 ogg，只给 ogg 会静默无声。
+    for (const id of SFX_IDS) {
+      this.load.audio(id, [`audio/sfx/${id}.ogg`, `audio/sfx/${id}.m4a`]);
+    }
 
     // A missing asset should degrade to a visible placeholder, not a black screen.
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       console.warn(`[boot] asset failed to load: ${file.key} (${file.src})`);
-      this.makePlaceholder(file.key);
+      // 音效载不上没有可看的兜底，也不该占一个纹理 key——`Audio.play`
+      // 对 cache 里没有的 id 本来就静默跳过。
+      if (file.type !== 'audio') this.makePlaceholder(file.key);
     });
   }
 

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getAudio, type Audio } from '../audio/sfx';
 import { C, GAME_HEIGHT, GAME_WIDTH, MAP, css } from '../config';
 import { Rng } from '../core/rng';
 import { actLabel, actOf } from '../data/acts';
@@ -99,6 +100,9 @@ export class MapScene extends Phaser.Scene {
   /** Set the instant a node is committed to; cleared when the map wakes. */
   private leaving = false;
 
+  /** 音效出口 (todos/20 b6)。全局单例，`create` 里经 `getAudio` 取。 */
+  private audio!: Audio;
+
   constructor() {
     super('Map');
   }
@@ -107,6 +111,13 @@ export class MapScene extends Phaser.Scene {
     this.run = getRun();
     this.views.clear();
     this.leaving = false;
+
+    // 场景音乐 (todos/20 b6)：地图曲从进图起懒加载并喊播。从战斗回来是
+    // `scene.start('Map')` 重走 create——`Audio.music` 同曲跳过、异曲 400ms
+    // 交叉淡入；从房间（睡醒）回来不经这儿，地图曲本来也没停，正好。
+    this.audio = getAudio(this);
+    this.audio.ensureMusic('map', this);
+    this.audio.music('map');
 
     const { map } = this.run;
     // No setBounds here: its clamping assumes a camera origin of 0.5, and
@@ -370,6 +381,8 @@ export class MapScene extends Phaser.Scene {
 
     this.leaving = true;
     this.input.enabled = false;
+    // 节点落子音 (todos/20 b6)：在 leaving 闸之后——过不了闸的点击不发声。
+    this.audio.play('map-select');
     // The one and only `markVisited`: room code never touches `visited`.
     travelTo(this.run, view.node.id);
     this.hideTooltip();

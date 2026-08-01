@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getAudio } from '../audio/sfx';
 import { C, css, FONT_BRUSH, GAME_HEIGHT, GAME_WIDTH, RENDER_SCALE } from '../config';
 import { ASCENSION_STEP_DESC, MAX_ASCENSION, ascensionLabel } from '../data/ascension';
 import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../data/heroes';
@@ -91,6 +92,16 @@ export class TitleScene extends Phaser.Scene {
     this.picked = DEFAULT_HERO;
     this.ascension = 0;
     this.tiles = [];
+
+    // 音频 (todos/20 b4)：标题曲从这一刻起懒加载——音乐不进 boot，首屏
+    // 不为它多等一帧；`ensureMusic` 已载/在途都空转，回到标题页重喊无害。
+    // `music('title')` 在闸没开时只挂账，载好且解锁后自动补播。
+    const audio = getAudio(this);
+    audio.ensureMusic('title', this);
+    audio.music('title');
+    // 自动播放闸 (todo 步骤 4)：浏览器要求先有用户手势。挂一次性
+    // pointerdown——`unlock` 幂等，从别的场景转回来重挂也只是空转。
+    this.input.once('pointerdown', () => audio.unlock());
 
     // --- Backdrop ---------------------------------------------------------
     const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'map-bg');

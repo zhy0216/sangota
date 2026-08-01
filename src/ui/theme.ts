@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getAudio } from '../audio/sfx';
 import { C, css, FONT_BRUSH, FONT_SERIF, RENDER_SCALE } from '../config';
 
 type TextStyle = Phaser.Types.GameObjects.Text.TextStyle;
@@ -166,7 +167,13 @@ export function inkButton(
   container.add([bg, text, hit]);
   container.setSize(width, height);
 
+  // UI 音 (todos/20 b6)：按钮工厂一处接线，全游戏按钮自动有声。
+  // `pointerover` 每次进入只发一次（不是逐帧事件），hover 不会连响；
+  // 扫过一排按钮的极端情况还有 `Audio.play` 的 40ms 限流兜底。
+  const audio = getAudio(scene);
+
   hit.on('pointerover', () => {
+    audio.play('ui-hover');
     paint(true);
     scene.tweens.add({ targets: container, scale: 1.04, duration: 120, ease: 'Quad.easeOut' });
   });
@@ -175,6 +182,7 @@ export function inkButton(
     scene.tweens.add({ targets: container, scale: 1, duration: 120, ease: 'Quad.easeOut' });
   });
   hit.on('pointerdown', () => {
+    audio.play('ui-click');
     scene.tweens.add({ targets: container, scale: 0.97, duration: 60, yoyo: true });
     onClick();
   });

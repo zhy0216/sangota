@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { cardPlaySfx, drawCue, sfxForEvent } from '../audio/combatSfx';
+import { getAudio, type Audio } from '../audio/sfx';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { STATUS_META, STATUS_ORDER } from '../combat/cards';
 import { resolveCombatEndHooks } from '../combat/curses';
@@ -145,6 +147,8 @@ interface PileCounter {
 export class CombatScene extends Phaser.Scene {
   private run!: RunState;
   private state!: CombatState;
+  /** 音效出口 (todos/20 b5)。全局单例，`create` 里经 `getAudio` 取。 */
+  private audio!: Audio;
   private encounter!: Encounter;
   private nodeType: CombatNodeType = 'monster';
   /**
@@ -326,6 +330,17 @@ export class CombatScene extends Phaser.Scene {
   create(): void {
     useDesignSpace(this);
     this.run = getRun();
+    this.audio = getAudio(this);
+
+    // 场景音乐 (todos/20 b6)：首领有独立战曲，其余（含精英，精英战曲属
+    // 第二批）共用普通战曲。交叉淡入 400ms 与「同曲不重启」都在
+    // `Audio.music` 里——连打两场普通战，曲子不重头。
+    const track = this.nodeType === 'boss' ? 'combat-boss' : 'combat';
+    // 首领进场 stinger（todo 步骤 7）：铜锣未至，先拿最重的那记闷响顶上，
+    // 落在战曲起拍之前。续档重开首领战也响——重新进场，仍是进场。
+    if (this.nodeType === 'boss') this.audio.play('hit-heavy', { volume: 1.2 });
+    this.audio.ensureMusic(track, this);
+    this.audio.music(track);
 
     // Two decisions, two streams. They used to share one seed, which meant the
     // encounter pick and the fight's own shuffle read the same numbers — adding
@@ -1178,6 +1193,7 @@ export class CombatScene extends Phaser.Scene {
     this.cardViews.delete(uid);
     view.destroy();
 
+    const energyBefore = this.state.energy;
     if (!playCard(this.state, uid, targetId)) {
       this.busy = false;
       this.syncHand();
@@ -1187,6 +1203,11 @@ export class CombatScene extends Phaser.Scene {
     // 埋点 (todos/22)：打出即记。没有对应的 CombatEvent 可数——引擎不为
     // 一次成功的 `playCard` 发事件——所以在唯一的调用点数返回值。
     this.run.stats.cardsPlayed += 1;
+    // 打出即声 (todos/20 b5)：按牌类型分刀/谋/势。和上面的埋点同理，
+    // 打出本身没有事件，音效也只能在唯一的调用点接。气真扣了才响
+    // energy-spend——0 费牌白喊一声「消耗」是谎报。
+    this.audio.play(cardPlaySfx(def.type));
+    if (this.state.energy < energyBefore) this.audio.play('energy-spend');
 
     if (def.type === 'attack') {
       await this.lunge(this.playerView, 1, 76, 110);
@@ -1403,6 +1424,18 @@ export class CombatScene extends Phaser.Scene {
           this.state.enemies.find((e) => e.id === ev.enemyId)?.name ?? this.lastEnemyMoveName;
       }
     }
+    // 抽牌音 (todos/20 b5)：本批第 n 张 detune n*60 递增（`drawCue`），
+    // 60ms 错峰——和 `syncHand` 发牌的 60ms 节奏一致，也让每声都落在 b3 的
+    // 40ms 限流窗之外，五连抽是五声上行而不是被吞剩一声。
+    if (!this.finished) {
+      let drawn = 0;
+      for (const ev of events) {
+        if (ev.t !== 'draw') continue;
+        const cue = drawCue(drawn);
+        this.time.delayedCall(drawn * 60, () => this.audio.play(cue.id, cue.opts));
+        drawn += 1;
+      }
+    }
     for (const ev of events) {
       if (this.finished && ev.t !== 'death') continue;
       await this.playEvent(ev);
@@ -1410,6 +1443,13 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private async playEvent(ev: CombatEvent): Promise<void> {
+    // 事件驱动音效 (todos/20 b5)：查 `sfxForEvent` 的表，在各自动画起手的
+    // 这一帧发声。两类例外：`damage` 在 `playDamage` 里播——它的响声必须
+    // 对齐 hitstop 那一帧，不是排水这一帧；`draw` 在 `playEvents` 里按批
+    // 内序号错峰。多段攻击（`hits: 3`）不叠爆音靠 b3 的 40ms 限流。
+    if (ev.t !== 'damage' && ev.t !== 'draw') {
+      for (const cue of sfxForEvent(ev)) this.audio.play(cue.id, cue.opts);
+    }
     switch (ev.t) {
       case 'damage':
         await this.playDamage(ev);
@@ -1819,8 +1859,10 @@ export class CombatScene extends Phaser.Scene {
 
     const at = this.torso(view);
 
-    // Fully absorbed: read as a parry, not a wound.
+    // Fully absorbed: read as a parry, not a wound. 只有甲声，没有闷响——
+    // `sfxForEvent` 对 amount 0 恰好只吐 block-break。
     if (ev.amount === 0 && ev.blocked > 0) {
+      for (const cue of sfxForEvent(ev)) this.audio.play(cue.id, cue.opts);
       shieldFlare(this, at.x, at.y, view.height * 0.36);
       burst(this, at.x, at.y, { color: 0x9fc4e0, count: 10, speed: 190, scale: 0.12 });
       popText(this, at.x, at.y - 20, `挡下 ${ev.blocked}`, { color: 0xdcefff, size: 26 });
@@ -1841,6 +1883,10 @@ export class CombatScene extends Phaser.Scene {
       count: heavy ? 24 : 15,
       speed: heavy ? 400 : 300,
     });
+    // 命中音落在 hitstop 开始的这一帧 (todos/20 b5)：`hitStop` 只缩放
+    // `tweens.timeScale`，同步 play 而不 await 后补，声音的 attack 才咬住
+    // 动画卡顿。三档闷响 + 甲裂声都从 `sfxForEvent` 的同一张表来。
+    for (const cue of sfxForEvent(ev)) this.audio.play(cue.id, cue.opts);
     hitStop(this, heavy ? 0.16 : 0.32, heavy ? 95 : 60);
     this.cameras.main.shake(heavy ? 200 : 110, heavy ? 0.007 : 0.0032);
     this.recoil(view, hitsPlayer ? 1 : -1);
@@ -2380,6 +2426,8 @@ export class CombatScene extends Phaser.Scene {
     const answer = (relicId: string | null): void => {
       if (answered) return;
       answered = true;
+      // 拿了宝物才有铃声——「不取 · 换取宝钥」的账在房间层，不在这儿响。
+      if (relicId) this.audio.play('relic-gain');
       takeBossRelic(this.run, this.nodeId, relicId);
       this.relicBar.setRelics(this.run.relics);
       this.tweens.add({
@@ -2454,6 +2502,9 @@ export class CombatScene extends Phaser.Scene {
     // have promised a named one. Its own stream again, and gated on the node so
     // a scene restart cannot pay it twice.
     const relic = claimVictoryRelic(this.run, this.nodeId, this.nodeType, this.bonusRelic);
+
+    // 战罢的进账各有各的声 (todos/20 b5)：资财一声，宝物（若掉了）另一声。
+    this.audio.play('gold-gain');
 
     const layer = this.add.container(0, 0).setDepth(DEPTH.overlay);
     layer.add(
@@ -2534,6 +2585,7 @@ export class CombatScene extends Phaser.Scene {
     y: number,
   ): void {
     if (relic.relicId) {
+      this.audio.play('relic-gain');
       const def = getRelic(relic.relicId);
       const bar = new RelicBar(this, {
         x: GAME_WIDTH / 2 - 14,
@@ -2677,6 +2729,9 @@ export class CombatScene extends Phaser.Scene {
    * `SummaryScene` 接手，死因取本场最后行动的敌人名。
    */
   private showDefeat(): void {
+    // 玩家死没有 death 事件（引擎只对敌人发，phase 直接落 'lost'），
+    // player-death 只能在这儿接 (todos/20 b5)。
+    this.audio.play('player-death');
     applyCombatResult(this.run, 0);
     // 存档 (todos/08): the run is over the moment 体力 hits zero. Cleared here
     // rather than on the way to 结算 so that closing the tab mid-fade ends the
