@@ -17,6 +17,7 @@ import {
   shouldStartLoad,
   shouldThrottle,
 } from '../src/audio/sfx';
+import { getSettings, SETTINGS_KEY, updateSettings } from '../src/state/settings';
 
 /**
  * 音频管理器 — todos/20 b3 的纯函数层与 `Audio` 类。
@@ -326,7 +327,7 @@ describe('音量账的 localStorage 往返', () => {
     expect(() => saveAudioSettings(defaultAudioSettings())).not.toThrow();
   });
 
-  it('写了能读回来，且只写自己的键', () => {
+  it('写了能读回来，落的是 21 设置的总账——旧键退役不再写入', () => {
     const fake = withStorage();
     saveAudioSettings({ version: AUDIO_SETTINGS_VERSION, music: 0.3, sfx: 0.7 });
     expect(getAudioSettings()).toEqual({
@@ -335,7 +336,8 @@ describe('音量账的 localStorage 往返', () => {
       sfx: 0.7,
     });
     expect(fake.length).toBe(1);
-    expect(fake.getItem(AUDIO_SETTINGS_KEY)).not.toBeNull();
+    expect(fake.getItem(SETTINGS_KEY)).not.toBeNull();
+    expect(fake.getItem(AUDIO_SETTINGS_KEY)).toBeNull();
   });
 
   it('敌意存储（读写皆炸）——默认值照给，写入不炸', () => {
@@ -364,6 +366,37 @@ describe('音量账的 localStorage 往返', () => {
     const got = getAudioSettings();
     expect(got.music).toBe(1);
     expect(got.sfx).toBe(defaultAudioSettings().sfx);
+  });
+});
+
+describe('与 21 设置总账的统一（todos/21 t1）', () => {
+  it('updateSettings 改音量——在播的曲子立刻跟上，不必绕 setMusicVolume', () => {
+    withStorage();
+    const { game, audio } = makeAudio();
+    game.keys.add('map');
+    audio.music('map', 0);
+    updateSettings({ musicVolume: 0.35, sfxVolume: 0.15 });
+    expect(game.added[0].volume).toBeCloseTo(0.35);
+    expect(audio.musicVolume).toBeCloseTo(0.35);
+    expect(audio.sfxVolume).toBeCloseTo(0.15);
+  });
+
+  it('setMusicVolume 反向落进总账——两边永远同一本账', () => {
+    withStorage();
+    const { audio } = makeAudio();
+    audio.setMusicVolume(0.25);
+    expect(getSettings().musicVolume).toBeCloseTo(0.25);
+  });
+
+  it('总账缺席时构造 Audio 迁移旧音量账——老玩家的音量不丢', () => {
+    const fake = withStorage();
+    fake.setItem(
+      AUDIO_SETTINGS_KEY,
+      JSON.stringify({ version: AUDIO_SETTINGS_VERSION, music: 0.2, sfx: 0.9 }),
+    );
+    const { audio } = makeAudio();
+    expect(audio.musicVolume).toBeCloseTo(0.2);
+    expect(audio.sfxVolume).toBeCloseTo(0.9);
   });
 });
 

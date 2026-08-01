@@ -10,7 +10,7 @@ import {
 } from '../src/ui/titleView';
 
 /**
- * 标题页六入口 (todos/23 u6) 的排版层。`TitleScene.ts` imports Phaser,
+ * 标题页七入口 (todos/23 u6 + 21 t6) 的排版层。`TitleScene.ts` imports Phaser,
  * Node 下装不进来——所以谁出场、摆在哪全在 `titleView.ts` 里算、在这里钉;
  * 场景的接线按 `historyView.test.ts` 的技法查源文。
  */
@@ -28,8 +28,14 @@ const COMBOS = SLOTS.flatMap((slot) => [false, true].map((pending) => ({ slot, p
 // ------------------------------------------------------------------- 名册
 
 describe('title action roster', () => {
-  it('opens the plain slate with 出征 and the three standing entries', () => {
-    expect(titleActionIds('empty', false)).toEqual(['begin', 'compendium', 'annals', 'custom']);
+  it('opens the plain slate with 出征 and the four standing entries', () => {
+    expect(titleActionIds('empty', false)).toEqual([
+      'begin',
+      'compendium',
+      'annals',
+      'custom',
+      'settings',
+    ]);
   });
 
   it('promotes 继续 over a live save, with 重新出征 beside it', () => {
@@ -39,6 +45,7 @@ describe('title action roster', () => {
       'compendium',
       'annals',
       'custom',
+      'settings',
     ]);
   });
 
@@ -50,6 +57,7 @@ describe('title action roster', () => {
         'compendium',
         'annals',
         'custom',
+        'settings',
       ]);
     }
   });
@@ -131,14 +139,21 @@ describe('hero lock reasons', () => {
 
 // ------------------------------------------------------------------- 接线
 
-describe('the six entries are wired into the title screen', () => {
+describe('the seven entries are wired into the title screen', () => {
   const title = read('src/scenes/TitleScene.ts');
 
   it('lays the row out through the pure function, labels in the scene', () => {
     expect(title).toContain('layoutTitleActions(this.slot.kind, pending !== null)');
-    for (const label of ['典 籍', '战 史', '自 定 义', '新 卷 可 阅']) {
+    for (const label of ['典 籍', '战 史', '自 定 义', '设 置', '新 卷 可 阅']) {
       expect(title).toContain(label);
     }
+  });
+
+  it('opens 设置 from a guarded handler, onto the shared panel (21 t6)', () => {
+    const body = title.slice(title.indexOf('private showSettings(): void'));
+    const handler = body.slice(0, body.indexOf('\n  }'));
+    expect(handler).toContain('if (this.leaving || isCardGridOpen(this)) return');
+    expect(handler).toContain('openSettings(this)');
   });
 
   it('opens 典籍 and 自定义 from guarded handlers, u4/u5 的约定', () => {

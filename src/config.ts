@@ -8,6 +8,49 @@ export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 
 /**
+ * 「渲染倍率」设置项的取值 (todos/21 t4)。与 `src/state/settings.ts` 的
+ * `Settings['renderScale']` 同构——那边才是整本设置的事实源，这里只认得
+ * 自己要用的这一格。
+ */
+export type RenderScaleSetting = 'auto' | 1 | 2 | 3;
+
+/**
+ * 设置账在 localStorage 里的键。字面量与 `src/state/settings.ts` 的
+ * `SETTINGS_KEY` **刻意重复**：本文件在模块加载期跑、又被 theme/场景成片
+ * import，若 import settings.ts 就把依赖箭头钉死成 config→settings，将来
+ * settings 层想引这里的调色板即成环。两处字面量的同步由
+ * `tests/renderScale.test.ts` 盯着。
+ */
+const SETTINGS_STORAGE_KEY = 'sangota.settings.v1';
+
+/**
+ * 从设置账的原始 JSON 里解析 renderScale 一格。纯函数，给测试直接喂串：
+ * 账不存在 / 坏 JSON / 缺字段 / 枚举外的值（字符串数字、0、4、2.5）一律
+ * 落回 'auto'——解析失败不该把 Retina 用户按在 1× 的模糊里。
+ */
+export function parseRenderScale(raw: string | null): RenderScaleSetting {
+  if (!raw) return 'auto';
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return 'auto';
+  }
+  if (typeof parsed !== 'object' || parsed === null) return 'auto';
+  const v = (parsed as Record<string, unknown>).renderScale;
+  return v === 1 || v === 2 || v === 3 ? v : 'auto';
+}
+
+/** 现读设置账。存储缺席或敌意（访问即抛）与「没设过」同判：'auto'。 */
+const storedRenderScale = (): RenderScaleSetting => {
+  try {
+    return parseRenderScale(globalThis.localStorage?.getItem(SETTINGS_STORAGE_KEY) ?? null);
+  } catch {
+    return 'auto';
+  }
+};
+
+/**
  * Physical pixels per design pixel.
  *
  * Phaser 3 has no HiDPI mode: it renders into a backing store the size of the
@@ -19,9 +62,16 @@ export const GAME_HEIGHT = 720;
  *
  * Computed once at boot. Enlarging the window afterwards falls back to Phaser's
  * FIT scaling, so it softens gradually rather than re-laying out mid-run.
+ *
+ * todos/21 t4：设置里的「渲染倍率」在 auto 之外开一条旁路——1/2/3 直接用，
+ * 'auto' 走下面原有的 dpr×fit 逻辑（Retina 的锐利全靠它，**不动**）。设置
+ * 改完只能重载生效：本值钉死 CANVAS_WIDTH/RENDER_SCALE，全项目按它烘焙
+ * 纹理，面板侧的职责是提示「重载后生效」。
  */
 const rawScale = ((): number => {
   if (typeof window === 'undefined') return 1;
+  const pick = storedRenderScale();
+  if (pick !== 'auto') return pick;
   const dpr = window.devicePixelRatio || 1;
   const fit = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
   // Floor of 1 keeps small windows legible; ceiling of 3 bounds texture memory.

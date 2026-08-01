@@ -10,9 +10,10 @@ import { HERO_UNLOCKS } from '../data/unlockTracks';
  */
 
 /**
- * 六入口的名册:「继续」`resume` 与「出征」`begin` 互斥(有可续存档才是
+ * 七入口的名册:「继续」`resume` 与「出征」`begin` 互斥(有可续存档才是
  * 「继续」),「重新出征」`again` / 「清除存档」`wipe` 跟着存档状态走,
- * 「典籍」`compendium` / 「战史」`annals` / 「自定义」`custom` 常驻,
+ * 「典籍」`compendium` / 「战史」`annals` / 「自定义」`custom` /
+ * 「设置」`settings` 常驻(设置是 23 归档时欠下、21 t6 补上的第七入口),
  * 「新卷可阅」`scroll` 只在三选一还挂着账时出现。
  */
 export type TitleActionId =
@@ -23,6 +24,7 @@ export type TitleActionId =
   | 'compendium'
   | 'annals'
   | 'custom'
+  | 'settings'
   | 'scroll';
 
 /** `SaveSlot['kind']` 的镜像——纯排版层不 import `save.ts` 的 Phaser 邻居。 */
@@ -54,15 +56,16 @@ export function titleActionIds(slot: TitleSlotKind, pending: boolean): TitleActi
   const ids: TitleActionId[] = [slot === 'ok' ? 'resume' : 'begin'];
   if (slot === 'ok') ids.push('again');
   if (slot === 'stale' || slot === 'broken') ids.push('wipe');
-  ids.push('compendium', 'annals', 'custom');
+  ids.push('compendium', 'annals', 'custom', 'settings');
   if (pending) ids.push('scroll');
   return ids;
 }
 
 /**
- * 六入口的横排几何。主位大按钮在左,副排从它右侧铺开——存档行按钮或
+ * 七入口的横排几何。主位大按钮在左,副排从它右侧铺开——存档行按钮或
  * 「新卷可阅」挤进来就收紧一档(旧版 crowded 的同款取舍);副排到五枚时
- * 再窄一码,右缘让开天命选择器(`ASC_PANEL_LEFT`)。
+ * 再窄一码;「设置」(21 t6) 落地后满编六枚,再挤一档,右缘仍要让开
+ * 天命选择器(`ASC_PANEL_LEFT`)。
  */
 export function layoutTitleActions(slot: TitleSlotKind, pending: boolean): TitleActionFrame[] {
   const [primary, ...rest] = titleActionIds(slot, pending);
@@ -80,7 +83,7 @@ export function layoutTitleActions(slot: TitleSlotKind, pending: boolean): Title
   ];
 
   const crowded = slot !== 'empty' || pending;
-  const width = rest.length >= 5 ? 132 : 152;
+  const width = rest.length >= 6 ? 108 : rest.length >= 5 ? 132 : 152;
   const startX = crowded ? 452 : LEFT + 358;
   const step = width + 12;
   for (const [i, id] of rest.entries()) {
@@ -90,7 +93,7 @@ export function layoutTitleActions(slot: TitleSlotKind, pending: boolean): Title
       y: crowded ? 646 : 658,
       width,
       height: crowded ? 50 : 52,
-      fontSize: rest.length >= 5 ? 18 : 20,
+      fontSize: rest.length >= 6 ? 16 : rest.length >= 5 ? 18 : 20,
       delay: 980 + i * 40,
     });
   }

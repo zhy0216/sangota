@@ -19,8 +19,9 @@ import {
 import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
 import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
+import { openSettings } from '../ui/SettingsPanel';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
-import { bodyStyle, brushStyle, circleMask, goldRing, gradientStrip, inkPanel } from '../ui/theme';
+import { bodyStyle, brushStyle, circleMask, goldRing, gradientStrip, inkButton, inkPanel } from '../ui/theme';
 import { enterRoom } from './nav';
 
 type NodeState = 'current' | 'available' | 'visited' | 'locked';
@@ -642,6 +643,17 @@ export class MapScene extends Phaser.Scene {
         .setLetterSpacing(2),
     );
 
+    // 设置入口 (todos/21 t6)：右上角齿轮小按钮，挂在幕况栏下缘；
+    // ui-click 音随 `inkButton` 工厂自带，Esc 空档时是同一扇门。
+    fixed(
+      inkButton(this, GAME_WIDTH - 46, 130, '⚙', {
+        width: 44,
+        height: 40,
+        fontSize: 22,
+        onClick: () => openSettings(this),
+      }),
+    );
+
     // --- Footer -----------------------------------------------------------
     this.hintText = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 44, '', bodyStyle(16, C.paperDim))
@@ -856,7 +868,14 @@ export class MapScene extends Phaser.Scene {
       if (!isCardGridOpen(this)) this.recenter();
     });
     this.input.keyboard?.on('keydown-ESC', () => {
-      if (!isCardGridOpen(this)) this.toggleDrawer(false);
+      // Esc 分层 (todos/21 t6)：最上层 overlay 先关——牌堆/设置开着时
+      // 覆盖层栈自己收顶层，这里整个让位；抽屉次之；都空了才开设置。
+      if (isCardGridOpen(this)) return;
+      if (this.drawerOpen) {
+        this.toggleDrawer(false);
+        return;
+      }
+      openSettings(this);
     });
   }
 

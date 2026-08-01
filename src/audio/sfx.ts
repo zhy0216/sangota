@@ -1,4 +1,11 @@
 import type Phaser from 'phaser';
+import {
+  DEFAULT_SETTINGS,
+  getSettings,
+  onSettingsChange,
+  updateSettings,
+  type Settings,
+} from '../state/settings';
 
 /**
  * 音频管理器 (todos/20 b3) — 音效与音乐的唯一出口。挂在 `game.registry` 上
@@ -58,6 +65,7 @@ export interface SfxOptions {
 
 // ------------------------------------------------------------------- 音量账本
 
+/** `Audio` 内部记账的形态——20 的旧字段名（music/sfx），免得类里全改名。 */
 export interface AudioSettings {
   version: number;
   /** 音乐音量 0..1。 */
@@ -66,28 +74,17 @@ export interface AudioSettings {
   sfx: number;
 }
 
-/** Bump on any change that makes an old payload unreadable — mismatch resets. */
+/** 旧账（`AUDIO_SETTINGS_KEY`）能读的最后一个版本——settings 的迁移按它对版。 */
 export const AUDIO_SETTINGS_VERSION = 1;
 
 /**
- * 第五把钥匙，与 08 的跑团档（`sangota.save.v1`）、22 的战史、19 的天命、
- * 23 的解锁并列，互不覆盖——清跑团档动不了音量，反之亦然。
- * 读档策略同 `ascension.ts`：读不到、读不懂、版本不合，一律回默认值。
+ * 曾是第五把钥匙，自 21 设置（todos/21 t1）起退役为**旧账**：音量的唯一
+ * 事实源移进 `src/state/settings.ts` 的总账（`sangota.settings.v1`），
+ * `getAudioSettings` / `saveAudioSettings` 只是它的适配层。本键仅在总账
+ * 缺席时被 settings 迁移读一次（老玩家的音量不丢），此后不再写入——
+ * 没有写入方，两本账打不起来。
  */
 export const AUDIO_SETTINGS_KEY = 'sangota.audio.v1';
-
-/**
- * Same guard as `save.ts` / `ascension.ts` / `unlocks.ts`: `localStorage` is
- * absent under Node and *throws on access* under some privacy settings, so it
- * is fetched per call, never cached. 没有存储时音量永远是默认值、写入无害空转。
- */
-function store(): Storage | null {
-  try {
-    return globalThis.localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
 
 /** 音量夹到 0..1；NaN/Infinity（损坏的账）落到 0——静音比爆音体面。 */
 export function clamp01(v: number): number {
@@ -95,50 +92,24 @@ export function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
 
-/** 默认音量。函数而非常量：设置对象不许两处共享。 */
+/** 默认音量——即 21 总账的默认音量，换回 20 的旧字段名。函数而非常量：不共享。 */
 export function defaultAudioSettings(): AudioSettings {
-  return { version: AUDIO_SETTINGS_VERSION, music: 0.8, sfx: 0.8 };
-}
-
-/** 读回音量账。读不到、读不懂、版本不合——一律默认值，见 `AUDIO_SETTINGS_KEY`。 */
-export function getAudioSettings(): AudioSettings {
-  const slot = store();
-  if (!slot) return defaultAudioSettings();
-
-  let raw: string | null = null;
-  try {
-    raw = slot.getItem(AUDIO_SETTINGS_KEY);
-  } catch {
-    return defaultAudioSettings();
-  }
-  if (!raw) return defaultAudioSettings();
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return defaultAudioSettings();
-  }
-  const stored = parsed as Partial<AudioSettings> | null;
-  if (stored?.version !== AUDIO_SETTINGS_VERSION) return defaultAudioSettings();
-  const fallback = defaultAudioSettings();
-  // 逐字段夹回 0..1：手改过的或半损坏的账不至于把混音器推出量程。
   return {
     version: AUDIO_SETTINGS_VERSION,
-    music: clamp01(typeof stored.music === 'number' ? stored.music : fallback.music),
-    sfx: clamp01(typeof stored.sfx === 'number' ? stored.sfx : fallback.sfx),
+    music: DEFAULT_SETTINGS.musicVolume,
+    sfx: DEFAULT_SETTINGS.sfxVolume,
   };
 }
 
-/** 写回。配额爆了或存储拒写——同 `recordRun`，不值得为一格音量打断游戏。 */
+/** 读音量——21 总账的适配层。夹取、兜底、旧账迁移全在 `settings.ts` 那边。 */
+export function getAudioSettings(): AudioSettings {
+  const s = getSettings();
+  return { version: AUDIO_SETTINGS_VERSION, music: s.musicVolume, sfx: s.sfxVolume };
+}
+
+/** 写音量——写进 21 总账。变更经 `onSettingsChange` 广播回每个听者。 */
 export function saveAudioSettings(settings: AudioSettings): void {
-  const slot = store();
-  if (!slot) return;
-  try {
-    slot.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // 空转，见上。
-  }
+  updateSettings({ musicVolume: settings.music, sfxVolume: settings.sfx });
 }
 
 // ------------------------------------------------------------------- 纯函数层
@@ -248,6 +219,10 @@ export class Audio {
     // 且假 game 一行 emit 就能测。只动 hidden 位，玩家手动静音原样保留。
     this.game.events.on('hidden', this.onHidden, this);
     this.game.events.on('visible', this.onVisible, this);
+    // 21 总账的跟读（todos/21 t1 的统一）：设置面板直接 `updateSettings`
+    // 改音量时混音器立刻跟上，不必绕 setMusicVolume。Audio 与 game 同生
+    // 共死（getAudio 全程只建一个），退订函数用不上。
+    onSettingsChange((s) => this.onSettingsChanged(s));
   }
 
   /** 当前音效音量（0..1），设置界面（todos/21）读它画滑条。 */
@@ -365,19 +340,33 @@ export class Audio {
   }
 
   setMusicVolume(v: number): void {
-    this.settings.music = clamp01(v);
+    this.applyMusicVolume(clamp01(v));
     saveAudioSettings(this.settings);
-    const current = this.currentMusic;
-    if (!current) return;
-    // 正在淡入就改它的目标，否则直接落到位——两条路都不打断播放。
-    const fade = this.fades.find((f) => f.sound === current && !f.stopWhenDone);
-    if (fade) fade.to = this.settings.music;
-    else current.setVolume(this.settings.music);
   }
 
   setSfxVolume(v: number): void {
     this.settings.sfx = clamp01(v);
     saveAudioSettings(this.settings);
+  }
+
+  /**
+   * 21 总账变了（设置面板或别的写入方喊了 `updateSettings`）——音量跟上。
+   * setXVolume 自己引发的广播也会走到这儿：值已相同，重放一遍是空转。
+   */
+  private onSettingsChanged(s: Settings): void {
+    this.settings.sfx = s.sfxVolume;
+    this.applyMusicVolume(s.musicVolume);
+  }
+
+  /** 记账并作用到在播的曲子上（落盘不在这儿——广播回路不许再写账）。 */
+  private applyMusicVolume(v: number): void {
+    this.settings.music = v;
+    const current = this.currentMusic;
+    if (!current) return;
+    // 正在淡入就改它的目标，否则直接落到位——两条路都不打断播放。
+    const fade = this.fades.find((f) => f.sound === current && !f.stopWhenDone);
+    if (fade) fade.to = v;
+    else current.setVolume(v);
   }
 
   /**

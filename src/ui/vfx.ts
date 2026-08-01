@@ -1,11 +1,16 @@
 import Phaser from 'phaser';
 import { C } from '../config';
 import { brushStyle } from './theme';
+import { dur, shakeIntensity, skipDecor } from './timing';
 
 /**
  * Reusable combat effects. Everything here is fire-and-forget: each helper
  * creates its own objects, tweens them, and destroys them on completion, so
  * callers never have to track handles.
+ *
+ * 动画速度 (todos/21 t2)：所有时长在**使用处**过 `dur()`——参数与默认值
+ * 保持原始毫秒，换算只发生一次。纯装饰的三件（尘土、水墨飞溅、屏幕洗色）
+ * 在 instant 挡整个跳过；伤害数字、护甲变化、死亡反馈永远保留。
  */
 
 export interface SlashOpts {
@@ -66,7 +71,7 @@ export function slash(scene: Phaser.Scene, x: number, y: number, opts: SlashOpts
       scaleX: 1.18,
       scaleY: 1,
       alpha: 0,
-      duration: duration + i * 60,
+      duration: dur(duration + i * 60),
       ease: 'Quad.easeOut',
       onComplete: () => g.destroy(),
     });
@@ -86,31 +91,32 @@ export function burst(
     angle: { min: 0, max: 360 },
     scale: { start: scale, end: 0 },
     alpha: { start: 0.95, end: 0 },
-    lifespan: { min: 240, max: 430 },
+    lifespan: { min: dur(240), max: dur(430) },
     blendMode: Phaser.BlendModes.ADD,
     tint: color,
     emitting: false,
   });
   emitter.setDepth(depth);
   emitter.explode(count);
-  scene.time.delayedCall(700, () => emitter.destroy());
+  scene.time.delayedCall(dur(700), () => emitter.destroy());
 }
 
-/** Low, slow, gravity-bound puff for footfalls and landings. */
+/** Low, slow, gravity-bound puff for footfalls and landings. 纯装饰。 */
 export function dust(scene: Phaser.Scene, x: number, y: number, dir = 1, depth = 15): void {
+  if (skipDecor()) return;
   const emitter = scene.add.particles(x, y, 'glow', {
     speedX: { min: -60 * dir, max: -170 * dir },
     speedY: { min: -50, max: -8 },
     gravityY: 130,
     scale: { start: 0.2, end: 0.42 },
     alpha: { start: 0.34, end: 0 },
-    lifespan: { min: 320, max: 560 },
+    lifespan: { min: dur(320), max: dur(560) },
     tint: 0x9d8f78,
     emitting: false,
   });
   emitter.setDepth(depth);
   emitter.explode(9);
-  scene.time.delayedCall(800, () => emitter.destroy());
+  scene.time.delayedCall(dur(800), () => emitter.destroy());
 }
 
 /** Expanding double ring, for gaining block. */
@@ -130,15 +136,19 @@ export function shieldFlare(
       targets: g,
       scale: 1.25 + i * 0.12,
       alpha: 0,
-      duration: 420 + i * 90,
+      duration: dur(420 + i * 90),
       ease: 'Cubic.easeOut',
       onComplete: () => g.destroy(),
     });
   }
 }
 
-/** Spreading ink blot, used when something dies. */
+/**
+ * Spreading ink blot, used when something dies. 纯装饰——死亡反馈本体是
+ * `playDeath` 的倾倒溶解，墨点在 instant 挡可以整个不画。
+ */
 export function inkSplash(scene: Phaser.Scene, x: number, y: number, depth = 12): void {
+  if (skipDecor()) return;
   const g = scene.add.graphics({ x, y }).setDepth(depth);
   const rng = () => Math.random();
   const points: Phaser.Math.Vector2[] = [];
@@ -155,7 +165,7 @@ export function inkSplash(scene: Phaser.Scene, x: number, y: number, depth = 12)
     targets: g,
     scale: 1.5,
     alpha: 0,
-    duration: 720,
+    duration: dur(720),
     ease: 'Cubic.easeOut',
     onComplete: () => g.destroy(),
   });
@@ -166,25 +176,37 @@ export function inkSplash(scene: Phaser.Scene, x: number, y: number, depth = 12)
     gravityY: 320,
     scale: { start: 0.18, end: 0 },
     alpha: { start: 0.8, end: 0 },
-    lifespan: { min: 380, max: 700 },
+    lifespan: { min: dur(380), max: dur(700) },
     tint: 0x2b241d,
     emitting: false,
   });
   emitter.setDepth(depth + 1);
   emitter.explode(18);
-  scene.time.delayedCall(900, () => emitter.destroy());
+  scene.time.delayedCall(dur(900), () => emitter.destroy());
 }
 
 /**
  * Brief slow-motion on impact. Only the tween clock is scaled — the scene time
  * clock drives the animation `await`s, so slowing that too would stretch the
- * whole sequence instead of punctuating it.
+ * whole sequence instead of punctuating it. 冻结时长同样过 `dur()`：快速挡
+ * 的顿帧跟着整体节奏缩短，缩放的轴（timeScale）不变。
  */
 export function hitStop(scene: Phaser.Scene, factor = 0.22, ms = 70): void {
   scene.tweens.timeScale = factor;
-  scene.time.delayedCall(ms, () => {
+  scene.time.delayedCall(dur(ms), () => {
     scene.tweens.timeScale = 1;
   });
+}
+
+/**
+ * 屏幕震动的唯一出口 (todos/21 t2)。挡位换算在 `shakeIntensity`：off 整个
+ * 不摇（关掉后完全无震动——背景带 6% 出血，不摇也不露边，见 README），
+ * reduced 强度减半，时长照过 `dur()`。
+ */
+export function screenShake(scene: Phaser.Scene, duration: number, intensity: number): void {
+  const strength = shakeIntensity(intensity);
+  if (strength === null) return;
+  scene.cameras.main.shake(dur(duration), strength);
 }
 
 type Poppable = Phaser.GameObjects.GameObject & { setScale(value: number): unknown };
@@ -197,7 +219,7 @@ type Poppable = Phaser.GameObjects.GameObject & { setScale(value: number): unkno
 export function pop(scene: Phaser.Scene, target: Poppable, scale = 1.25, duration = 120): void {
   scene.tweens.killTweensOf(target);
   target.setScale(1);
-  scene.tweens.add({ targets: target, scale, duration, yoyo: true, ease: 'Back.easeOut' });
+  scene.tweens.add({ targets: target, scale, duration: dur(duration), yoyo: true, ease: 'Back.easeOut' });
 }
 
 export interface PopTextOpts {
@@ -227,29 +249,29 @@ export function popText(
   scene.tweens.add({
     targets: label,
     scale: 1.18,
-    duration: 130,
+    duration: dur(130),
     ease: 'Back.easeOut',
     onComplete: () => {
-      scene.tweens.add({ targets: label, scale: 1, duration: 90 });
+      scene.tweens.add({ targets: label, scale: 1, duration: dur(90) });
     },
   });
   scene.tweens.add({
     targets: label,
     x: x + (Math.random() * 2 - 1) * spread,
     y: y - drift,
-    duration: 760,
+    duration: dur(760),
     ease: 'Quad.easeOut',
   });
   scene.tweens.add({
     targets: label,
     alpha: 0,
-    delay: 380,
-    duration: 380,
+    delay: dur(380),
+    duration: dur(380),
     onComplete: () => label.destroy(),
   });
 }
 
-/** Full-screen colour wash, for taking a hit or a passive firing. */
+/** Full-screen colour wash, for taking a hit or a passive firing. 纯装饰。 */
 export function screenPulse(
   scene: Phaser.Scene,
   width: number,
@@ -258,6 +280,7 @@ export function screenPulse(
   strength = 0.3,
   duration = 420,
 ): void {
+  if (skipDecor()) return;
   const rect = scene.add
     .rectangle(width / 2, height / 2, width, height, color, strength)
     .setDepth(150)
@@ -265,7 +288,7 @@ export function screenPulse(
   scene.tweens.add({
     targets: rect,
     alpha: 0,
-    duration,
+    duration: dur(duration),
     ease: 'Quad.easeOut',
     onComplete: () => rect.destroy(),
   });
@@ -308,7 +331,7 @@ export function turnBanner(
       targets: band,
       x: width / 2,
       alpha: 1,
-      duration: 220,
+      duration: dur(220),
       ease: 'Cubic.easeOut',
       onComplete: () => {
         // Resolve at the top of the hold, not after the exit sweep: callers
@@ -318,8 +341,8 @@ export function turnBanner(
           targets: band,
           x: width * 1.35,
           alpha: 0,
-          delay: 170,
-          duration: 250,
+          delay: dur(170),
+          duration: dur(250),
           ease: 'Cubic.easeIn',
           onComplete: () => band.destroy(true),
         });

@@ -19,6 +19,7 @@ import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { openHistory } from '../ui/HistoryPanel';
 import { pushOverlay } from '../ui/overlayStack';
+import { openSettings } from '../ui/SettingsPanel';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
 import { heroLockReason, layoutTitleActions, type TitleActionId } from '../ui/titleView';
 
@@ -203,8 +204,8 @@ export class TitleScene extends Phaser.Scene {
     const resumable = this.slot.kind === 'ok';
     const pending = getUnlocks().pendingChoice;
 
-    // 六入口 (todos/23 u6)：谁出场、摆在哪全由 `layoutTitleActions` 这只
-    // 纯函数定（`titleView.ts`，测试钉住）；这里只按名册配标签、配色和
+    // 七入口 (todos/23 u6 + 21 t6)：谁出场、摆在哪全由 `layoutTitleActions`
+    // 这只纯函数定（`titleView.ts`，测试钉住）；这里只按名册配标签、配色和
     // 点法。「新卷可阅」(u5) 仍是三选一挂账时才出现，金字压阵——它是
     // 上一局挣来的赏，不是又一个菜单项。
     const meta: Record<
@@ -216,6 +217,7 @@ export class TitleScene extends Phaser.Scene {
       compendium: { label: '典 籍', accent: C.jade, onClick: () => this.openCompendium() },
       annals: { label: '战 史', onClick: () => this.showHistory() },
       custom: { label: '自 定 义', onClick: () => this.openCustom() },
+      settings: { label: '设 置', onClick: () => this.showSettings() },
       scroll: { label: '新 卷 可 阅', accent: C.goldBright, onClick: () => this.openUnlockChoice() },
     };
 
@@ -682,6 +684,12 @@ export class TitleScene extends Phaser.Scene {
   private showHistory(): void {
     if (this.leaving || isCardGridOpen(this)) return;
     openHistory(this);
+  }
+
+  /** 设置 (todos/21 t6)：23 归档时欠下的第七入口，面板本体在 `SettingsPanel`。 */
+  private showSettings(): void {
+    if (this.leaving || isCardGridOpen(this)) return;
+    openSettings(this);
   }
 
   /** 典籍 (todos/23 u6)：图鉴的入口。u4 的约定——只认 `scene.start('Compendium')`。 */

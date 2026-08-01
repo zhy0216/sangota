@@ -63,9 +63,17 @@ import { stageChange, type StageChange } from '../ui/enemyStage';
 import { drawGlyph, intentBadge, intentKey, markColor, markGlyph } from '../ui/intentIcons';
 import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
+import { openSettings } from '../ui/SettingsPanel';
+import {
+  AUTO_END_DELAY_MS,
+  needsEndTurnConfirm,
+  needsPlayConfirm,
+  shouldAutoEndTurn,
+} from '../ui/confirm';
 import { contentWidthAt, groundSprite } from '../ui/spriteBounds';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, inkButton, inkPanel, paintInkPanel } from '../ui/theme';
+import { dur } from '../ui/timing';
 import {
   burst,
   dust,
@@ -74,6 +82,7 @@ import {
   pop,
   popText,
   screenPulse,
+  screenShake,
   shieldFlare,
   slash,
   turnBanner,
@@ -253,6 +262,16 @@ export class CombatScene extends Phaser.Scene {
   private exhaustPile!: PileCounter;
   private deckCount!: Phaser.GameObjects.Text;
   private endTurnBtn!: Phaser.GameObjects.Container;
+  /**
+   * 结束回合的确认气泡 (todos/21 t3)，非空即在屏上。轻量非模态：场上一切
+   * 照常可点，「点别处取消」由 create 里的 pointerdown / keydown-ESC 接。
+   */
+  private endTurnConfirm: Phaser.GameObjects.Container | null = null;
+  /**
+   * 自动结束回合的定时器 (todos/21 t3)，非空即在倒数。玩家的任何操作——
+   * 点卡、点敌人、用丹药、自己按 E——都先 `cancelAutoEnd` 把它掐掉。
+   */
+  private autoEndTimer: Phaser.Time.TimerEvent | null = null;
   private arrow!: Phaser.GameObjects.Graphics;
   private energyOrb!: Phaser.GameObjects.Container;
   private lastEnergy = 0;
@@ -306,6 +325,10 @@ export class CombatScene extends Phaser.Scene {
     this.statusTipText = null;
     this.currentAttacker = null;
     this.lastEnemyMoveName = null;
+    // 气泡和定时器的 Game Object / TimerEvent 本体随 shutdown 一起销毁，
+    // 这里只把手上的引用放掉——同 statusTip 三件套的理由。
+    this.endTurnConfirm = null;
+    this.autoEndTimer = null;
     this.lastEnergy = 0;
     this.comboBadge = null;
     this.comboText = null;
@@ -386,17 +409,43 @@ export class CombatScene extends Phaser.Scene {
     // A card grid owns the input while it is up: Game Objects under it are
     // frozen, but scene-level pointer and key handlers still fire.
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, targets: unknown[]) => {
+      // 确认气泡 (todos/21 t3)：点别处即取消。气泡本体除外——它自己的
+      // zone 就是「确认」；结束回合按钮也除外——那一下会走 onEndTurn，
+      // 由它把气泡当确认收掉，这里先收就成了「按钮永远确认不了」。
+      if (this.endTurnConfirm) {
+        const spared = targets.some(
+          (t) =>
+            this.endTurnConfirm!.exists(t as Phaser.GameObjects.GameObject) ||
+            this.endTurnBtn.exists(t as Phaser.GameObjects.GameObject),
+        );
+        if (!spared) this.dismissEndTurnConfirm();
+      }
       // Clicking empty ground cancels targeting.
       if (targets.length === 0 && !isCardGridOpen(this)) this.clearSelection();
     });
     this.input.keyboard?.on('keydown-ESC', () => {
-      if (!isCardGridOpen(this)) this.clearSelection();
+      // Esc 分层 (t3/t6)：最上层 overlay 先关——牌堆/设置开着时覆盖层栈
+      // 自己收顶层，这里整个让位（isCardGridOpen 即 isOverlayOpen）。
+      if (isCardGridOpen(this)) return;
+      // 再收确认气泡 (t3)，这一按就只干这一件事——和「选敌中按 Esc
+      // 只取消选敌」同一个分层逻辑。
+      if (this.endTurnConfirm) {
+        this.dismissEndTurnConfirm();
+        return;
+      }
+      // 选敌/拖拽态只取消，不开设置 (t6 验收)。
+      if (this.selectedUid !== null || this.selectedPotion !== null) {
+        this.clearSelection();
+        return;
+      }
+      // 都空了才轮到设置——t6 只加的这一层。
+      openSettings(this);
     });
     this.input.keyboard?.on('keydown-E', () => {
       if (!isCardGridOpen(this)) void this.onEndTurn();
     });
 
-    this.cameras.main.fadeIn(340, 8, 6, 4);
+    this.cameras.main.fadeIn(dur(340), 8, 6, 4);
     this.syncHand();
     this.refresh();
 
@@ -500,6 +549,7 @@ export class CombatScene extends Phaser.Scene {
 
     // Idle breath: scaleY on an origin-(0.5, 1) sprite keeps the feet planted.
     // Randomised timing so a row of enemies doesn't pulse in lockstep.
+    // 环境循环故意不过 dur()——呼吸不占战斗节奏，加速只会像喘（timing.ts 文件头）。
     const baseScaleY = sprite.scaleY;
     this.tweens.add({
       targets: sprite,
@@ -786,6 +836,17 @@ export class CombatScene extends Phaser.Scene {
 
     fixed(this.makeDeckButton(28, 76));
 
+    // 设置入口 (todos/21 t6)：右上角齿轮小按钮，ui-click 音随 `inkButton`
+    // 工厂自带；Esc 空档（无 overlay、无气泡、无选中）时是同一扇门。
+    fixed(
+      inkButton(this, GAME_WIDTH - 36, 40, '⚙', {
+        width: 44,
+        height: 40,
+        fontSize: 22,
+        onClick: () => openSettings(this),
+      }),
+    );
+
     this.endTurnBtn = inkButton(this, 1148, 556, '结束回合', {
       width: 186,
       height: 62,
@@ -887,7 +948,7 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({
       targets: counter.text,
       scale: 1.45,
-      duration: 120,
+      duration: dur(120),
       yoyo: true,
       ease: 'Back.easeOut',
     });
@@ -902,7 +963,7 @@ export class CombatScene extends Phaser.Scene {
     for (const [uid, view] of this.cardViews) {
       if (this.state.hand.includes(uid)) continue;
       this.cardViews.delete(uid);
-      const delay = leaving++ * 45;
+      const delay = dur(leaving++ * 45);
       view.hitZone.disableInteractive();
       this.tweens.add({
         targets: view,
@@ -912,7 +973,7 @@ export class CombatScene extends Phaser.Scene {
         scale: 0.34,
         alpha: 0,
         delay,
-        duration: 320,
+        duration: dur(320),
         ease: 'Cubic.easeIn',
         onComplete: () => view.destroy(),
       });
@@ -970,8 +1031,8 @@ export class CombatScene extends Phaser.Scene {
         angle,
         alpha: 1,
         scale: 1,
-        delay,
-        duration: delay > 0 ? 330 : 260,
+        delay: dur(delay),
+        duration: dur(delay > 0 ? 330 : 260),
         ease: delay > 0 ? 'Back.easeOut' : 'Cubic.easeOut',
       });
     });
@@ -989,7 +1050,7 @@ export class CombatScene extends Phaser.Scene {
         y: HAND_Y - 78,
         angle: 0,
         scale: 1.18,
-        duration: 150,
+        duration: dur(150),
         ease: 'Back.easeOut',
       });
     } else {
@@ -1000,20 +1061,21 @@ export class CombatScene extends Phaser.Scene {
         y: view.homeY,
         angle: view.homeAngle,
         scale: 1,
-        duration: 160,
+        duration: dur(160),
         ease: 'Quad.easeOut',
       });
     }
   }
 
   private onCardClick(view: CardView): void {
+    this.cancelAutoEnd();
     if (this.busy || this.finished) return;
     if (!canPlay(this.state, view.uid)) {
       popText(this, view.x, view.y - 118, '气不足', { color: C.cinnabarBright, size: 22 });
       this.tweens.add({
         targets: this.energyOrb,
         scale: 1.16,
-        duration: 90,
+        duration: dur(90),
         yoyo: true,
         ease: 'Sine.easeOut',
       });
@@ -1026,6 +1088,19 @@ export class CombatScene extends Phaser.Scene {
       else this.select(view);
       return;
     }
+    // 打牌确认 (todos/21 t3)：非指向牌先高亮不结算，再点同一张才打出——
+    // rare 档只拦稀有牌。取消复用选目标那套线：点别处 / Esc 都会
+    // clearSelection。指向牌不走这里，「点敌人才结算」本身就是第二次点击。
+    if (needsPlayConfirm(view.def)) {
+      if (this.selectedUid !== view.uid) {
+        this.select(view);
+        return;
+      }
+      // 照 onEnemyClick 的收法手工放下选中，不走 clearSelection——那会把
+      // 牌往手位回收，跟 play 的上挥打架。
+      this.selectedUid = null;
+      view.setSelected(false);
+    }
     void this.play(view.uid);
   }
 
@@ -1036,6 +1111,7 @@ export class CombatScene extends Phaser.Scene {
    * there is one targeting interaction to learn rather than two.
    */
   private onPotionClick(slot: number, def: PotionDef): void {
+    this.cancelAutoEnd();
     if (this.busy || this.finished || this.state.phase !== 'player') return;
 
     if (def.target === 'enemy') {
@@ -1073,6 +1149,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private discardPotion(slot: number): void {
+    this.cancelAutoEnd();
     if (this.busy || this.finished) return;
     const id = removePotion(this.run, slot);
     if (!id) return;
@@ -1099,7 +1176,7 @@ export class CombatScene extends Phaser.Scene {
       y: HAND_Y - 78,
       angle: 0,
       scale: 1.18,
-      duration: 140,
+      duration: dur(140),
       ease: 'Back.easeOut',
     });
   }
@@ -1122,7 +1199,7 @@ export class CombatScene extends Phaser.Scene {
       y: view.homeY,
       angle: view.homeAngle,
       scale: 1,
-      duration: 160,
+      duration: dur(160),
       ease: 'Quad.easeOut',
     });
   }
@@ -1137,6 +1214,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private onEnemyClick(view: EnemyView): void {
+    this.cancelAutoEnd();
     if (this.busy || this.finished || !view.enemy.alive) return;
 
     if (this.selectedPotion !== null) {
@@ -1148,6 +1226,13 @@ export class CombatScene extends Phaser.Scene {
     }
 
     if (!this.selectedUid) return;
+    // 打牌确认 (todos/21 t3) 高亮中的非指向牌：点敌人是「别处」，取消而
+    // 不是打出——不然一张全体攻击会被当成打给了谁。
+    const selected = this.cardViews.get(this.selectedUid);
+    if (selected && selected.def.target !== 'enemy') {
+      this.clearSelection();
+      return;
+    }
     const uid = this.selectedUid;
     this.selectedUid = null;
     this.arrow.clear();
@@ -1169,15 +1254,15 @@ export class CombatScene extends Phaser.Scene {
       y: 300,
       angle: 0,
       scale: 1.12,
-      duration: 150,
+      duration: dur(150),
       ease: 'Back.easeOut',
     });
     this.tweens.add({
       targets: view,
       alpha: 0,
       scale: 0.86,
-      delay: 170,
-      duration: 150,
+      delay: dur(170),
+      duration: dur(150),
       ease: 'Quad.easeIn',
     });
     await this.wait(150);
@@ -1222,6 +1307,9 @@ export class CombatScene extends Phaser.Scene {
     // by then, and `autosave` steps aside for the screen that owns the payout.
     this.checkOutcome();
     this.autosave();
+    // 自动结束回合 (todos/21 t3) 只在这里挂：todo 钉的是「每次 playCard
+    // 结算完检查」——用丹药、开新回合都不代按。
+    this.scheduleAutoEnd();
   }
 
   /**
@@ -1270,15 +1358,15 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({
       targets: view.container,
       x: view.baseX + dir * distance,
-      duration: ms,
+      duration: dur(ms),
       ease: 'Quad.easeIn',
     });
     await this.wait(ms);
     this.tweens.add({
       targets: view.container,
       x: view.baseX,
-      delay: 90,
-      duration: 340,
+      delay: dur(90),
+      duration: dur(340),
       ease: 'Back.easeOut',
     });
   }
@@ -1306,7 +1394,7 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({
       targets: view.container,
       x: view.baseX,
-      duration: 240,
+      duration: dur(240),
       ease: 'Quad.easeOut',
     });
   }
@@ -1318,13 +1406,14 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({
       targets: view.sprite,
       x: view.spriteBaseX + dir * 16,
-      duration: 70,
+      duration: dur(70),
       yoyo: true,
       repeat: 1,
       ease: 'Sine.easeOut',
       onComplete: () => {
         view.sprite.x = view.spriteBaseX;
         // Restore the idle breath the kill above interrupted.
+        // （环境循环，故意不过 dur()——见 makeActorView。）
         this.tweens.add({
           targets: view.sprite,
           scaleY: view.baseScaleY * 1.016,
@@ -1365,14 +1454,26 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({
       targets: flash,
       alpha: 0,
-      duration: 170,
+      duration: dur(170),
       ease: 'Quad.easeOut',
       onComplete: () => flash.destroy(),
     });
   }
 
   private async onEndTurn(): Promise<void> {
+    this.cancelAutoEnd();
     if (this.busy || this.finished || this.state.phase !== 'player') return;
+    // 结束确认 (todos/21 t3)：气未用尽且手里还有可打的牌，先弹气泡等一句
+    // 准话；气泡已在，这一按——再按 E、点气泡、再点按钮——就是确认。
+    // 气为 0 或无可打牌不问，直接结束。自动结束也从这里过，但它触发的
+    // 前提就是无可打牌，撞不上气泡。
+    if (this.endTurnConfirm) {
+      this.dismissEndTurnConfirm();
+    } else if (needsEndTurnConfirm(this.state)) {
+      this.clearSelection();
+      this.showEndTurnConfirm();
+      return;
+    }
     this.clearSelection();
     this.busy = true;
 
@@ -1402,11 +1503,82 @@ export class CombatScene extends Phaser.Scene {
     this.autosave();
   }
 
+  // ------------------------------------------------- 确认与自动结束 (t3)
+
+  /**
+   * 结束确认的小气泡——inkPanel 一块、两行字、一个点击区，悬在结束回合
+   * 按钮上方。原版就是气泡不是模态框：不冻结任何东西，场上照常可点，
+   * 「点别处 / Esc 取消」在 create 的两个输入口接，「确认」有三条路——
+   * 再按 E、点气泡本体、再点结束回合按钮——全都汇进 onEndTurn。
+   */
+  private showEndTurnConfirm(): void {
+    const w = 236;
+    const h = 58;
+    const bubble = this.add.container(1148, 494).setDepth(DEPTH.float);
+    bubble.add(inkPanel(this, -w / 2, -h / 2, w, h, { border: C.goldBright }));
+    bubble.add(
+      this.add
+        .text(0, -10, `气还剩 ${this.state.energy} 点，结束回合？`, bodyStyle(15, C.paper))
+        .setOrigin(0.5),
+    );
+    bubble.add(
+      this.add.text(0, 11, '再按 E 或点此确认', bodyStyle(12, C.paperFaint)).setOrigin(0.5),
+    );
+    // Hit target on a Zone, same reason as `inkButton`: Containers have no
+    // Origin component to normalise their own hit area against.
+    const hit = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
+    hit.on('pointerdown', () => void this.onEndTurn());
+    bubble.add(hit);
+    bubble.setAlpha(0);
+    this.tweens.add({
+      targets: bubble,
+      alpha: 1,
+      y: 488,
+      duration: dur(120),
+      ease: 'Quad.easeOut',
+    });
+    this.endTurnConfirm = bubble;
+  }
+
+  /** 收气泡。确认与取消共用——先放引用再销毁，销毁路上没人再摸得到它。 */
+  private dismissEndTurnConfirm(): void {
+    const bubble = this.endTurnConfirm;
+    if (!bubble) return;
+    this.endTurnConfirm = null;
+    this.tweens.killTweensOf(bubble);
+    bubble.destroy();
+  }
+
+  /**
+   * 自动结束回合 (todos/21 t3)：`play` 的收尾问一次 `shouldAutoEndTurn`——
+   * 开着设置、轮到玩家、手里再无可打的牌——是则 700ms 后代按结束。定时器
+   * 攥在 `autoEndTimer` 里，玩家的任何操作都先 `cancelAutoEnd` 掐掉它：
+   * 想留一手用丹药的人不该被抢走回合。
+   */
+  private scheduleAutoEnd(): void {
+    this.cancelAutoEnd();
+    if (this.finished || !shouldAutoEndTurn(this.state)) return;
+    this.autoEndTimer = this.time.delayedCall(dur(AUTO_END_DELAY_MS), () => {
+      this.autoEndTimer = null;
+      void this.onEndTurn();
+    });
+  }
+
+  /** 掐掉倒数中的自动结束。没在倒数时无害空转——所有输入口都先过这里。 */
+  private cancelAutoEnd(): void {
+    this.autoEndTimer?.remove(false);
+    this.autoEndTimer = null;
+  }
+
   // -------------------------------------------------------------- animation
 
+  /**
+   * 动画速度 (todos/21 t2)：`dur()` 在这里换算一次，所有 `await this.wait(…)`
+   * 的调用点保持原始毫秒——传进来之前**不要**再包一层 `dur()`，会双重加速。
+   */
   private wait(ms: number): Promise<void> {
     return new Promise((resolve) => {
-      this.time.delayedCall(ms, resolve);
+      this.time.delayedCall(dur(ms), resolve);
     });
   }
 
@@ -1427,6 +1599,7 @@ export class CombatScene extends Phaser.Scene {
     // 抽牌音 (todos/20 b5)：本批第 n 张 detune n*60 递增（`drawCue`），
     // 60ms 错峰——和 `syncHand` 发牌的 60ms 节奏一致，也让每声都落在 b3 的
     // 40ms 限流窗之外，五连抽是五声上行而不是被吞剩一声。
+    // 这 60ms 故意不过 dur()：÷1.6 就掉进限流窗，快速挡五连抽只剩一声。
     if (!this.finished) {
       let drawn = 0;
       for (const ev of events) {
@@ -1526,14 +1699,14 @@ export class CombatScene extends Phaser.Scene {
           this.tweens.add({
             targets: view.container,
             x: view.baseX + 30,
-            duration: 170,
+            duration: dur(170),
             ease: 'Quad.easeOut',
           });
           this.tweens.add({
             targets: view.intent,
             scale: 1.3,
             alpha: 0,
-            duration: 240,
+            duration: dur(240),
             ease: 'Quad.easeOut',
           });
           popText(this, view.baseX, BASELINE_Y - view.height - 46, ev.label, {
@@ -1691,21 +1864,21 @@ export class CombatScene extends Phaser.Scene {
   /** Fade newborns up on the spot the roster just walked them to. */
   private async raise(born: EnemyView[]): Promise<void> {
     born.forEach((view, i) => {
-      const delay = i * 60;
+      const delay = dur(i * 60);
       this.time.delayedCall(delay, () => dust(this, view.container.x, BASELINE_Y + 2, 1));
       this.tweens.add({
         targets: view.container,
         alpha: 1,
         y: BASELINE_Y,
         delay,
-        duration: 180,
+        duration: dur(180),
         ease: 'Cubic.easeOut',
       });
       this.tweens.add({
         targets: [view.ui, view.nameText, view.intent],
         alpha: 1,
         delay,
-        duration: 180,
+        duration: dur(180),
       });
     });
     if (born.length > 0) await this.wait(180 + born.length * 60 + 120);
@@ -1725,7 +1898,7 @@ export class CombatScene extends Phaser.Scene {
       this.tweens.add({
         targets: summoner.container,
         x: summoner.baseX - 22,
-        duration: 110,
+        duration: dur(110),
         yoyo: true,
         ease: 'Quad.easeOut',
       });
@@ -1772,7 +1945,7 @@ export class CombatScene extends Phaser.Scene {
           targets: echo,
           x: parent.container.x + dir * 90,
           alpha: 0,
-          duration: 320,
+          duration: dur(320),
           ease: 'Quad.easeOut',
           onComplete: () => echo.destroy(),
         });
@@ -1783,13 +1956,13 @@ export class CombatScene extends Phaser.Scene {
         targets: parent.container,
         scaleX: 0.04,
         alpha: 0,
-        duration: 320,
+        duration: dur(320),
         ease: 'Quad.easeIn',
       });
       this.tweens.add({
         targets: [parent.ui, parent.nameText, parent.intent],
         alpha: 0,
-        duration: 220,
+        duration: dur(220),
       });
       await this.wait(320);
     }
@@ -1828,13 +2001,13 @@ export class CombatScene extends Phaser.Scene {
         x: GAME_WIDTH + 240,
         y: BASELINE_Y + 26,
         alpha: 0,
-        duration: 420,
+        duration: dur(420),
         ease: 'Quad.easeIn',
       });
       this.tweens.add({
         targets: [view.ui, view.nameText, view.intent],
         alpha: 0,
-        duration: 260,
+        duration: dur(260),
       });
       await this.wait(440);
     }
@@ -1866,7 +2039,7 @@ export class CombatScene extends Phaser.Scene {
       shieldFlare(this, at.x, at.y, view.height * 0.36);
       burst(this, at.x, at.y, { color: 0x9fc4e0, count: 10, speed: 190, scale: 0.12 });
       popText(this, at.x, at.y - 20, `挡下 ${ev.blocked}`, { color: 0xdcefff, size: 26 });
-      this.cameras.main.shake(90, 0.002);
+      screenShake(this, 90, 0.002);
       this.paintHpBars();
       await this.wait(180);
       return;
@@ -1888,7 +2061,7 @@ export class CombatScene extends Phaser.Scene {
     // 动画卡顿。三档闷响 + 甲裂声都从 `sfxForEvent` 的同一张表来。
     for (const cue of sfxForEvent(ev)) this.audio.play(cue.id, cue.opts);
     hitStop(this, heavy ? 0.16 : 0.32, heavy ? 95 : 60);
-    this.cameras.main.shake(heavy ? 200 : 110, heavy ? 0.007 : 0.0032);
+    screenShake(this, heavy ? 200 : 110, heavy ? 0.007 : 0.0032);
     this.recoil(view, hitsPlayer ? 1 : -1);
     this.flashHit(view);
 
@@ -1914,32 +2087,32 @@ export class CombatScene extends Phaser.Scene {
 
     view.hit.disableInteractive();
     this.tweens.killTweensOf(view.sprite);
-    this.tweens.add({ targets: view.intent, alpha: 0, duration: 180 });
+    this.tweens.add({ targets: view.intent, alpha: 0, duration: dur(180) });
 
     inkSplash(this, view.container.x, BASELINE_Y);
-    this.cameras.main.shake(200, 0.005);
+    screenShake(this, 200, 0.005);
 
     // Topple away from the player, then dissolve.
     this.tweens.add({
       targets: view.sprite,
       angle: 16,
       x: view.spriteBaseX + 34,
-      duration: 520,
+      duration: dur(520),
       ease: 'Quad.easeIn',
     });
     this.tweens.add({
       targets: view.container,
       alpha: 0,
       y: BASELINE_Y + 26,
-      duration: 520,
+      duration: dur(520),
       ease: 'Quad.easeIn',
     });
     this.tweens.add({
       targets: [view.bar, view.hpText, view.statusRow, view.blockBadge],
       alpha: 0,
-      duration: 320,
+      duration: dur(320),
     });
-    this.tweens.add({ targets: view.nameText, alpha: 0, duration: 320 });
+    this.tweens.add({ targets: view.nameText, alpha: 0, duration: dur(320) });
 
     await this.wait(420);
   }
@@ -1960,8 +2133,8 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({
       targets: view.ghost,
       value: newHp,
-      delay: 280,
-      duration: 440,
+      delay: dur(280),
+      duration: dur(440),
       ease: 'Quad.easeIn',
       onUpdate: () => this.paintHpBars(),
     });
@@ -1980,7 +2153,7 @@ export class CombatScene extends Phaser.Scene {
       this.tweens.add({
         targets: this.energyOrb,
         scale: 1.22,
-        duration: 110,
+        duration: dur(110),
         yoyo: true,
         ease: 'Back.easeOut',
       });
@@ -2279,12 +2452,13 @@ export class CombatScene extends Phaser.Scene {
       targets: view.intent,
       scale: 1,
       alpha: 1,
-      duration: 300,
+      duration: dur(300),
       ease: 'Back.easeOut',
       onComplete: () => {
         if (!lethal) return;
         // Only after the reveal has landed, or the two tweens would fight over
         // `scale` and the badge would settle at whatever size lost the race.
+        // （致死脉冲是环境循环，故意不过 dur()——见 timing.ts 文件头。）
         this.tweens.add({
           targets: view.intent,
           scale: 1.1,
@@ -2328,7 +2502,9 @@ export class CombatScene extends Phaser.Scene {
       from = this.potionBelt.slotAt(this.selectedPotion);
     } else if (this.selectedUid) {
       const view = this.cardViews.get(this.selectedUid);
-      if (view) from = { x: view.x, y: view.y - 100 };
+      // 打牌确认 (todos/21 t3) 高亮中的非指向牌不画瞄准线——它在等第二次
+      // 点击，不是在选目标。
+      if (view && view.def.target === 'enemy') from = { x: view.x, y: view.y - 100 };
     }
     if (!from) return;
 
@@ -2356,10 +2532,10 @@ export class CombatScene extends Phaser.Scene {
     if (this.finished) return;
     if (this.state.phase === 'won') {
       this.finished = true;
-      this.time.delayedCall(420, () => this.showVictory());
+      this.time.delayedCall(dur(420), () => this.showVictory());
     } else if (this.state.phase === 'lost') {
       this.finished = true;
-      this.time.delayedCall(420, () => this.showDefeat());
+      this.time.delayedCall(dur(420), () => this.showDefeat());
     }
   }
 
@@ -2433,7 +2609,7 @@ export class CombatScene extends Phaser.Scene {
       this.tweens.add({
         targets: layer,
         alpha: 0,
-        duration: 220,
+        duration: dur(220),
         onComplete: () => {
           layer.destroy(true);
           done();
@@ -2464,8 +2640,8 @@ export class CombatScene extends Phaser.Scene {
       const hit = this.add
         .zone(0, 0, spacing - 24, 260)
         .setInteractive({ useHandCursor: true });
-      hit.on('pointerover', () => this.tweens.add({ targets: card, scale: 1.04, duration: 140 }));
-      hit.on('pointerout', () => this.tweens.add({ targets: card, scale: 1, duration: 140 }));
+      hit.on('pointerover', () => this.tweens.add({ targets: card, scale: 1.04, duration: dur(140) }));
+      hit.on('pointerout', () => this.tweens.add({ targets: card, scale: 1, duration: dur(140) }));
       hit.on('pointerup', () => answer(relicId));
       card.add(hit);
       card.setDepth(DEPTH.overlay + 1);
@@ -2482,7 +2658,7 @@ export class CombatScene extends Phaser.Scene {
     layer.add(decline);
 
     layer.setAlpha(0);
-    this.tweens.add({ targets: layer, alpha: 1, duration: 320 });
+    this.tweens.add({ targets: layer, alpha: 1, duration: dur(320) });
   }
 
   private showSpoils(): void {
@@ -2539,10 +2715,10 @@ export class CombatScene extends Phaser.Scene {
       card.setPosition(x, 400);
       card.setDepth(DEPTH.overlay + 1);
       card.hitZone.on('pointerover', () =>
-        this.tweens.add({ targets: card, scale: 1.1, y: 386, duration: 140, ease: 'Back.easeOut' }),
+        this.tweens.add({ targets: card, scale: 1.1, y: 386, duration: dur(140), ease: 'Back.easeOut' }),
       );
       card.hitZone.on('pointerout', () =>
-        this.tweens.add({ targets: card, scale: 1, y: 400, duration: 140 }),
+        this.tweens.add({ targets: card, scale: 1, y: 400, duration: dur(140) }),
       );
       card.hitZone.on('pointerup', () => {
         this.claimReward(() => takeCardReward(this.run, this.nodeId, cardId));
@@ -2566,7 +2742,7 @@ export class CombatScene extends Phaser.Scene {
     layer.add(skip);
 
     layer.setAlpha(0);
-    this.tweens.add({ targets: layer, alpha: 1, duration: 320 });
+    this.tweens.add({ targets: layer, alpha: 1, duration: dur(320) });
   }
 
   // ------------------------------------------------------------- 宝物 drops
@@ -2739,7 +2915,7 @@ export class CombatScene extends Phaser.Scene {
     clearSave();
 
     const killedBy = this.lastEnemyMoveName ?? '乱军之中';
-    this.cameras.main.fadeOut(420, 8, 6, 4);
+    this.cameras.main.fadeOut(dur(420), 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
       this.scene.start('Summary', { victory: false, killedBy }),
     );
@@ -2758,7 +2934,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private leaveToMap(): void {
-    this.cameras.main.fadeOut(300, 8, 6, 4);
+    this.cameras.main.fadeOut(dur(300), 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
       returnToMap(this),
     );
