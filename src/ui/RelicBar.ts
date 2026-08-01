@@ -9,9 +9,10 @@ import { pop } from './vfx';
  * The 宝物 bar: every relic the run owns, in pickup order, with a hover panel
  * and a flash when one fires. Shared by the map and combat HUDs.
  *
- * Icons are drawn, not blitted. `RelicDef.art` names the texture real art will
- * eventually ship under; until it exists the emblem below stands in, and being
- * vector it stays crisp at any RENDER_SCALE.
+ * Every relic ships a painted icon under its `RelicDef.art` texture key
+ * (BootScene's `RELIC_KEYS`); the drawn emblem below covers a plate that
+ * fails to load and any relic added ahead of its art, and being vector it
+ * stays crisp at any RENDER_SCALE.
  */
 
 const TIER_COLOR: Record<RelicTier, number> = {

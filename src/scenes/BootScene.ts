@@ -31,14 +31,46 @@ const CARD_KEYS = [
   'tuzhen', 'luema', 'longdan', 'tingqiang', 'qitanpanshe',
   'kongyingji', 'sanjinsanchu', 'jiejiang', 'xueranzhengpao', 'yishenshidan',
   'danqijiuzhu', 'lizhanwujiang',
+  // 赵云 · 扩池 (todos/17 阶段四)
+  'lianhuanqiang', 'jici', 'duojian', 'qianghua', 'chenshi',
+  'yinqiang', 'hengsaoqianjun', 'longxiang', 'yanqixigu', 'huwei',
+  'changbanpo',
   // 诸葛亮
   'yuanrongnu', 'jushou', 'longzhongdui', 'jinnang', 'jiejianzhiji',
   'jiedongfeng', 'huoji', 'kongchengji', 'qixingdeng', 'muniuliuma',
   'wolongchushan', 'chushibiao', 'qiqinqizong',
+  // 诸葛亮 · 扩池 (todos/17 阶段四)
+  'youdi', 'shengdongjixi', 'miaosuan', 'fubing', 'jijiangfa',
+  'guanxing', 'huoshaobowang', 'jianbingzengzao', 'shenjimiaosuan', 'anjupingwulu',
+  'huoshaotengjia',
   // 诅咒与状态牌
   'tannian', 'jiushang', 'yixin', 'shemi', 'fanshi',
   'suming', 'fenying', 'chuangshang', 'xuanyun', 'nining',
-  'zui',
+  'zui', 'suye',
+] as const;
+
+/**
+ * 宝物与丹药图标，`RelicDef.art` / `PotionDef.art` 去掉 `relic-` / `potion-`
+ * 前缀后的键。与 `CARD_KEYS` 同一条纪律：显式列表而非从表派生——列了却没有
+ * 文件的键会走 loader 错误路径拿到 `?` 占位图，反而盖掉 `RelicBar` /
+ * `PotionBelt` 里更好的程序绘制兜底，所以图标落盘之后才进这张表。
+ */
+const RELIC_KEYS = [
+  'qinglongdao', 'yajiaoqiang', 'guanjin', 'buyi', 'shufajinguan',
+  'dujunlingqi', 'lianu', 'tiemian', 'huxinjing', 'xuanwujia',
+  'chuanguoyuxi', 'xingjuntu', 'xiaoshouling', 'lianhuanjia', 'jinchuangyao',
+  'xiandengdun', 'xuanjia', 'chitima', 'yaonang', 'qiuxianling',
+  'duduan', 'geban', 'jubaopen', 'xingshangfujie', 'yushan',
+  'mumaliu', 'huangshishu', 'tengjia', 'gudingdao', 'sunzibingfa',
+  'qixingdeng', 'fangtianhuaji', 'hufu', 'tongquetai', 'jiuxi',
+  'jiuhulu', 'hanshoutinghouyin', 'qinggangjian', 'liangyinjia', 'kongmingdeng',
+  'qimendunjia',
+] as const;
+const POTION_KEYS = [
+  'huoyouguan', 'tiejiasan', 'zhuangxingjiu', 'junqingmibao', 'jiejiasan',
+  'mihunsan', 'xumintang', 'hulangzhiyao', 'qingxinsan', 'tiejili',
+  'cuidujian', 'jinnang', 'queyuezhen', 'wushisan', 'mengdexinshu',
+  'huitiandan',
 ] as const;
 
 export class BootScene extends Phaser.Scene {
@@ -71,6 +103,12 @@ export class BootScene extends Phaser.Scene {
     }
     for (const key of CARD_KEYS) {
       this.load.image(`card-${key}`, `cards/${key}.jpg`);
+    }
+    for (const key of RELIC_KEYS) {
+      this.load.image(`relic-${key}`, `relics/${key}.png`);
+    }
+    for (const key of POTION_KEYS) {
+      this.load.image(`potion-${key}`, `potions/${key}.png`);
     }
     // 音效 (todos/20 b4)：25 个短音效全量进 boot——加起来远小于一张卡图，
     // 顺带被上面的进度条计入总进度。音乐大件不在此列：由 `Audio.ensureMusic`

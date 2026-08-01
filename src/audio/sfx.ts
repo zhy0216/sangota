@@ -48,11 +48,11 @@ export const SFX_IDS = [
 export type SfxId = (typeof SFX_IDS)[number];
 
 /**
- * 第一批音乐，4 首（b2 的产出清单）。todo 数据结构节里的第 5 首
- * `combat-elite` 属第二批（精英战曲），音源就位前不进类型——
- * 类型与文件名的一字不差比提前占位更值钱。
+ * 音乐，5 首——第一批 4 首（b2 的产出清单）加第二批补齐的精英战曲
+ * `combat-elite`（stable-audio-25 同一工艺，90s、双格式、响度对齐）。
+ * 类型与文件名一字不差的纪律不变：音源落盘，id 才进类型。
  */
-export type MusicId = 'title' | 'map' | 'combat' | 'combat-boss';
+export type MusicId = 'title' | 'map' | 'combat' | 'combat-elite' | 'combat-boss';
 
 export interface SfxOptions {
   /** 音量倍率，叠在全局音效音量上。 */

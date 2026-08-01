@@ -118,9 +118,9 @@ describe('MapScene 的地图曲与节点音（b6）', () => {
 describe('CombatScene 的战曲与首领 stinger（b6）', () => {
   const combat = read('CombatScene.ts');
 
-  it('首领用 combat-boss,其余(含精英)用 combat——精英战曲属第二批', () => {
+  it('首领/精英/普通三分战曲——精英战曲随第二批音源就位', () => {
     expect(combat).toContain(
-      "const track = this.nodeType === 'boss' ? 'combat-boss' : 'combat';",
+      "const track =\n      this.nodeType === 'boss' ? 'combat-boss'\n      : this.nodeType === 'elite' ? 'combat-elite'\n      : 'combat';",
     );
   });
 

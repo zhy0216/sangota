@@ -400,10 +400,13 @@ export class CombatScene extends Phaser.Scene {
     this.run = getRun();
     this.audio = getAudio(this);
 
-    // 场景音乐 (todos/20 b6)：首领有独立战曲，其余（含精英，精英战曲属
-    // 第二批）共用普通战曲。交叉淡入 400ms 与「同曲不重启」都在
+    // 场景音乐 (todos/20 b6)：首领与精英各有独立战曲（精英战曲随第二批
+    // 音源补齐），普通战共用一首。交叉淡入 400ms 与「同曲不重启」都在
     // `Audio.music` 里——连打两场普通战，曲子不重头。
-    const track = this.nodeType === 'boss' ? 'combat-boss' : 'combat';
+    const track =
+      this.nodeType === 'boss' ? 'combat-boss'
+      : this.nodeType === 'elite' ? 'combat-elite'
+      : 'combat';
     // 首领进场 stinger（todo 步骤 7）：铜锣未至，先拿最重的那记闷响顶上，
     // 落在战曲起拍之前。续档重开首领战也响——重新进场，仍是进场。
     if (this.nodeType === 'boss') this.audio.play('hit-heavy', { volume: 1.2 });

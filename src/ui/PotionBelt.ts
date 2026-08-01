@@ -9,9 +9,9 @@ import { pop } from './vfx';
  * player can always see how much room is left. Shared by the map and combat
  * HUDs, the same way `RelicBar` is.
  *
- * Flasks are drawn, not blitted. `PotionDef.art` names the texture real art
- * will eventually ship under; until it exists the vector flask stands in and
- * stays crisp at any RENDER_SCALE.
+ * Every potion ships a painted icon under its `PotionDef.art` texture key
+ * (BootScene's `POTION_KEYS`); the vector flask below covers one that fails
+ * to load or is added ahead of its art, and stays crisp at any RENDER_SCALE.
  */
 
 const RARITY_COLOR: Record<PotionRarity, number> = {

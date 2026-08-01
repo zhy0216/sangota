@@ -62,3 +62,29 @@ describe('音效素材清单', () => {
     expect(strays).toEqual([]);
   });
 });
+
+/** 音乐清单——`MusicId`（src/audio/sfx.ts）的 5 首，一样一字不差双格式。 */
+const MUSIC_IDS = ['title', 'map', 'combat', 'combat-elite', 'combat-boss'] as const;
+
+const MUSIC_FILES = Object.keys(
+  import.meta.glob('../public/assets/audio/music/*.{ogg,m4a}', { query: '?url' }),
+).map((path) => path.replace(/^.*\//, ''));
+
+describe('音乐素材清单', () => {
+  it('5 首音乐每首都有 ogg + m4a 双格式', () => {
+    const missing = MUSIC_IDS.flatMap((id) =>
+      (['ogg', 'm4a'] as const)
+        .map((ext) => `${id}.${ext}`)
+        .filter((name) => !MUSIC_FILES.includes(name)),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it('目录里没有清单之外的散文件', () => {
+    const known = new Set(
+      MUSIC_IDS.flatMap((id) => [`${id}.ogg`, `${id}.m4a`]),
+    );
+    const strays = MUSIC_FILES.filter((name) => !known.has(name));
+    expect(strays).toEqual([]);
+  });
+});
