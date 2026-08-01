@@ -32,7 +32,8 @@ import {
   shelf,
 } from '../src/rooms/shop';
 import type { ShopSlot } from '../src/rooms/types';
-import { addPotion, addRelic, startRun, type RunState } from '../src/state/run';
+import { SUYE_ID } from '../src/data/ascension';
+import { addCurse, addPotion, addRelic, startRun, type RunState } from '../src/state/run';
 
 /**
  * 商旅 — the room that turns 资财 from a score into a resource.
@@ -593,6 +594,23 @@ describe('弃卡', () => {
     expect(run.cardRemovalSurcharge).toBe(0);
   });
 
+  it('refuses 宿业 — removable: false 的牌不卖弃 (todos/19 a4)', () => {
+    const run = rich('removal-suye');
+    const id = shopNode(run);
+    const suye = addCurse(run, SUYE_ID);
+    const gold = run.gold;
+    const size = run.deck.length;
+
+    expect(buyRemoval(run, id, suye.uid)).toBe(false);
+    expect(run.deck.some((c) => c.uid === suye.uid)).toBe(true);
+    expect(run.deck).toHaveLength(size);
+    expect(run.gold).toBe(gold);
+    expect(run.cardRemovalSurcharge).toBe(0);
+    // 柜台照常开着：拒的是这张牌，不是这单生意——别的牌照弃。
+    expect(removalBlocked(run, id)).toBeNull();
+    expect(buyRemoval(run, id, run.deck.find((c) => c.uid !== suye.uid)!.uid)).toBe(true);
+  });
+
   it('refuses a uid that is not in the deck', () => {
     const run = rich('removal-ghost');
     const id = shopNode(run);
@@ -701,5 +719,40 @@ describe('库存内容', () => {
     );
     expect(Object.keys(POTIONS).length).toBeGreaterThanOrEqual(SHOP_POTION_COUNT);
     expect(COLORLESS_POOL.length).toBeGreaterThan(0);
+  });
+});
+
+describe('天命接线 (todos/19 a3) · shopPriceMult', () => {
+  it('价签乘 shopPriceMult 后四舍五入，货品与骰数一个不动 (R3)', () => {
+    // 十六重（后十级数据）商价 +10%。同 seed 两次进货：倍率乘在掷出的原价
+    // 上，所以货架逐格同货，只有价签变——随机流一格没挪。
+    const plain = rich('asc-price');
+    const plainStock = generateStock(plain, stream(plain, shopNode(plain), 'shop'));
+
+    const dear = rich('asc-price');
+    dear.mods = { ...dear.mods, shopPriceMult: 1.1 };
+    const rng = stream(dear, shopNode(dear), 'shop');
+    const dearStock = generateStock(dear, rng);
+    expect(rng.rolls).toBe(SHOP_DRAWS);
+
+    expect(dearStock.cards.map((o) => o.defId)).toEqual(plainStock.cards.map((o) => o.defId));
+    expect(dearStock.relics.map((o) => o.id)).toEqual(plainStock.relics.map((o) => o.id));
+    expect(dearStock.potions.map((o) => o.id)).toEqual(plainStock.potions.map((o) => o.id));
+
+    // 折扣槽减的是乘过的价：先乘后半价，和零重一个算法。
+    const pairs = [
+      ...plainStock.cards.map((o, i) => [o, dearStock.cards[i]] as const),
+      ...plainStock.relics.map((o, i) => [o, dearStock.relics[i]] as const),
+      ...plainStock.potions.map((o, i) => [o, dearStock.potions[i]] as const),
+    ];
+    let discounts = 0;
+    for (const [base, up] of pairs) {
+      expect(up.listPrice ?? up.price).toBe(Math.round((base.listPrice ?? base.price) * 1.1));
+      if (up.listPrice !== undefined) {
+        expect(up.price).toBe(discountedPrice(up.listPrice));
+        discounts += 1;
+      }
+    }
+    expect(discounts).toBe(1);
   });
 });

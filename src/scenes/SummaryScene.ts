@@ -368,9 +368,12 @@ export class SummaryScene extends Phaser.Scene {
     if (this.leaving) return;
     this.leaving = true;
     this.input.enabled = false;
-    const hero = getRun().hero;
+    const run = getRun();
+    const hero = run.hero;
+    // 天命 (todos/19 a5)：同一员主将按原重数再来——升重回选将界面自己选。
+    const ascension = run.ascension;
     endRun();
-    startRun(hero);
+    startRun(hero, undefined, ascension);
     markRunStart(this.game.getTime());
     this.cameras.main.fadeOut(420, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>

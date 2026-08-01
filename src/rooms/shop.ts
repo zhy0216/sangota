@@ -9,13 +9,14 @@ import {
 } from '../combat/rewards';
 import type { Rng } from '../core/rng';
 import {
-  MIN_DECK_SIZE,
   addCard,
   addGold,
   addPotion,
   addRelic,
   hasPotionSpace,
   hasRelic,
+  isRemovable,
+  removableCount,
   removeCard,
   type RunState,
 } from '../state/run';
@@ -153,7 +154,12 @@ export const isSold = (run: RunState, nodeId: string, slot: ShopSlot): boolean =
 
 // -------------------------------------------------------------------- 进货
 
-const priceIn = (rng: Rng, band: readonly [number, number]): number => rng.range(band[0], band[1]);
+/**
+ * 一次价格掷骰。天命 (todos/19 a3)：十六重的商价 +10%（后十级数据）乘在掷出
+ * 的原价上，四舍五入——骰数不变 (R3)，货架和折扣槽一个不挪；零重乘 1 恒等。
+ */
+const priceIn = (run: RunState, rng: Rng, band: readonly [number, number]): number =>
+  Math.round(rng.range(band[0], band[1]) * run.mods.shopPriceMult);
 
 /**
  * Two draws: the rarity, then the pick. The pick is spent against an empty pool
@@ -221,7 +227,7 @@ export function generateStock(run: RunState, rng: Rng): ShopStock {
   const cards: (ShopCardOffer | null)[] = cardIds.map((defId) => {
     // 无色 stock is priced off its own declared rarity, exactly like the rest.
     const rarity = defId ? resolveCard(defId).rarity : 'common';
-    const price = priceIn(rng, rarity === 'basic' ? CARD_PRICE.common : CARD_PRICE[rarity]);
+    const price = priceIn(run, rng, rarity === 'basic' ? CARD_PRICE.common : CARD_PRICE[rarity]);
     return defId ? { defId, upgraded: 0, price } : null;
   });
 
@@ -235,7 +241,7 @@ export function generateStock(run: RunState, rng: Rng): ShopStock {
   }
   const relics: (ShopRelicOffer | null)[] = relicIds.map((id, i) => {
     const tier = id ? (getRelic(id)?.tier ?? RELIC_SHELF[i]) : RELIC_SHELF[i];
-    const price = priceIn(rng, RELIC_PRICE[tier]);
+    const price = priceIn(run, rng, RELIC_PRICE[tier]);
     return id ? { id, price } : null;
   });
 
@@ -244,7 +250,7 @@ export function generateStock(run: RunState, rng: Rng): ShopStock {
   for (let i = 0; i < SHOP_POTION_COUNT; i++) potionIds.push(rollShelfPotion(rng, potionIds));
   const potions = potionIds.map((id) => ({
     id,
-    price: priceIn(rng, POTION_PRICE[getPotion(id).rarity]),
+    price: priceIn(run, rng, POTION_PRICE[getPotion(id).rarity]),
   }));
 
   // -- 折扣. Two draws: which counter, then which slot on it. The original
@@ -390,7 +396,9 @@ export const removalsTaken = (run: RunState, nodeId: string): number =>
 /** Why the counter is closed, or null when a card may be handed over. */
 export function removalBlocked(run: RunState, nodeId: string): string | null {
   if (removalsTaken(run, nodeId) >= REMOVALS_PER_SHOP) return '此处已了此事';
-  if (run.deck.length <= MIN_DECK_SIZE) return '牌少不可再弃';
+  // `removableCount` 同时管两件事：地板（MIN_DECK_SIZE）和不可移除的牌
+  // （宿业，todos/19 a4）——两样都数不出一张可弃的，柜台就关着。
+  if (removableCount(run) === 0) return '牌少不可再弃';
   if (run.gold < removalPrice(run)) return '资财不足';
   return null;
 }
@@ -401,10 +409,14 @@ export function removalBlocked(run: RunState, nodeId: string): string | null {
  *
  * The surcharge is charged to the *run*, not to the shop: the second removal
  * costs 70 whether it is bought here or two floors up.
+ *
+ * `removable === false`（宿业）拒收：网格已把它压暗，这里是绕过 UI 也过
+ * 不去的那道门。
  */
 export function buyRemoval(run: RunState, nodeId: string, uid: string): boolean {
   if (removalBlocked(run, nodeId)) return false;
-  if (!run.deck.some((card) => card.uid === uid)) return false;
+  const target = run.deck.find((card) => card.uid === uid);
+  if (!target || !isRemovable(target)) return false;
 
   const commit = roomCommit(run, nodeId);
   const price = removalPrice(run);

@@ -72,6 +72,20 @@ describe('休整', () => {
     expect(applyCampfireOption(run, camp(run), 'rest')!.healed).toBe(27);
   });
 
+  it('天命五重回 25% 而不是 30% —— 比例从 run.mods 读 (todos/19 a3)', () => {
+    // 验收标准原文：「天命五重营帐回 25% 而不是 30%」。82 * 0.25 = 20.5 → 21，
+    // 和零重的 25（82 * 0.3 = 24.6）是两个数，写死 0.3 的旧账在哪边一望便知。
+    const run = startRun(DEFAULT_HERO, 'campfire-asc', 5);
+    run.hp = 1;
+    expect(run.maxHp).toBe(82);
+    expect(restAmount(run)).toBe(21);
+
+    const report = applyCampfireOption(run, camp(run), 'rest')!;
+    expect(report.offered).toBe(21);
+    expect(report.healed).toBe(21);
+    expect(run.hp).toBe(22);
+  });
+
   it('reports what landed, not what was offered, near full health', () => {
     const run = fresh();
     run.hp = run.maxHp - 5;

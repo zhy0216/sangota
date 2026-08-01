@@ -1208,6 +1208,25 @@ export function getEncounter(id: string): Encounter {
   return found;
 }
 
+/**
+ * 一个遭遇 id 属于哪一档——weak/strong 都算杂兵。天命 (todos/19) 的倍率按
+ * 档位取值，而无头模拟只认 id，所以档位得能从 id 反查回来；地图开的仗
+ * 不走这里（`CombatScene` 手里就有 nodeType）。查无此 id 与 `getEncounter`
+ * 同款处理：抛出，而不是默默按杂兵算。
+ */
+export function encounterTierOf(id: string): CombatTier {
+  const inTier = (pool: readonly Encounter[]): boolean => pool.some((e) => e.id === id);
+  for (const table of ACT_TABLES) {
+    if (inTier(table.elite)) return 'elite';
+    if (inTier(table.boss)) return 'boss';
+    if (inTier(table.weak) || inTier(table.strong)) return 'monster';
+  }
+  for (const tier of ['monster', 'elite', 'boss'] as const) {
+    if (inTier(PENDING_ENCOUNTERS[tier])) return tier;
+  }
+  throw new Error(`Unknown encounter id: ${id}`);
+}
+
 export const getEnemy = (id: string): EnemyDef => {
   const def = ENEMIES[id];
   if (!def) throw new Error(`Unknown enemy id: ${id}`);

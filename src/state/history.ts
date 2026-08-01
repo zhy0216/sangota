@@ -1,4 +1,5 @@
 import { getCard, isCurse } from '../combat/cards';
+import { recordAscensionClear } from './ascension';
 import type { RunState, RunStats } from './run';
 
 /**
@@ -27,9 +28,10 @@ export interface ScoreLine {
 /**
  * 「史笔」评分 (todos/22 设计方案的分数表)。
  *
- * `ascension` 从参数进来而不是从 `run` 上读：todo 19 未做，`RunState` 还没有
- * 天命字段——接线时把它传进来即可，默认 0 表示「无天命」。天命加成最后乘在
- * 总分上（总分 × (1 + 0.05 × 级数)），零头舍去——分数是整数。
+ * `ascension` 从参数进来而不是从 `run` 上读：评分对天命只是个乘数，参数比
+ * 整个 `RunState` 好造账好验算——`settleRun` 负责把 `run.ascension` 递进来，
+ * 默认 0 表示「无天命」。天命加成最后乘在总分上（总分 × (1 + 0.05 × 级数)），
+ * 零头舍去——分数是整数。
  *
  * 明细只列**得了分的行**：结算界面逐行淡入，一排 0 分的空行不是仪式感。
  */
@@ -88,7 +90,7 @@ export interface RunRecord {
   /** 本局用时，毫秒。同上，只过账不生产。 */
   durationMs: number;
   heroId: string;
-  /** todo 19 未做，当前恒 0。字段先占位，接线时免得动存储格式。 */
+  /** 出征时选定的天命重数 (todos/19)，0 = 无天命。 */
   ascension: number;
   victory: boolean;
   /** 死因：敌人名，或 'event'；胜利为 null。 */
@@ -225,15 +227,16 @@ export interface RunEndInfo {
  * `Career.totals`。返回记录和「新纪录」判定——判定必须在 `recordRun` 落账
  * **之前**读旧的 `highScore`，落账之后旧账就被自己盖掉了；0 分不称纪录。
  *
- * `ascension` 恒 0：todo 19 未做。接线点——19 落地后从跑团上读天命级数传给
- * `computeScore`，并在胜利时同步 19 的 `cleared[heroId]`；23 的解锁检查也在
- * 这里接（拿着返回的 `record` 查一遍即可）。本函数现在不做这两件事。
+ * 天命 (todos/19 a5)：级数从 `run.ascension` 读，传给 `computeScore` 入分、
+ * 记进 `RunRecord.ascension` 入史；胜利再把 19 的 `cleared[heroId]` 提到本局
+ * 级数（只升不降，见 `recordAscensionClear`）。23 的解锁检查也在这里接
+ * （拿着返回的 `record` 查一遍即可）。
  */
 export function settleRun(
   run: RunState,
   info: RunEndInfo,
 ): { record: RunRecord; newRecord: boolean } {
-  const ascension = 0; // 接线点 (todos/19)：天命级数从这里传入。
+  const ascension = run.ascension;
   const previousBest = getCareer().totals.highScore[run.hero.id] ?? 0;
   const { total, breakdown } = computeScore(run, info.victory, ascension);
 
@@ -258,6 +261,8 @@ export function settleRun(
     stats: { ...run.stats, route: [...run.stats.route] },
   };
   recordRun(record);
+  // 天命通关入账 (todos/19 a5)：胜利才算通关，cleared 只升不降。
+  if (info.victory) recordAscensionClear(run.hero.id, ascension);
   // 接线点 (todos/23)：解锁检查在此接入。
   return { record, newRecord: total > previousBest && total > 0 };
 }

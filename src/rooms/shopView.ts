@@ -3,6 +3,7 @@ import { C, GAME_WIDTH } from '../config';
 import { getPotion, potionText } from '../combat/potions';
 import { getRelic, relicText } from '../combat/relics';
 import type { RoomController, RoomHost } from '../scenes/RoomScene';
+import { removeDisabledReason } from '../state/run';
 import { CARD_H, CARD_W, CardView } from '../ui/CardView';
 import { bodyStyle, brushStyle, inkPanel, paintInkPanel } from '../ui/theme';
 import {
@@ -333,6 +334,9 @@ export class ShopController implements RoomController {
       confirmText: '割 爱',
       footerHint: `择一张弃去　·　资财 ${price}`,
       cancellable: true,
+      // 不可移除的牌（宿业，todos/19 a4）压暗不可选——`buyRemoval` 在门后
+      // 还有同一道闸，这里只是让玩家先看见。
+      disable: (card) => removeDisabledReason(card),
       onPick: (uids) => {
         const uid = uids[0];
         // Cancelled, or a deck with nothing left to give: the counter is

@@ -1,5 +1,5 @@
 import { getCard } from './cards';
-import { aliveEnemies, clampIncoming, computeAttack } from './engine';
+import { aliveEnemies, clampIncoming, computeAttack, scaleEnemyDamage } from './engine';
 import { getEnemy } from './enemies';
 import { STATUS_META } from './statuses';
 import type {
@@ -96,7 +96,11 @@ export function intentLabel(state: CombatState, enemy: EnemyState): string {
   const tail = riders.length > 0 ? ` · ${riders.join(' · ')}` : '';
 
   if (move.damage) {
-    const perHit = clampIncoming(computeAttack(move.damage, enemy, state.player), state.player);
+    // 天命 (todos/19)：基础值先过档位倍率——引擎真打时同一入口，数字才对得上。
+    const perHit = clampIncoming(
+      computeAttack(scaleEnemyDamage(state, move.damage), enemy, state.player),
+      state.player,
+    );
     const hits = move.hits ?? 1;
     const dmg = hits > 1 ? `${perHit}×${hits}` : `${perHit}`;
     return `攻 ${dmg}${tail}`;
@@ -133,8 +137,13 @@ export function intentOf(state: CombatState, enemy: EnemyState): IntentDisplay |
   const kind = intentKindOf(state, enemy, move);
   const hidden = kind === 'unknown';
 
+  // 天命 (todos/19)：和 `executeMove` 走同一个 `scaleEnemyDamage` 入口，
+  // 徽章上的数就是真会落下的数——差一点它就是玩家照着排兵的一句谎。
   const damage = move.damage
-    ? clampIncoming(computeAttack(move.damage, enemy, state.player), state.player)
+    ? clampIncoming(
+        computeAttack(scaleEnemyDamage(state, move.damage), enemy, state.player),
+        state.player,
+      )
     : null;
   const hits = move.hits ?? 1;
   const loseHp = move.loseHp ?? null;

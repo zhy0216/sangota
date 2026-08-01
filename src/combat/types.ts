@@ -148,6 +148,12 @@ export interface CardDef {
   text: string;
   effects: Effect[];
   keywords?: readonly CardKeyword[];
+  /**
+   * `false` 表示不可移除（todos/19 a4 的「宿业」）：商店弃卡、奇遇/祝福的
+   * 弃牌与易牌——一切「从牌组移除」的门——都把这张牌标为不可选。缺省即可
+   * 移除，所以既有卡表一行不用改。判定统一走 `isRemovable`（`state/run.ts`）。
+   */
+  removable?: false;
   hooks?: CardHooks;
   /**
    * Fields the upgraded ("·精") version overrides. Absent means the card can
@@ -438,6 +444,16 @@ export interface CombatState {
   maxEnergy: number;
   /** Cards drawn at the start of each turn, relic modifiers already folded in. */
   handSize: number;
+  /**
+   * 天命 (todos/19)：本场敌人 HP 倍率，`startCombat` 按遭遇档位从 mods 取好。
+   * 召唤/分裂中途造出的新身体同样吃它——同一场仗只有一个档位。零重恒 1。
+   */
+  enemyHpMult: number;
+  /**
+   * 天命 (todos/19)：敌方攻击伤害倍率，在 `computeAttack` **之前**乘到基础值上
+   * ——顺序反了就和怯战/破绽的乘法打架。意图数字走同一个入口。零重恒 1。
+   */
+  enemyDamageMult: number;
   player: Combatant;
   enemies: EnemyState[];
   cards: Record<string, CardInstance>;

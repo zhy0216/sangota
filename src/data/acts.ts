@@ -165,7 +165,9 @@ export const actSeed = (runSeed: string, index: ActIndex): string =>
  * 3. 终章 is built by hand and spends no draws at all; the others take a seed
  *    derived from the run's, so three acts of one seed are three different maps
  *    and each is reproducible on its own.
- * 4. The 幕间 heal lands last, against the *new* act's rate.
+ * 4. 天命六重的开幕失血先扣（todos/19 a3）——掉的是上一幕带过来的体力，
+ *    终章的幕间回血不被它打折扣。
+ * 5. The 幕间 heal lands last, against the *new* act's rate.
  *
  * Called from exactly one place — `InterludeScene.create()` — so that the
  * chest, the spoils and the ledger wipe can never interleave. Skipping the
@@ -187,10 +189,14 @@ export function advanceAct(run: RunState): ActDef {
   // 终章 rolls nothing, but it is still seeded: `GameMap.seed` is what every
   // room stream in the act hangs off and what `runSeedOf` reads the run's seed
   // back out of, so it must be derived like any other act's.
+  // 天命 (todos/19)：extraElites 每一幕都多出同样多的精英房，不止第一幕。
   run.map =
     nextIndex === 4
       ? generateFinalAct(actSeed(runSeed, nextIndex))
-      : generateMap(actSeed(runSeed, nextIndex), next.layout);
+      : generateMap(actSeed(runSeed, nextIndex), next.layout, run.mods.extraElites);
+  // 天命 (todos/19 a3)：六重起每幕开始失去 10% **当前**体力。取整向下，
+  // 零重比例为 0 时恒等；一成的地板值永远小于当前体力，所以扣不死人。
+  run.hp -= Math.floor((run.hp * run.mods.actStartHpLossPercent) / 100);
   heal(run, Math.floor((run.maxHp * next.interActHealPercent) / 100));
   return next;
 }

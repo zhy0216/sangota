@@ -7,6 +7,7 @@ import type { CombatEvent } from '../combat/types';
 import { ACT1_LAYOUT, generateMap } from '../map/generateMap';
 import type { GameMap, RoomType } from '../map/types';
 import type { DeckPick, RoomRecord } from '../rooms/types';
+import { modsFor, type AscensionMods } from '../data/ascension';
 import { DEFAULT_HERO, type HeroDef } from '../data/heroes';
 
 /**
@@ -144,6 +145,17 @@ export interface RunState {
 
   /** 结算界面的账本，见 `RunStats`。 */
   stats: RunStats;
+
+  // ------------------------------------------------------------ 天命 (19)
+
+  /** 本局的天命等级，0 = 无天命。开局定死，中途不变。 */
+  ascension: number;
+  /**
+   * `modsFor(ascension)` 的结果，开局在 `startRun` 算好，全程**只读**
+   * （对象是冻结的）。接线点一律读这里，不许自己按 `ascension` 写 if——
+   * 集中修饰器是 todos/19 的关键架构决策。
+   */
+  mods: AscensionMods;
 }
 
 /**
@@ -181,17 +193,25 @@ export function newDeckCard(defId: string, upgraded = 0): DeckCard {
   return { uid: `d${nextUid++}`, defId, upgraded };
 }
 
-export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState {
+export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string, ascension = 0): RunState {
   nextUid = 0;
+  // 天命 (todos/19)：等级和修饰器都在这一刻定死。默认 0 = `DEFAULT_MODS`，
+  // 即现状原样，所以每一个既有调用点和测试都不受影响。接线点：extraElites
+  // （下面的地图）、hpMult/damageMult（引擎，CombatScene 递入）、maxHpMult /
+  // potionSlots / startingCurses（本函数与 `syncPotionSlots`）。
+  const mods = modsFor(ascension);
   const relics = [hero.starterRelic];
-  const maxHp = hero.maxHp + relicModifiers(relics).maxHp;
+  // 十四重的 -5% 上限（后十级数据）乘在遗物加成之后，四舍五入；零重乘 1 恒等。
+  const maxHp = Math.round((hero.maxHp + relicModifiers(relics).maxHp) * mods.maxHpMult);
   active = {
+    ascension,
+    mods,
     hero,
     hp: maxHp,
     maxHp,
     gold: hero.startingGold,
     act: 1,
-    map: generateMap(seed, ACT1_LAYOUT),
+    map: generateMap(seed, ACT1_LAYOUT, mods.extraElites),
     deck: hero.startingDeck.map((defId) => newDeckCard(defId)),
     relics,
     relicCounters: {},
@@ -216,6 +236,9 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState 
     blessing: null,
     stats: emptyRunStats(),
   };
+  // 天命十重 (todos/19 a3)：开局诅咒逐张入组。零至九重列表为空，一张不加；
+  // 「宿业」的卡面由 a4 落地（id 见 `SUYE_ID`），这里只按 mods 里的 id 找卡。
+  for (const curseId of mods.startingCurses) addCurse(active, curseId);
   syncPotionSlots(active);
   syncRewardCount(active);
   return active;
@@ -238,7 +261,9 @@ export function syncRewardCount(run: RunState): void {
  * slots away — and deliberately drops from the tail if one ever does.
  */
 export function syncPotionSlots(run: RunState): void {
-  run.potionSlots = BASE_POTION_SLOTS + relicModifiers(run.relics).potionSlots;
+  // 天命 (todos/19 a3)：基础槽位从 `run.mods.potionSlots` 读，零重与
+  // `BASE_POTION_SLOTS` 同为 3——十一重的 3 → 2 落表那天只改数据不改这里。
+  run.potionSlots = run.mods.potionSlots + relicModifiers(run.relics).potionSlots;
   while (run.potions.length < run.potionSlots) run.potions.push(null);
   run.potions.length = run.potionSlots;
 }
@@ -458,9 +483,23 @@ function pushCard(run: RunState, cardId: string, upgraded: number): DeckCard {
  */
 export const MIN_DECK_SIZE = 4;
 
-/** How many copies may still be shed before the floor is reached. */
+/**
+ * 「不可移除」之牌 (todos/19 a4 的宿业)。商店弃卡、奇遇/祝福的弃牌与易牌——
+ * 一切「从牌组移除」的门——都拿这一个谓词问，答案永远一致。
+ */
+export const isRemovable = (card: DeckCard): boolean => getCard(card.defId).removable !== false;
+
+/** 选牌网格压暗一张不可移除的牌时给出的理由；可移除返回 null。 */
+export const removeDisabledReason = (card: DeckCard): string | null =>
+  isRemovable(card) ? null : '不可移除';
+
+/**
+ * How many copies may still be shed before the floor is reached. Capped a
+ * second way by what is removable at all (a4)：一副全是宿业的牌组一张也弃
+ * 不得，无论它比地板厚多少。
+ */
 export const removableCount = (run: RunState): number =>
-  Math.max(0, run.deck.length - MIN_DECK_SIZE);
+  Math.min(Math.max(0, run.deck.length - MIN_DECK_SIZE), run.deck.filter(isRemovable).length);
 
 /**
  * The one removal primitive, by uid so the right physical copy goes. 商店弃卡,
@@ -469,7 +508,9 @@ export const removableCount = (run: RunState): number =>
  *
  * Deliberately *not* floored itself: a caller that means "shed this exact copy"
  * — undoing a grant, a future 弃甲 — must still be able to. The floor belongs
- * to the doors the player walks through, and both of them apply it.
+ * to the doors the player walks through, and both of them apply it. 同理，
+ * `removable === false`（宿业）也拦在门上（`buyRemoval` / `applyPick`），
+ * 不拦在这里。
  */
 export function removeCard(run: RunState, uid: string): boolean {
   const at = run.deck.findIndex((c) => c.uid === uid);

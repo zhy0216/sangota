@@ -13,6 +13,7 @@ import {
 } from '../src/combat/rewards';
 import shopSource from '../src/rooms/shop.ts?raw';
 import { Rng } from '../src/core/rng';
+import { modsFor } from '../src/data/ascension';
 import { DEFAULT_HERO } from '../src/data/heroes';
 import { addRelic, startRun, type RunState } from '../src/state/run';
 
@@ -293,5 +294,38 @@ describe('availableRarity — degrade first, promote second', () => {
     // again, this is the test that has to be duplicated with it.
     expect(shopSource).toContain("from '../combat/rewards'");
     expect(shopSource).not.toMatch(/function availableRarity\b/);
+  });
+});
+
+describe('天命接线 (todos/19 a3) · rarityWeightMult', () => {
+  it('乘的是表上的基础权重，保底 bump 乘后全额叠加', () => {
+    // 十二重（后十级数据）压低罕见/稀有；bump 不跟着缩水，旱久了稀有还是会来。
+    const w = rewardWeights('monster', 20, { uncommon: 0.5, rare: 0.5 });
+    expect(w.common).toBe(60);
+    expect(w.uncommon).toBe(18.5);
+    expect(w.rare).toBe(21.5); // 3 × 0.5 + 20，不是 (3 + 20) × 0.5 = 11.5
+    // 缺省乘 1 恒等——既有调用点和上面每一条期望值原样成立。
+    expect(rewardWeights('monster', 20)).toEqual({ common: 60, uncommon: 37, rare: 23 });
+  });
+
+  it('rollCardReward 从 run.mods 读倍率：rare 权重乘成 0 后一张稀有都不出', () => {
+    const r = run('mult-zero');
+    r.mods = { ...r.mods, rarityWeightMult: { uncommon: 1, rare: 0 } };
+    const rng = new Rng('mult-zero');
+    for (let i = 0; i < 200; i++) {
+      r.rareBump = 0; // 关掉保底，量的就是乘出来的那个 0。
+      for (const id of rollCardReward({ tier: 'boss', run: r, rng })) {
+        expect(rarityOf(id)).not.toBe('rare');
+      }
+    }
+  });
+
+  it('一到十重乘 1 恒等：同 seed 同 run，十重的奖励和零重逐张相同', () => {
+    const draw = (level: number): string[] => {
+      const r = run('mult-idem');
+      r.mods = modsFor(level);
+      return rollCardReward({ tier: 'elite', run: r, rng: new Rng('mult-idem') });
+    };
+    expect(draw(10)).toEqual(draw(0));
   });
 });

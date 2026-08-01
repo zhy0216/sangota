@@ -50,7 +50,7 @@
 
 | # | 功能 |
 |---|---|
-| [19](19-ascension.md) | 进阶难度（天命） |
+| [19](done/19-ascension.md) ✅ | 进阶难度（天命） |
 | [20](20-audio.md) | 音频系统 |
 | [21](21-settings.md) | 设置菜单 |
 | [22](done/22-run-summary.md) ✅ | 结算界面与评分统计 |
@@ -178,10 +178,29 @@
 - **`killedBy` 是「最后行动的敌人」**：读档回来回合初被灼烧之类烧死、
   无人动过手时兜底「乱军之中」，该名会计入 `Career.totals.deathsBy`。
 - 事件直接扣血不计入 `damageTaken`（按 todo 规格，那是引擎伤害的账）。
-- `settleRun` 里 [19 天命](19-ascension.md)（`ascension` 恒 0）与
-  [23 解锁](23-compendium-and-unlocks.md) 只留了接线点，等两者落地时接。
+- ~~`settleRun` 里 19 天命只留了接线点。~~ **同阶段接上**：
+  [19 天命](done/19-ascension.md) 落地时 `run.ascension` 真值进
+  `computeScore`，victory 更新 `cleared[heroId]`;
+  [23 解锁](23-compendium-and-unlocks.md) 的接线点仍空着。
 - 存档格式 `SAVE_VERSION` 1→2（新增 `stats` 与 `fightDamageTaken`），
   按仓库约定拒绝迁移旧档。
+
+### [19 天命](done/19-ascension.md) ✅ — 阶段八归档
+
+十条验收九条半达成，数值与文件本身经 a6 标定改写（过程见文件末尾的
+「标定记录」）：
+
+- **倍率增量比设计草案小一个量级**（HP/伤害多为 +5%，非原版的
+  +10~25%）——原版百分比是给原版血量余裕设计的，照抄十重通关率是 0%。
+  终值量得 threat AI 0 重 41% → 十重 18%，带内（15-25%）。
+- **敌招式的 `loseHp`（直接失血）不吃 `damageMult`**，意图与实际一致，
+  标定也按此进行——设计取舍，备查。
+- **标定只扫了 0/3/5/10 四级**，中间级靠逐级单调递增背书;
+  仪器用固定合成路线 + 每战两瓶的丹药口径（记录里有披露）。
+- 存档 `SAVE_VERSION` 2→3（新增 `ascension`），旧档按约定拒载。
+- 后十重（十一到二十）字段已留好（`potionSlots`/`rarityWeightMult`/
+  `shopPriceMult`/`enhancedMoves`/`doubleBoss` 接线全在，DEFAULT 恒等），
+  改数据即可开级。
 
 ### 平衡：三张表要分开读，带外行数分别是 15 / 5 / 26
 

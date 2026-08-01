@@ -10,6 +10,7 @@ import {
   type RelicTier,
 } from './relics';
 import type { Rng } from '../core/rng';
+import type { AscensionMods } from '../data/ascension';
 import type { RunState } from '../state/run';
 import type { CardRarity } from './types';
 
@@ -69,7 +70,7 @@ export function rollCardReward(opts: CardRewardOptions): string[] {
   let rolledRare = false;
 
   for (let i = 0; i < count; i++) {
-    const wanted = rollRarity(tier, run.rareBump, rng);
+    const wanted = rollRarity(tier, run.rareBump, rng, run.mods.rarityWeightMult);
     const from = availableRarity(run.hero.id, wanted, picked);
     // Every pool drained at once: only reachable if the whole card set is
     // smaller than `count`, so returning short beats repeating a card.
@@ -98,14 +99,33 @@ export function rollCardReward(opts: CardRewardOptions): string[] {
   return picked;
 }
 
-/** The tier's weights with the accumulated rare bonus folded into `rare`. */
-export function rewardWeights(tier: RewardTier, rareBump: number): Record<RewardRarity, number> {
+/**
+ * The tier's weights with the accumulated rare bonus folded into `rare`.
+ *
+ * 天命 (todos/19 a3)：`rarityWeightMult` 乘的是**表上的基础权重**，保底
+ * bump 在乘完之后全额叠加——十二重（后十级数据）压得再低，旱久了稀有
+ * 还是会来，压不灭保底。缺省乘 1 恒等，既有调用点一个不改。
+ */
+export function rewardWeights(
+  tier: RewardTier,
+  rareBump: number,
+  rarityWeightMult: AscensionMods['rarityWeightMult'] = { uncommon: 1, rare: 1 },
+): Record<RewardRarity, number> {
   const base = TIER_WEIGHTS[tier];
-  return { ...base, rare: base.rare + Math.max(0, rareBump) };
+  return {
+    common: base.common,
+    uncommon: base.uncommon * rarityWeightMult.uncommon,
+    rare: base.rare * rarityWeightMult.rare + Math.max(0, rareBump),
+  };
 }
 
-function rollRarity(tier: RewardTier, rareBump: number, rng: Rng): RewardRarity {
-  const weights = rewardWeights(tier, rareBump);
+function rollRarity(
+  tier: RewardTier,
+  rareBump: number,
+  rng: Rng,
+  rarityWeightMult: AscensionMods['rarityWeightMult'],
+): RewardRarity {
+  const weights = rewardWeights(tier, rareBump, rarityWeightMult);
   return rng.weighted(REWARD_RARITIES, REWARD_RARITIES.map((r) => weights[r]));
 }
 

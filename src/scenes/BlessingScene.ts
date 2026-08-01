@@ -11,7 +11,7 @@ import {
   takeBlessing,
   type BlessingView,
 } from '../rooms/blessing';
-import { getRun, removableCount, type RunState } from '../state/run';
+import { getRun, removableCount, removeDisabledReason, type RunState } from '../state/run';
 import { writeSave } from '../state/save';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { useDesignSpace } from '../ui/designSpace';
@@ -389,13 +389,24 @@ export class BlessingScene extends Phaser.Scene {
     const pool = upgrade
       ? this.run.deck.filter((card) => canUpgrade(card.defId, card.upgraded))
       : this.run.deck;
-    const entries: CardGridEntry[] = pool.map((card) => ({ ...card }));
+    const entries: CardGridEntry[] = pool.map((card) => {
+      const entry: CardGridEntry = { ...card };
+      // 弃芜/易牌都是「从牌组移除」的门：不可移除的牌（宿业，天命十重的开局
+      // 诅咒就在这副牌里）压暗不可选。`applyPick` 在门后还有同一道闸。
+      const reason = upgrade ? null : removeDisabledReason(card);
+      if (reason) {
+        entry.disabled = true;
+        entry.disabledReason = reason;
+      }
+      return entry;
+    });
     // Copies, never the deck's own objects. The count is clamped twice over:
-    // against what is on offer here, and against `MIN_DECK_SIZE` inside
-    // `applyPick` — a grid that asks for a card it will then refuse to take is
-    // a footer the player cannot satisfy.
-    const ceiling = pick.kind === 'remove' ? removableCount(this.run) : entries.length;
-    const count = Math.min(pick.count, entries.length, ceiling);
+    // against what is actually selectable here, and against `MIN_DECK_SIZE`
+    // inside `applyPick` — a grid that asks for a card it will then refuse to
+    // take is a footer the player cannot satisfy.
+    const selectable = entries.filter((e) => !e.disabled).length;
+    const ceiling = pick.kind === 'remove' ? removableCount(this.run) : selectable;
+    const count = Math.min(pick.count, selectable, ceiling);
 
     const title =
       pick.kind === 'remove' ? '弃去何牌' : upgrade ? '精进何牌' : '换去何牌';

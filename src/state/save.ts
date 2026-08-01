@@ -2,6 +2,7 @@ import { moveById, type CombatTier } from '../combat/enemies';
 import type { CombatState, EnemyState } from '../combat/types';
 import { Rng } from '../core/rng';
 import { ACTS, type ActIndex } from '../data/acts';
+import { modsFor, type AscensionMods } from '../data/ascension';
 import { HEROES } from '../data/heroes';
 import { generateFinalAct, generateMap } from '../map/generateMap';
 import { adoptRun, syncPotionSlots, syncRewardCount, uidCursor, type RunState } from './run';
@@ -46,8 +47,9 @@ import { adoptRun, syncPotionSlots, syncRewardCount, uidCursor, type RunState } 
  * working save until the run is already unwinnable.
  *
  * 2: `RunState.stats` 与 `SavedCombat.fightDamageTaken` (todos/22 s1)。
+ * 3: `RunState.ascension` (todos/19 a1) — 旧档没有它，恢复出来的天命只能靠猜。
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 const SAVE_KEY = 'sangota.save.v1';
 
@@ -63,7 +65,7 @@ const SAVE_KEY = 'sangota.save.v1';
  * missing property on the object literal in `toSaved` — a build error, on the
  * next `npm run typecheck`, naming the field.
  */
-type PersistedRun = Omit<RunState, 'hero' | 'map' | 'potionSlots' | 'cardRewardCount'>;
+type PersistedRun = Omit<RunState, 'hero' | 'map' | 'potionSlots' | 'cardRewardCount' | 'mods'>;
 
 export interface SavedRun extends PersistedRun {
   version: number;
@@ -91,10 +93,13 @@ type SavedEnemy = Omit<EnemyState, 'intent'> & { intentId: string | null };
  * - `effectQueue` and `pendingChoice` hold live `EnemyState` references and a
  *   half-resolved card. Rather than serialise them, snapshots are only ever
  *   taken when both are empty — see `combatIsQuiescent`.
+ * - `enemyHpMult` / `enemyDamageMult` 是 `tier` × 天命等级的纯函数 (S2)——两个
+ *   输入都已在档里（`tier` 在下面、`ascension` 在 `SavedRun`），`restoreCombat`
+ *   重导即可，存一份就是第二事实源。
  */
 type PersistedCombat = Omit<
   CombatState,
-  'enemies' | 'rng' | 'events' | 'effectQueue' | 'pendingChoice'
+  'enemies' | 'rng' | 'events' | 'effectQueue' | 'pendingChoice' | 'enemyHpMult' | 'enemyDamageMult'
 >;
 
 export interface SavedCombat extends PersistedCombat {
@@ -202,8 +207,11 @@ export function snapshotCombat(state: CombatState, ctx: CombatContext): SavedCom
  * Rebuild the fight. Throws on a move id the table no longer has (S4) — the
  * alternative is re-rolling an intent under a player who has already been shown
  * one and has planned the turn around it.
+ *
+ * `mods` 是本局的天命修饰器（`run.mods`）——两个倍率按 `saved.tier` 从它重导
+ * (S2)。不传按零重算，恒等；既有测试与旧调用点因此一个不改。
  */
-export function restoreCombat(saved: SavedCombat): CombatState {
+export function restoreCombat(saved: SavedCombat, mods?: AscensionMods): CombatState {
   const rng = new Rng(0);
   rng.fromState(saved.rngState);
 
@@ -221,6 +229,8 @@ export function restoreCombat(saved: SavedCombat): CombatState {
     energy: saved.energy,
     maxEnergy: saved.maxEnergy,
     handSize: saved.handSize,
+    enemyHpMult: mods?.hpMult[saved.tier] ?? 1,
+    enemyDamageMult: mods?.damageMult[saved.tier] ?? 1,
     player: saved.player,
     enemies,
     cards: saved.cards,
@@ -274,6 +284,9 @@ export function toSaved(run: RunState, combat: SavedCombat | null): SavedRun {
     keys: run.keys,
     blessing: run.blessing,
     stats: run.stats,
+    // 天命等级存，`mods` 不存 (S2)：它是 `modsFor(ascension)` 的纯函数结果，
+    // 存一份就是第二事实源，一次数值重调就会让旧档带着过期的倍率继续跑。
+    ascension: run.ascension,
   };
 }
 
@@ -296,10 +309,16 @@ export function fromSaved(saved: SavedRun): RunState {
   const act = ACTS[saved.act as ActIndex];
   if (!act) throw new Error(`Unknown act in save: ${saved.act}`);
 
+  // 和 potionSlots 一样按 S2 重导——见 `toSaved` 里不存 mods 的理由。地图重生
+  // (S1) 也要带上 extraElites，否则天命一重的档一读回来就少一间精英房。
+  const mods = modsFor(saved.ascension);
+
   // 终章 is built by hand and rolls nothing; every other act regrows from its
   // own seed and its own layout (S1). `advanceAct` makes exactly this choice.
   const map =
-    act.index === 4 ? generateFinalAct(saved.mapSeed) : generateMap(saved.mapSeed, act.layout);
+    act.index === 4
+      ? generateFinalAct(saved.mapSeed)
+      : generateMap(saved.mapSeed, act.layout, mods.extraElites);
 
   for (const id of saved.path) {
     const node = map.nodes.get(id);
@@ -334,6 +353,8 @@ export function fromSaved(saved: SavedRun): RunState {
     keys: saved.keys,
     blessing: saved.blessing,
     stats: saved.stats,
+    ascension: saved.ascension,
+    mods,
   };
 
   syncPotionSlots(run);

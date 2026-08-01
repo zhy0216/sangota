@@ -1,4 +1,4 @@
-import { getEncounter } from '../src/combat/enemies';
+import { encounterTierOf, getEncounter } from '../src/combat/enemies';
 import {
   endPlayerTurn,
   playCard,
@@ -8,6 +8,7 @@ import {
   usePotion,
 } from '../src/combat/engine';
 import type { CombatEvent, CombatState } from '../src/combat/types';
+import { modsFor } from '../src/data/ascension';
 import type { HeroDef } from '../src/data/heroes';
 import type { DeckCard } from '../src/state/run';
 import type { Policy } from './policy';
@@ -62,7 +63,10 @@ export interface SimOptions {
    * is a run resource, so a tier's win rate with one is a different question.
    */
   potions?: string[];
-  /** [19] ascension — not read by the engine yet. */
+  /**
+   * [19] 天命等级。缺省 0：`modsFor(0)` 的倍率全是 1，黄金快照与平衡表
+   * 量到的还是原样的仗——难度标定（19 的后续条目）另开档跑。
+   */
   ascension?: number;
   maxTurns?: number;
 }
@@ -98,6 +102,10 @@ export function simulateCombat(opts: SimOptions): SimResult {
     maxHp: opts.maxHp,
     relics: opts.relics ?? [opts.hero.starterRelic],
     seed: opts.seed,
+    // [19] 天命：档位从 id 反查，倍率从等级重导——和 CombatScene 递进引擎的
+    // 是同一对参数，模拟量到的才是玩家真打的那一档。
+    tier: encounterTierOf(opts.encounterId),
+    mods: modsFor(opts.ascension ?? 0),
   });
 
   let aborted: SimResult['aborted'] = null;

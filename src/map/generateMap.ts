@@ -61,7 +61,11 @@ export const ACT1_LAYOUT: ActLayout = {
   minAdvancedRow: 5,
 };
 
-export function generateMap(seedInput: string | undefined, layout: ActLayout): GameMap {
+export function generateMap(
+  seedInput: string | undefined,
+  layout: ActLayout,
+  extraElites = 0,
+): GameMap {
   const seed = seedInput ?? randomSeed();
   const rng = new Rng(seed);
 
@@ -135,6 +139,7 @@ export function generateMap(seedInput: string | undefined, layout: ActLayout): G
 
   // --- Phase 2: assign room types ------------------------------------------
   assignRoomTypes(rng, nodes, byRow, layout);
+  promoteExtraElites(rng, nodes, byRow, layout, extraElites);
 
   // --- Boss crown -----------------------------------------------------------
   const bossId = 'boss';
@@ -286,6 +291,59 @@ function assignRoomTypes(
       node.type = rollType(rng, node, nodes, byRow, layout);
     }
   }
+}
+
+/**
+ * 天命 (todos/19)：把 `count` 间已定型的 monster/event 房提成精英。
+ *
+ * 事后提格而不是给 `POOL` 里的 elite 加权——加权改变每一次 `rollType` 的
+ * 命中，零重的地图会整张重排；提格则在 `count === 0` 时**一次骰子都不掷**，
+ * 既有 seed 的每一个节点、每一个 jitter 都原样（`tests/generateMap.test.ts`
+ * 对此有恒等断言）。
+ *
+ * 候选按 `eliteUpgradeLegal` 过滤，现有规则一条不破：固定层不动、
+ * `minAdvancedRow` 之下不放、同边（父/子）不重复、同父兄弟不重复。候选
+ * 挑干净了就提前收手——规则约束优先于精英数量。
+ */
+function promoteExtraElites(
+  rng: Rng,
+  nodes: Map<string, MapNode>,
+  byRow: string[][],
+  layout: ActLayout,
+  count: number,
+): void {
+  for (let i = 0; i < count; i++) {
+    const candidates: MapNode[] = [];
+    for (let row = Math.max(1, layout.minAdvancedRow); row < layout.rows; row++) {
+      if (row === layout.treasureRow || row === layout.restRow) continue;
+      for (const id of byRow[row]) {
+        const node = nodes.get(id)!;
+        if (node.type !== 'monster' && node.type !== 'event') continue;
+        if (eliteUpgradeLegal(node, nodes)) candidates.push(node);
+      }
+    }
+    if (candidates.length === 0) return;
+    rng.pick(candidates).type = 'elite';
+  }
+}
+
+/**
+ * `isLegal` 的事后版。原版是自下而上边填边查，只看父辈和已填的兄弟就够；
+ * 提格发生在全图定型之后，所以父、子、兄弟三个方向都要查，否则提上去的
+ * 精英会和**晚它一行**才定型的邻居撞在同一条边上。
+ */
+function eliteUpgradeLegal(node: MapNode, nodes: Map<string, MapNode>): boolean {
+  for (const parentId of node.parents) {
+    const parent = nodes.get(parentId)!;
+    if (parent.type === 'elite') return false;
+    for (const siblingId of parent.children) {
+      if (siblingId !== node.id && nodes.get(siblingId)?.type === 'elite') return false;
+    }
+  }
+  for (const childId of node.children) {
+    if (nodes.get(childId)?.type === 'elite') return false;
+  }
+  return true;
 }
 
 function rollType(

@@ -3,8 +3,17 @@ import { COLORLESS_POOL } from '../src/combat/cards';
 import { ACT_TABLES } from '../src/combat/enemies';
 import { rollCardReward, rollRelicOfTier } from '../src/combat/rewards';
 import { Rng } from '../src/core/rng';
+import { ACTS, type ActIndex } from '../src/data/acts';
+import { modsFor } from '../src/data/ascension';
 import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../src/data/heroes';
-import { addCard, MIN_DECK_SIZE, startRun, upgradeCard, type DeckCard } from '../src/state/run';
+import {
+  addCard,
+  MIN_DECK_SIZE,
+  newDeckCard,
+  startRun,
+  upgradeCard,
+  type DeckCard,
+} from '../src/state/run';
 import { POLICIES, type Policy, type PolicyName } from './policy';
 import { simulateCombat, type SimResult } from './runCombat';
 
@@ -742,4 +751,191 @@ test(`gauntlet: ${GAUNTLET_N} acts walked end to end per row`, () => {
   }
   console.log('\n### 连场 — one act, HP carried across, two 篝火 at 30%\n');
   console.log(out.join('\n') + '\n');
+});
+
+// ----------------------------------------------------------- 天命连场
+
+/**
+ * todos/19 a6 — 天命的标定仪器：**整局**（四幕连走，体力跨幕），因为
+ * 「通关率」只有整局能量到——单场胜率和单幕过关率都答不了「一局打穿的
+ * 概率」这个问题。
+ *
+ * 走法沿用上面 gauntlet 的「裁五张 + 每战两瓶」，腰带上再多一瓶见底才喝
+ * 的续命汤（`runBelt` 的注释说为什么）。幕间规则照抄 `advanceAct` 的固定
+ * 顺序（先扣六重的开幕失血，再吃幕间回血——只有终章回 30%），营帐回血从
+ * `mods.restHealPercent` 读，牌组按 `mods.startingCurses` 挂宿业，倍率类
+ * 修改经 `simulateCombat` 的 `ascension` 参数进引擎本尊。
+ *
+ * 一重的 extraElites：`promoteExtraElites` 是把一间杂兵房**晋升**成精英房，
+ * 不是加房；一条路径盖到全图杂兵房的约一半，所以按掷硬币决定这条路上的
+ * 一场 strong 杂兵是否换成精英——确定性 seed，同一行永远同一批硬币。
+ *
+ * ### 标定记录（2026-08，RUN_N=500，本表的来源；只调 19 的增量，
+ * ### 不动基础敌人数值——37 个黄金快照锁着零重）
+ *
+ * `ASCENSION_STEPS` 照原版抄的初值（杂兵 HP+10%、精英 HP+25%/伤+10%、
+ * 首领 HP+20%/伤+10%、伤害三连 +15%/+20%/+20%）量出来是 **0 重 41% →
+ * 十重 0%**：原版的增量是给原版的血量余裕设计的，这个游戏的精英 HP 成本
+ * 带本来就是上限体力的 40-55%，同样的百分比叠上去直接封死。两个用来定
+ * 预算的中间测量：
+ *
+ * - 只留 1/5/6/10 四条规则行、倍率全 1 → 十重 28%。规则行已吃掉基线的
+ *   三成，六条倍率行合计只剩 ~10 个点的预算；
+ * - 伤害倍率是最锋利的刀：仅「首领伤害 +5%」一行就砍 ~10 个点（threat
+ *   的败点全堆在一幕首领）。所以 4/8/9 三行改成动体力不动伤害。
+ *
+ * 最终落表（与 `ASCENSION_STEP_DESC` 同步）：二重杂兵 HP+5%；三重精英
+ * HP+5%/伤+5%；四重首领 HP+5%；七重杂兵伤+5%；八重精英 HP 再+2%；九重
+ * 首领 HP 再+2%。1/5/6/10（精英房、营帐 25%、开幕失血 10%、宿业）保持
+ * 设计原值——它们是规则不是数字，砍它们等于砍设计。
+ *
+ * 量得（threat）：0/3/5/10 重 = **41% / 33% / 23% / 18%**——逐级单调
+ * 下行，十重在 15-25% 的验收带内（greedy 为 41/31/25/16）。下面的断言把
+ * 十重钉在带里；谁动了这些数，这里会先叫。
+ */
+const ASCENSION_LEVELS = [0, 3, 5, 10];
+const RUN_N = 500;
+/** 验收带（todos/19 验收最后一条）：十重 threat 通关率 15-25%。 */
+const A10_BAND = { lo: 0.15, hi: 0.25 };
+/**
+ * gauntlet 的两瓶再带一瓶续命汤。单幕的 gauntlet 不需要它——满血开幕，
+ * 两座篝火够用；连走四幕时幕间回血是 0（`ACTS[2..3].interActHealPercent`），
+ * 血瓶正是真人扛过这道挤压的东西——续命汤连 `usableOutOfCombat` 都是
+ * true，按「见底才喝」拿着它不是给模拟开挂，是补上它一直少算的资源。
+ */
+const RUN_POTIONS = ['huoyouguan', 'zhuangxingjiu', 'xumintang'];
+
+/**
+ * 开局甩火油罐、壮行酒（同 `drinkOnTurnOne`），续命汤攥到体力见底才喝
+ * ——真人留血瓶的喝法。阈值取三成：再低容易攥着瓶子被一刀带走。
+ */
+const runBelt = (name: PolicyName): Policy => ({
+  ...POLICIES[name],
+  name: `${name}+runbelt`,
+  choosePotion: (state, belt) => {
+    if (belt.includes('xumintang') && state.player.hp <= state.player.maxHp * 0.3) {
+      return { id: 'xumintang' };
+    }
+    const bottle = belt.find((id) => id !== 'xumintang');
+    return bottle && state.turn === 1
+      ? { id: bottle, targetId: state.enemies.find((e) => e.alive)?.id }
+      : null;
+  },
+});
+
+function walkRun(
+  ascension: number,
+  policy: PolicyName,
+  seed: string,
+): { cleared: boolean; hpLeft: number; diedAt: string | null } {
+  const mods = modsFor(ascension);
+  // maxHpMult 在前十重恒为 1，但接了线：十四重落表那天这里一行不用改。
+  const maxHp = Math.round(DEFAULT_HERO.maxHp * mods.maxHpMult);
+  let hp = maxHp;
+
+  for (const act of [1, 2, 3, 4] as const satisfies readonly ActIndex[]) {
+    if (act > 1) {
+      // advanceAct 的固定顺序：先扣开幕失血（六重，扣当前体力的一成），
+      // 再吃新一幕的幕间回血——一至三幕是 0，只有终章回 30%。
+      hp -= Math.floor((hp * mods.actStartHpLossPercent) / 100);
+      hp = Math.min(maxHp, hp + Math.floor((maxHp * ACTS[act].interActHealPercent) / 100));
+    }
+
+    const t = ACT_TABLES[act - 1];
+    const rng = new Rng(`${seed}:path:${act}`);
+    const pick = (list: readonly { id: string }[]): string => rng.pick([...list]).id;
+    let path: string[];
+    if (act === 4) {
+      path = [pick(t.elite), 'REST', pick(t.boss)];
+    } else {
+      path = [
+        pick(t.weak),
+        pick(t.weak),
+        pick(t.strong),
+        pick(t.strong),
+        'REST',
+        pick(t.elite),
+        pick(t.strong),
+        pick(t.strong),
+        pick(t.strong),
+        'REST',
+        pick(t.boss),
+      ];
+      // 一重：晋升出来的精英房落在这条路上的概率按半算（见节首注释）。
+      // 换掉的是第二段的一场 strong——路径里下标 7 那一格。
+      if (mods.extraElites > 0 && rng.int(2) === 0) path[7] = pick(t.elite);
+    }
+
+    const kit = buildKit(`${seed}:${act}`, ACT_PROFILES[act - 1]);
+    // 与 gauntlet 的 cull 同款：先裁烂牌，永不低于 MIN_DECK_SIZE。
+    for (let i = 0; i < 5; i++) {
+      if (kit.deck.length <= MIN_DECK_SIZE) break;
+      const idx = kit.deck.findIndex((c) => c.defId === 'pikan' || c.defId === 'tiebi');
+      if (idx < 0) break;
+      kit.deck.splice(idx, 1);
+    }
+    // 十重的宿业：buildKit 走的不是 startRun 的天命入口，这里照
+    // `mods.startingCurses` 补挂——真跑团的牌组每一幕都背着它。
+    for (const curseId of mods.startingCurses) kit.deck.push(newDeckCard(curseId));
+
+    for (const step of path) {
+      if (step === 'REST') {
+        hp = Math.min(maxHp, hp + Math.round((maxHp * mods.restHealPercent) / 100));
+        continue;
+      }
+      const r = simulateCombat({
+        encounterId: step,
+        deck: kit.deck,
+        hero: DEFAULT_HERO,
+        hp,
+        maxHp,
+        relics: kit.relics,
+        potions: RUN_POTIONS,
+        seed: `${seed}-${act}-${step}`,
+        policy: runBelt(policy),
+        ascension,
+      });
+      if (!r.won) return { cleared: false, hpLeft: 0, diedAt: `${act}幕 ${step}` };
+      hp = r.hpLeft;
+    }
+  }
+  return { cleared: true, hpLeft: hp, diedAt: null };
+}
+
+test(`天命连场: ${RUN_N} full runs per level per policy`, () => {
+  const out = [
+    '| 天命 | policy | 通关率 | median hp at run end | 最常阵亡处 |',
+    '|---|---|---|---|---|',
+  ];
+  let a10Threat = -1;
+  for (const level of ASCENSION_LEVELS) {
+    for (const policy of ['greedy', 'threat'] as PolicyName[]) {
+      const survivors: number[] = [];
+      const deaths: Record<string, number> = {};
+      for (let i = 0; i < RUN_N; i++) {
+        const r = walkRun(level, policy, `ascension-run-${level}-${policy}-${i}`);
+        if (r.cleared) survivors.push(r.hpLeft);
+        else deaths[r.diedAt!] = (deaths[r.diedAt!] ?? 0) + 1;
+      }
+      survivors.sort((a, b) => a - b);
+      const rate = survivors.length / RUN_N;
+      if (level === 10 && policy === 'threat') a10Threat = rate;
+      const worst = Object.entries(deaths).sort((a, b) => b[1] - a[1])[0];
+      out.push(
+        `| ${level} | ${policy} | ${pct(rate)} | ` +
+          `${survivors.length > 0 ? survivors[Math.floor(survivors.length / 2)] : 0} | ` +
+          `${worst ? `${worst[0]} ×${worst[1]}` : '—'} |`,
+      );
+    }
+  }
+  console.log('\n### 天命连场 — 四幕连走，裁五张 + 每战两瓶 + 续命汤见底才喝，体力跨幕\n');
+  console.log(out.join('\n') + '\n');
+  console.log(
+    `十重 threat 通关率 ${pct(a10Threat)}，验收带 ${pct(A10_BAND.lo)}–${pct(A10_BAND.hi)}。\n`,
+  );
+
+  // 验收最后一条，断言而不只打印：这是 a6 标定完成后要一直守住的带。
+  // seed 全部写死，量出来的数是确定的——破这条的是改数的人，不是运气。
+  expect(a10Threat).toBeGreaterThanOrEqual(A10_BAND.lo);
+  expect(a10Threat).toBeLessThanOrEqual(A10_BAND.hi);
 });

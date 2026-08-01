@@ -474,6 +474,24 @@ describe('advanceAct', () => {
     expect(run.hp).toBe(40);
   });
 
+  it('天命六重进第二幕掉 10% 当前体力，且每幕都掉 (todos/19 a3)', () => {
+    // 验收标准原文：「天命六重进第二幕时掉 10% 当前体力」。当前体力，不是
+    // 上限：47 掉 floor(4.7) = 4，不是 82 的一成。零重比例为 0，上面每一条
+    // advanceAct 测试的体力期望值原样成立，恒等就锁在那里。
+    const run = startRun(DEFAULT_HERO, 'act-hp-loss', 6);
+    run.hp = 47;
+    clearBoss(run);
+    advanceAct(run);
+    expect(run.act).toBe(2);
+    expect(run.hp).toBe(43); // 第二幕无幕间回血，掉的就是净数。
+
+    // 「每幕开始」不是「第二幕开始」：进第三幕再掉一成，43 - floor(4.3) = 39。
+    clearBoss(run);
+    advanceAct(run);
+    expect(run.act).toBe(3);
+    expect(run.hp).toBe(39);
+  });
+
   it('pays 30% of 体力上限 on the way into 终章, and nothing before it', () => {
     const run = fresh('heal');
     run.maxHp = 100;

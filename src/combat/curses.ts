@@ -1,4 +1,5 @@
 import { C } from '../config';
+import { SUYE_ID } from '../data/ascension';
 import { addGold, type RunState } from '../state/run';
 import { addStatus, defOf, resolveDamage } from './engine';
 import type { CardDef, CardType, CombatState } from './types';
@@ -70,9 +71,12 @@ export const NEGATIVE_TYPE_META: Record<
  * unupgradable: `canUpgrade` already gates on `!!CARDS[defId]?.upgrade`, so the
  * 营帐 forge list drops them with no new rule.
  *
- * None of the six is unremovable. That is a deliberate release valve: every
- * curse here must be shakeable through 商店弃卡 / 营帐弃甲 / 五丈原, or the
- * player is just being punished.
+ * None of the six *inflictable* curses is unremovable. That is a deliberate
+ * release valve: every curse in `CURSE_POOL` must be shakeable through
+ * 商店弃卡 / 营帐弃甲 / 五丈原, or the player is just being punished. The one
+ * exception is 宿业 — the 天命十重 opening curse (todos/19 a4), which no pool
+ * ever deals: being stuck with it *is* the difficulty modifier, so it carries
+ * `removable: false` and every removal door refuses it.
  */
 export const CURSES: Record<string, CardDef> = {
   /**
@@ -195,6 +199,29 @@ export const CURSES: Record<string, CardDef> = {
     hooks: {
       restrictPlay: (state) => state.cardsPlayedThisTurn < SUMING_LIMIT,
     },
+  },
+
+  /**
+   * 天命十重的开局诅咒 (todos/19 a4)，id 由 `SUYE_ID` 占住，和
+   * `ASCENSION_STEPS[10].startingCurses` 永远对得上。虚无是它唯一的活口：
+   * 抽到的那回合占一格手牌，回合一结束就自行消散，下一场再来。
+   *
+   * `removable: false` 是它与其余诅咒的分界——商店弃卡和一切「从牌组移除」
+   * 的门（`isRemovable`，`state/run.ts`）都拒收它。也正因此它**绝不进
+   * `CURSE_POOL`**：那张表的每个 id 都必须可解，宿业只从十重的开局来。
+   */
+  suye: {
+    id: SUYE_ID,
+    name: '宿业',
+    type: 'curse',
+    rarity: 'basic',
+    cost: 0,
+    target: 'self',
+    art: 'card-suye',
+    text: '不可打出。虚无。\n不可移除。',
+    effects: [],
+    keywords: ['unplayable', 'ethereal'],
+    removable: false,
   },
 };
 

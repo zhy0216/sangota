@@ -58,7 +58,7 @@ export const ROUTE_GLYPH: Record<RoomType, string> = {
 /** 列表里的一行，六列全是拼好的字符串——面板只管摆，不管想。 */
 export interface HistoryRowView {
   heroName: string;
-  /** 「天命五重」，无天命时 「—」（todo 19 未做，当前恒为后者）。 */
+  /** 「天命五重」，无天命时 「—」。 */
   ascension: string;
   floor: string;
   score: string;

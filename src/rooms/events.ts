@@ -11,6 +11,7 @@ import {
   addPotion,
   addRelic,
   heal,
+  isRemovable,
   removableCount,
   removeCard,
   upgradeCard,
@@ -444,16 +445,19 @@ export function applyPick(
 ): void {
   const allowed = pick.kind === 'remove' ? Math.min(pick.count, removableCount(run)) : pick.count;
   for (const uid of uids.slice(0, allowed)) {
-    if (pick.kind === 'remove') {
-      removeCard(run, uid);
-      continue;
-    }
     if (pick.kind === 'upgrade') {
       upgradeCard(run, uid);
       continue;
     }
+    // 弃与易都是「从牌组移除」：不可移除的牌（宿业，todos/19 a4）一律拒收。
+    // 网格已把它压暗，这里是绕过 UI 也过不去的那道门。
     const card = run.deck.find((c) => c.uid === uid);
-    if (!card || !rng) continue;
+    if (!card || !isRemovable(card)) continue;
+    if (pick.kind === 'remove') {
+      removeCard(run, uid);
+      continue;
+    }
+    if (!rng) continue;
     const pool = poolFor(run.hero.id, transformRarity(card.defId)).filter(
       (id) => id !== card.defId,
     );

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C } from '../config';
 import { canUpgrade } from '../combat/cards';
 import type { RoomController, RoomHost } from '../scenes/RoomScene';
+import { removeDisabledReason } from '../state/run';
 import { bodyStyle } from '../ui/theme';
 import {
   chooseOption,
@@ -199,7 +200,9 @@ export class EventController implements RoomController {
       cancellable: false,
       ...(forge
         ? { disable: (card) => (canUpgrade(card.defId, card.upgraded) ? null : '已至极致') }
-        : {}),
+        : // 弃与易都是「从牌组移除」的门：不可移除的牌（宿业，todos/19 a4）
+          // 压暗不可选。`applyPick` 在门后还有同一道闸。
+          { disable: (card) => removeDisabledReason(card) }),
       onPick: (uids) => {
         resolvePending(this.host.run, this.host.node.id, uids);
         this.host.refreshHud();

@@ -341,7 +341,7 @@ export class CombatScene extends Phaser.Scene {
     this.encounter = ensureEncounter(this.run, this.nodeId, this.nodeType);
 
     this.state = this.resumeFrom
-      ? restoreCombat(this.resumeFrom)
+      ? restoreCombat(this.resumeFrom, this.run.mods)
       : startCombat({
           encounter: this.encounter,
           deck: this.run.deck,
@@ -350,6 +350,10 @@ export class CombatScene extends Phaser.Scene {
           maxHp: this.run.maxHp,
           relics: this.run.relics,
           seed,
+          // 天命 (todos/19)：档位 + 修饰器一并递进去——引擎是纯函数，
+          // 不许自己回头读 RunState。
+          tier: this.nodeType,
+          mods: this.run.mods,
         });
 
     this.buildBackground();

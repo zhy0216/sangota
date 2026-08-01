@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, MAP, css } from '../config';
 import { Rng } from '../core/rng';
 import { actLabel, actOf } from '../data/acts';
+import { ascensionLabel } from '../data/ascension';
 import { ROOM_META } from '../map/roomMeta';
 import type { MapNode } from '../map/types';
 import { ensureEncounter } from '../rooms/fight';
@@ -606,6 +607,16 @@ export class MapScene extends Phaser.Scene {
         .setOrigin(1, 0)
         .setLetterSpacing(2),
     );
+
+    // 天命 (todos/19 a5)：右上角一行小字，压在幕名上方；零重不印。
+    if (this.run.ascension > 0) {
+      fixed(
+        this.add
+          .text(GAME_WIDTH - 24, 4, ascensionLabel(this.run.ascension), bodyStyle(12, C.gold))
+          .setOrigin(1, 0)
+          .setLetterSpacing(2),
+      );
+    }
     this.floorText = this.add.text(GAME_WIDTH - 24, 52, '', bodyStyle(15, C.gold)).setOrigin(1, 0);
     fixed(this.floorText);
 

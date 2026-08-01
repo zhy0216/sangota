@@ -171,3 +171,65 @@ describe(`generateMap over ${SEEDS} seeds`, () => {
     expect(counts.get('rest')).toBeGreaterThan(0);
   });
 });
+
+/**
+ * 天命 (todos/19 a2) — `extraElites` 提格。规则本体在上面那组测试里逐条
+ * 站着，这里只问三件事：零重恒等（黄金快照与既有 seed 的命门）、
+ * 提上去的数量对、提上去的位置不破任何一条既有规则。
+ */
+describe('extraElites (todos/19 a2)', () => {
+  const extraSeeds = seeds.slice(0, 120);
+  const eliteCount = (m: GameMap): number =>
+    [...m.nodes.values()].filter((n) => n.type === 'elite').length;
+
+  it('零重恒等：extraElites 0（或不传）一次骰子都不掷，整张图分毫不动', () => {
+    const shape = (m: GameMap): string =>
+      [...m.nodes.values()].map((n) => `${n.id}:${n.type}:${n.x}:${n.y}`).join('|');
+    for (const seed of extraSeeds) {
+      expect(shape(generateMap(seed, ACT1_LAYOUT, 0)), seed).toBe(
+        shape(generateMap(seed, ACT1_LAYOUT)),
+      );
+    }
+  });
+
+  it('一重恰好多一间精英房', () => {
+    for (const seed of extraSeeds) {
+      expect(eliteCount(generateMap(seed, ACT1_LAYOUT, 1)), seed).toBe(
+        eliteCount(generateMap(seed, ACT1_LAYOUT)) + 1,
+      );
+    }
+  });
+
+  it('提格不破既有规则：固定层、minAdvancedRow、同边不重复、同父兄弟不重复', () => {
+    for (const seed of extraSeeds) {
+      const map = generateMap(seed, ACT1_LAYOUT, 3);
+      for (const node of map.nodes.values()) {
+        if (node.id === map.bossId || node.type !== 'elite') continue;
+        expect(FIXED_ROWS.has(node.row), `${seed} ${node.id} 占了固定层`).toBe(false);
+        expect(node.row, `${seed} ${node.id}`).toBeGreaterThanOrEqual(ACT1_LAYOUT.minAdvancedRow);
+        for (const parentId of node.parents) {
+          const parent = map.nodes.get(parentId)!;
+          expect(parent.type, `${seed} ${parentId} → ${node.id}`).not.toBe('elite');
+          for (const siblingId of parent.children) {
+            if (siblingId === node.id) continue;
+            expect(
+              map.nodes.get(siblingId)!.type,
+              `${seed} ${node.id} 与 ${siblingId} 同父同为精英`,
+            ).not.toBe('elite');
+          }
+        }
+      }
+    }
+  });
+
+  it('候选挑干净就收手——规则约束优先于精英数量', () => {
+    // 一个荒唐大的 extra 必须停在有限、合法的数上，而不是死循环或破规则
+    // （合法性上一条已查；这里只查它真的收了手）。
+    const map = generateMap('elite-flood', ACT1_LAYOUT, 99);
+    const free = [...map.nodes.values()].filter(
+      (n) => n.id !== map.bossId && !FIXED_ROWS.has(n.row),
+    );
+    expect(eliteCount(map)).toBeGreaterThan(0);
+    expect(eliteCount(map)).toBeLessThan(free.length);
+  });
+});

@@ -1,6 +1,7 @@
 import { Rng } from '../core/rng';
+import type { AscensionMods } from '../data/ascension';
 import { resolveCard } from './cards';
-import { getEnemy, phaseOf } from './enemies';
+import { getEnemy, phaseOf, type CombatTier } from './enemies';
 import { REVIVE_HP, getPotion, type PotionSpecial } from './potions';
 import { fireHook, relicDamageBonus, relicEvent, relicModifiers } from './relics';
 import { STATUS_META, STATUS_ORDER, type BlockSource, type TickPhase } from './statuses';
@@ -54,6 +55,13 @@ export interface StartCombatOptions {
   /** Relic ids, in pickup order. Ids alone — the engine never sees run state. */
   relics: readonly string[];
   seed: string;
+  /** 天命 (todos/19)：遭遇档位，天命倍率按它取档。缺省按杂兵算。 */
+  tier?: CombatTier;
+  /**
+   * 天命 (todos/19)：难度修饰器。和 relics 一个待遇——由调用方传进来，引擎
+   * 绝不自己去读 RunState 或 localStorage。缺省即零重，所有倍率恒等。
+   */
+  mods?: AscensionMods;
 }
 
 // ------------------------------------------------------------------- setup
@@ -61,6 +69,12 @@ export interface StartCombatOptions {
 export function startCombat(opts: StartCombatOptions): CombatState {
   const rng = new Rng(opts.seed);
   const mods = relicModifiers(opts.relics);
+
+  // 天命 (todos/19)：两个倍率在这一刻按档位取死，此后整场只读。零重（或不传）
+  // 恒为 1——乘 1 不动任何数字也不多花一次骰，37 个黄金快照因此一枚不漂。
+  const tier = opts.tier ?? 'monster';
+  const enemyHpMult = opts.mods?.hpMult[tier] ?? 1;
+  const enemyDamageMult = opts.mods?.damageMult[tier] ?? 1;
 
   const cards: Record<string, CardInstance> = {};
   const drawPile: string[] = [];
@@ -70,7 +84,9 @@ export function startCombat(opts: StartCombatOptions): CombatState {
   }
   rng.shuffle(drawPile);
 
-  const enemies = opts.encounter.enemies.map((defId, slot) => makeEnemy(defId, slot, rng));
+  const enemies = opts.encounter.enemies.map((defId, slot) =>
+    makeEnemy(defId, slot, rng, enemyHpMult),
+  );
 
   const state: CombatState = {
     turn: 0,
@@ -78,6 +94,8 @@ export function startCombat(opts: StartCombatOptions): CombatState {
     energy: 0,
     maxEnergy: BASE_ENERGY + mods.energy,
     handSize: Math.max(0, HAND_SIZE + mods.handSize),
+    enemyHpMult,
+    enemyDamageMult,
     player: {
       id: 'player',
       name: opts.heroName,
@@ -135,10 +153,13 @@ function liftInnate(cards: Record<string, CardInstance>, drawPile: string[]): st
  * applied to it, so it must not emit a `status` event, must not be warded off
  * by a 护身符 it also carries, and must not depend on table order. `rng.range`
  * still runs exactly once per enemy, which is what keeps every seed replaying.
+ *
+ * `hpMult` 是天命 (todos/19) 的 HP 倍率：先照旧掷区间，再乘、再取整——骰数
+ * 不变，零重乘 1 就是原数，任何一个既有 seed 的敌人一滴血都不动。
  */
-function makeEnemy(defId: string, slot: number, rng: Rng): EnemyState {
+function makeEnemy(defId: string, slot: number, rng: Rng, hpMult: number): EnemyState {
   const def = getEnemy(defId);
-  const hp = rng.range(def.hp[0], def.hp[1]);
+  const hp = Math.round(rng.range(def.hp[0], def.hp[1]) * hpMult);
   return {
     id: `${defId}-${slot}`,
     defId,
@@ -387,9 +408,12 @@ export function runEnemyTurn(state: CombatState): void {
 function executeMove(state: CombatState, enemy: EnemyState, move: EnemyMove): void {
   if (move.block) gainBlock(state, enemy, move.block, 'enemyMove');
   if (move.damage) {
+    // 天命 (todos/19)：倍率乘在这里、`computeAttack` 之前——它是「基础值更高」，
+    // 不是又一层状态乘区，顺序反了就和怯战/破绽的取整次序对不上。
+    const damage = scaleEnemyDamage(state, move.damage);
     const hits = move.hits ?? 1;
     for (let i = 0; i < hits; i++) {
-      dealAttack(state, enemy, state.player, move.damage);
+      dealAttack(state, enemy, state.player, damage);
       if (state.player.hp <= 0) return;
       // 反刺 can kill the attacker mid-combo; a corpse does not finish swinging.
       if (!enemy.alive) return;
@@ -436,7 +460,8 @@ function summonEnemies(
 ): void {
   const spawned: string[] = [];
   for (let i = 0; i < spec.count; i++) {
-    const child = makeEnemy(spec.defId, state.enemies.length, state.rng);
+    // 天命倍率照给：中途入场的身体和开场的同属一个遭遇档位。
+    const child = makeEnemy(spec.defId, state.enemies.length, state.rng, state.enemyHpMult);
     state.enemies.push(child);
     // Telegraphed at birth, like any enemy `startCombat` builds.
     pickIntent(state, child);
@@ -850,6 +875,15 @@ export interface DamageContext {
 }
 
 /**
+ * 天命 (todos/19)：敌方招式的**基础**伤害过档位倍率，四舍五入成整数。
+ *
+ * 唯一的入口，`executeMove` 和 `intentOf`/`intentLabel` 都从这里走——分开各乘
+ * 一次，意图上的数字和真挨的那一下就有得漂。零重倍率恒 1，乘完取整还是原数。
+ */
+export const scaleEnemyDamage = (state: CombatState, base: number): number =>
+  Math.round(base * state.enemyDamageMult);
+
+/**
  * Strength adds flat, Weak scales the attacker down, Vulnerable scales the
  * defender up — in `STATUS_ORDER`, with a floor after *each* multiply. Folding
  * the two multiplies into one would make a base-5 hit under both read 5 where
@@ -1047,7 +1081,9 @@ function splitEnemy(
   const hp = Math.ceil(parent.hp / 2);
   const spawned: string[] = [];
   for (let i = 0; i < spec.count; i++) {
-    const child = makeEnemy(spec.defId, state.enemies.length, state.rng);
+    // 倍率照传，但下两行就把 HP 改写成父体的一半——分裂体继承的是已经吃过
+    // 倍率的父体血量，这里的乘积随掷出的数一起被丢弃，不会叠加第二次。
+    const child = makeEnemy(spec.defId, state.enemies.length, state.rng, state.enemyHpMult);
     // The def's own roll is spent and then overwritten: a child's HP is a
     // function of the parent, and the roll has to happen either way so that
     // adding a split to a table cannot shift the stream for everything after it.

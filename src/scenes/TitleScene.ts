@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { C, css, FONT_BRUSH, GAME_HEIGHT, GAME_WIDTH, RENDER_SCALE } from '../config';
+import { ASCENSION_STEP_DESC, MAX_ASCENSION, ascensionLabel } from '../data/ascension';
 import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../data/heroes';
+import { maxSelectableAscension } from '../state/ascension';
 import { markRunStart } from '../state/history';
 import { startRun } from '../state/run';
 import {
@@ -30,6 +32,9 @@ const HERO_X = 905;
 /** The 选将 strip down the right edge: one tile per hero, top to bottom. */
 const TILE = { x: 1196, y: 190, w: 96, h: 104, gap: 18 };
 
+/** 天命选择器 (todos/19 a5)：挂在选将条正下方的一栏，难度随武将走。 */
+const ASC = { x: 1196, y: 502, w: 156 };
+
 export class TitleScene extends Phaser.Scene {
   private parallax: { obj: Phaser.GameObjects.GameObject & { x: number; y: number }; depth: number; baseX: number; baseY: number }[] = [];
   /**
@@ -47,6 +52,13 @@ export class TitleScene extends Phaser.Scene {
    * hero picked on a previous visit would still be picked on the next one.
    */
   private picked!: HeroDef;
+
+  /**
+   * 出征的天命重数 (todos/19 a5)。同 `picked` 一样在 `create` 里归零；换将时
+   * 由 `paintAscension` 按新武将的上限收口——各武将各自的进度，级数不跨将。
+   */
+  private ascension = 0;
+  private ascPanel!: Phaser.GameObjects.Container;
 
   private seal!: Phaser.GameObjects.Text;
   private heroHolder!: Phaser.GameObjects.Container;
@@ -71,6 +83,7 @@ export class TitleScene extends Phaser.Scene {
     useDesignSpace(this);
     this.leaving = false;
     this.picked = DEFAULT_HERO;
+    this.ascension = 0;
     this.tiles = [];
 
     // --- Backdrop ---------------------------------------------------------
@@ -131,6 +144,11 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: this.panel, alpha: 1, duration: 700, delay: 620 });
 
     this.buildTiles();
+
+    // 天命选择器：容器先立好，`showHero` 每次换将都重画它。
+    this.ascPanel = this.add.container(0, 0).setAlpha(0);
+    this.tweens.add({ targets: this.ascPanel, alpha: 1, duration: 500, delay: 980 });
+
     this.showHero(this.picked, false);
 
     // --- Actions ----------------------------------------------------------
@@ -458,6 +476,99 @@ export class TitleScene extends Phaser.Scene {
     });
 
     this.paintPanel(hero);
+    this.paintAscension();
+  }
+
+  // ------------------------------------------------------------------ 天命
+
+  /**
+   * 天命选择器 (todos/19 a5)。左右箭头调级，上限是该武将已通关的下一重
+   * （`cleared[heroId] + 1`，封顶 `MAX_ASCENSION`）；零重印「无天命」。
+   * 该级的新增修改高亮在上，全部累积修改列在下面——修改是累积的，选五重
+   * 就是一到五重全部生效。
+   */
+  private paintAscension(): void {
+    const p = this.ascPanel;
+    p.removeAll(true);
+
+    const cap = maxSelectableAscension(this.picked.id);
+    // 换将时收口：级数不跨将，超出新武将上限就压回来。
+    if (this.ascension > cap) this.ascension = cap;
+    const lv = this.ascension;
+
+    p.add(
+      this.add
+        .text(ASC.x, ASC.y, '天 命', bodyStyle(13, C.paperFaint))
+        .setOrigin(0.5)
+        .setLetterSpacing(3),
+    );
+    p.add(
+      this.add
+        .text(
+          ASC.x,
+          ASC.y + 32,
+          lv > 0 ? ascensionLabel(lv) : '无天命',
+          brushStyle(22, lv > 0 ? C.gold : C.paperDim),
+        )
+        .setOrigin(0.5),
+    );
+
+    // 出界的一侧压暗且不可点——只能选到 cleared + 1，这就是那道门。
+    const arrow = (delta: -1 | 1): void => {
+      const usable = delta < 0 ? lv > 0 : lv < cap;
+      const glyph = this.add
+        .text(ASC.x + delta * 64, ASC.y + 32, delta < 0 ? '◀' : '▶', bodyStyle(15, usable ? C.gold : 0x554d40))
+        .setOrigin(0.5);
+      p.add(glyph);
+      if (!usable) return;
+      glyph.setInteractive({ useHandCursor: true });
+      glyph.on('pointerover', () => glyph.setColor(css(C.goldBright)));
+      glyph.on('pointerout', () => glyph.setColor(css(C.gold)));
+      glyph.on('pointerup', () => {
+        if (this.leaving) return;
+        this.ascension = lv + delta;
+        this.paintAscension();
+      });
+    };
+    arrow(-1);
+    arrow(1);
+
+    if (lv === 0) {
+      p.add(
+        this.add
+          .text(ASC.x, ASC.y + 58, '不附加难度修改', bodyStyle(11, C.paperFaint))
+          .setOrigin(0.5, 0),
+      );
+      return;
+    }
+
+    // 本重新增，高亮成金。
+    const fresh = this.add
+      .text(ASC.x, ASC.y + 58, `本重新增 · ${ASCENSION_STEP_DESC[lv]}`, {
+        ...bodyStyle(11, C.goldBright),
+        wordWrap: { width: ASC.w },
+        align: 'center',
+        lineSpacing: 3,
+      })
+      .setOrigin(0.5, 0);
+    p.add(fresh);
+
+    // 全部累积修改：一到本重逐条连排，压暗——名单，不是重点。
+    const all = Array.from({ length: lv }, (_, i) => ASCENSION_STEP_DESC[i + 1]).join('　');
+    const list = this.add.text(ASC.x - ASC.w / 2, ASC.y + 58 + fresh.height + 10, all, {
+      ...bodyStyle(10, C.paperDim),
+      wordWrap: { width: ASC.w },
+      lineSpacing: 2,
+    });
+    p.add(list);
+
+    if (lv === cap && cap < MAX_ASCENSION) {
+      p.add(
+        this.add
+          .text(ASC.x, list.y + list.height + 10, '通关本重，解锁下一重', bodyStyle(10, 0x554d40))
+          .setOrigin(0.5, 0),
+      );
+    }
   }
 
   private paintPanel(hero: HeroDef): void {
@@ -619,7 +730,7 @@ export class TitleScene extends Phaser.Scene {
     if (this.leaving) return;
     if (isCardGridOpen(this)) return;
     this.leaving = true;
-    startRun(this.picked);
+    startRun(this.picked, undefined, this.ascension);
     // 起表 (todos/22 s4)：结算的「本局用时」从这一刻读游戏时钟起算。
     markRunStart(this.game.getTime());
     this.cameras.main.fadeOut(420, 8, 6, 4);
