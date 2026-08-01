@@ -53,7 +53,7 @@
 | [19](19-ascension.md) | 进阶难度（天命） |
 | [20](20-audio.md) | 音频系统 |
 | [21](21-settings.md) | 设置菜单 |
-| [22](22-run-summary.md) | 结算界面与评分统计 |
+| [22](done/22-run-summary.md) ✅ | 结算界面与评分统计 |
 | [23](23-compendium-and-unlocks.md) | 图鉴与解锁进度 |
 | [24](24-combat-input.md) | 战斗交互与关键词提示 |
 | [25](25-headless-sim-and-tests-done.md) ✅ | 无头模拟与自动化测试 |
@@ -86,15 +86,17 @@
 
 ### [06 奇遇](06-events-done.md) ✅
 
-- **「事件掉血致死会正确进入结算界面」未做。** `applyOutcome` 把伤害钳在
-  1 体力（`src/rooms/events.ts`，`OutcomeReport.lethal` 记录「本该致死」），
-  因为结算界面归 [22 结算](22-run-summary.md)，房间层够不到它。
-  22 落地后把那一行钳位去掉即可。
+- ~~「事件掉血致死会正确进入结算界面」未做。~~ **阶段八补齐**：
+  [22 结算](done/22-run-summary.md) 落地时把 `applyOutcome` 的 1 体力钳位
+  摘掉，`eventView.pick` 读 `lethal` 改道 `Summary`（`killedBy: 'event'`），
+  致死一刻同步清档（`RoomScene.action` 的 `isRunOver` 闸）。
 - **「单刀赴会」的顺序变了**：事件改名「江东赴宴」，稀有宝物是**赴宴前**先给的
   （`gainRelic` 与 `fight` 同一个 outcome），不是「胜利后额外拿到」。
   `EventOutcome.fight.bonusRelic`（战后发放）这条路已实现并接到
   `claimVictoryRelic`，只是这个事件没走它。
-- 战败仍然是「兵败」→ 标题页，没有结算统计，同样等 [22](22-run-summary.md)。
+- ~~战败仍然是「兵败」→ 标题页，没有结算统计。~~ **阶段八补齐**：
+  兵败改道 [22 结算](done/22-run-summary.md) 的 `SummaryScene`，
+  记「殁于 <最后行动的敌人>」。
 
 ### [10 遗物奖励](10-relic-rewards-done.md) ✅
 
@@ -134,9 +136,9 @@
   （一幕 9 / 二幕 6 / 三幕 6）也在实测中被判偏薄——沿真实路线走 50 次，
   二幕 8.5 场只见到 6.1 种。数字与诊断在 todo 文件末尾。
 - **12 个奇遇撑不满四幕**：第三幕 20 个 event 节点见不到一种新的。
-- **「胜利结算」是占位屏**。`InterludeScene.paintVictory()` 只印体力/资财/
-  牌组三个数，真结算见 [22 结算界面](22-run-summary.md)，入口已经打通
-  （触发条件是 `actExit(run) === 'victory'`）。
+- ~~「胜利结算」是占位屏。~~ **阶段八补齐**：`paintVictory()` 已删，
+  `actExit(run) === 'victory'` 直接进 [22 结算界面](done/22-run-summary.md)
+  的 `SummaryScene`。
 
 ### [17 多武将](17-multiple-heroes-done.md) ✅ — 阶段七归档
 
@@ -163,6 +165,23 @@
   `writeSave` 就在 `BlessingScene.leave()` 里、门是 `blessingSettled`，
   而「继续」直接进 `Map` / `Combat`、永不进 `Blessing`。两半都有
   源码文本测试守着（`tests/save.test.ts`）。预判成立：没有新增字段。
+
+### [22 结算](done/22-run-summary.md) ✅ — 阶段八归档
+
+十二条验收逐条对过（死亡/胜利/事件致死三条终点、分数验算 115、
+天命 ×1.25、无伤 25、博采 100、牌组与宝物展示、新纪录、战史、
+累计统计、清档），实现与勘误：
+
+- **「本局用时」不是墙钟时间。** 仓库禁时钟（约定 2），`markRunStart` /
+  `runElapsed` 用纯过账刻度；续档局只计本次会话，战史的「时间」列
+  展示为本局用时并在界面注明。
+- **`killedBy` 是「最后行动的敌人」**：读档回来回合初被灼烧之类烧死、
+  无人动过手时兜底「乱军之中」，该名会计入 `Career.totals.deathsBy`。
+- 事件直接扣血不计入 `damageTaken`（按 todo 规格，那是引擎伤害的账）。
+- `settleRun` 里 [19 天命](19-ascension.md)（`ascension` 恒 0）与
+  [23 解锁](23-compendium-and-unlocks.md) 只留了接线点，等两者落地时接。
+- 存档格式 `SAVE_VERSION` 1→2（新增 `stats` 与 `fightDamageTaken`），
+  按仓库约定拒绝迁移旧档。
 
 ### 平衡：三张表要分开读，带外行数分别是 15 / 5 / 26
 

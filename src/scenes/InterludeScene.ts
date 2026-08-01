@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { actExit, advanceAct, type ActDef } from '../data/acts';
-import { endRun, getRun, type RunState } from '../state/run';
+import { getRun, type RunState } from '../state/run';
 import { clearSave, writeSave } from '../state/save';
 import { useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle } from '../ui/theme';
@@ -28,8 +28,6 @@ export class InterludeScene extends Phaser.Scene {
   private leaving = false;
   private layer!: Phaser.GameObjects.Container;
   private holdTimer?: Phaser.Time.TimerEvent;
-  /** Where 「跳过」 sends the player once the card is done. */
-  private destination: 'Map' | 'Title' = 'Map';
 
   constructor() {
     super('Interlude');
@@ -39,7 +37,6 @@ export class InterludeScene extends Phaser.Scene {
    *  `tests/integrity.test.ts`, 「scene state does not survive」. */
   init(): void {
     this.leaving = false;
-    this.destination = 'Map';
     this.holdTimer = undefined;
   }
 
@@ -47,30 +44,31 @@ export class InterludeScene extends Phaser.Scene {
     useDesignSpace(this);
     this.run = getRun();
 
-    const exit = actExit(this.run);
     // One decision, made before anything is drawn: either the run moves on, or
-    // it is over. Both look like a card; only one of them touches the run.
-    const act = exit === 'victory' ? null : advanceAct(this.run);
-    this.destination = act ? 'Map' : 'Title';
+    // it is over — and a run that is over goes straight to 结算 (todos/22 s3),
+    // not through the card. 存档 cleared here, in the same breath: a run that
+    // just ended keeps no save at all, and the title must not offer 「继续」.
+    // `endRun` is the summary screen's to call — it still reads the run.
+    if (actExit(this.run) === 'victory') {
+      clearSave();
+      this.scene.start('Summary', { victory: true });
+      return;
+    }
+
+    const act = advanceAct(this.run);
 
     // 存档 (todos/08), immediately and in the same breath as the act change.
     // `advanceAct` is a one-way door that wipes the room ledger and rebuilds the
     // map: a save written before it and reloaded after would put the player back
     // in front of a 首领 whose 战利品 chest is已答, and `advanceAct` throws on the
-    // second pass through. A run that just ended keeps no save at all.
-    if (act) {
-      writeSave(this.run, null);
-    } else {
-      clearSave();
-      endRun();
-    }
+    // second pass through.
+    writeSave(this.run, null);
 
     this.cameras.main.fadeIn(520, 8, 6, 4);
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 1);
 
     this.layer = this.add.container(0, 0);
-    if (act) this.paintAct(act);
-    else this.paintVictory();
+    this.paintAct(act);
 
     this.holdTimer = this.time.delayedCall(HOLD_MS, () => this.leave());
 
@@ -147,52 +145,6 @@ export class InterludeScene extends Phaser.Scene {
     this.fadeUp(line, 520);
   }
 
-  /**
-   * 第三幕 cleared without the 宝钥, or 终章 cleared outright. Both end the run.
-   *
-   * A placeholder for todos/22's 结算界面 and marked as one: it prints the two
-   * numbers a summary screen would open with and drops the player back at the
-   * title. It must not print a false ending — a run that stopped short of
-   * 五丈原 says so.
-   */
-  private paintVictory(): void {
-    const midX = GAME_WIDTH / 2;
-    const finale = this.run.act >= 4;
-
-    const title = this.add
-      .text(midX, 168, finale ? '天 命 已 定' : '凯 旋', brushStyle(96, C.goldBright))
-      .setOrigin(0.5)
-      .setLetterSpacing(16);
-    this.fadeUp(title, 0);
-
-    const line = this.add
-      .text(
-        midX,
-        286,
-        finale ? '五丈原秋风起，星落而汉祚终。' : '三镇已平，然五丈原之门未启——宝钥不在手中。',
-        bodyStyle(19, C.paperDim),
-      )
-      .setOrigin(0.5)
-      .setLetterSpacing(2);
-    this.fadeUp(line, 200);
-
-    const stat = this.add
-      .text(
-        midX,
-        352,
-        `体力 ${this.run.hp} / ${this.run.maxHp}　·　资财 ${this.run.gold}　·　牌组 ${this.run.deck.length} 张`,
-        bodyStyle(17, C.gold),
-      )
-      .setOrigin(0.5)
-      .setLetterSpacing(2);
-    this.fadeUp(stat, 320);
-
-    const note = this.add
-      .text(midX, 424, '（结算界面见 todos/22）', bodyStyle(13, 0x6b6355))
-      .setOrigin(0.5);
-    this.fadeUp(note, 440);
-  }
-
   private fadeUp(obj: Phaser.GameObjects.GameObject, delay: number): void {
     const target = obj as Phaser.GameObjects.GameObject & { alpha: number; y: number };
     const restY = target.y;
@@ -217,10 +169,9 @@ export class InterludeScene extends Phaser.Scene {
     this.holdTimer?.remove();
     this.input.enabled = false;
 
-    const to = this.destination;
     this.cameras.main.fadeOut(420, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
-      this.scene.start(to),
+      this.scene.start('Map'),
     );
   }
 }

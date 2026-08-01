@@ -7,6 +7,7 @@ import { MapScene } from './scenes/MapScene';
 import { CombatScene } from './scenes/CombatScene';
 import { RoomScene } from './scenes/RoomScene';
 import { InterludeScene } from './scenes/InterludeScene';
+import { SummaryScene } from './scenes/SummaryScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -37,6 +38,7 @@ const config: Phaser.Types.Core.GameConfig = {
     CombatScene,
     RoomScene,
     InterludeScene,
+    SummaryScene,
   ],
 };
 

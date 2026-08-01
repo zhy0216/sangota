@@ -44,8 +44,10 @@ import { adoptRun, syncPotionSlots, syncRewardCount, uidCursor, type RunState } 
  * mismatch outright (`{ kind: 'stale' }`) rather than migrating: there is one
  * slot and one run in it, and a wrong migration is indistinguishable from a
  * working save until the run is already unwinnable.
+ *
+ * 2: `RunState.stats` 与 `SavedCombat.fightDamageTaken` (todos/22 s1)。
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 const SAVE_KEY = 'sangota.save.v1';
 
@@ -109,6 +111,11 @@ export interface SavedCombat extends PersistedCombat {
   bonusRelic: string | null;
   /** `CombatScene.theftSeq` — the idempotency key 夺财 payouts are gated by. */
   theftSeq: number;
+  /**
+   * `CombatScene.fightDamageTaken` — 本场已掉的血 (todos/22)。无伤判定的基线：
+   * 不存的话，先挨一刀、存档再读回来打完，就成了「无伤」。
+   */
+  fightDamageTaken: number;
 }
 
 /** The scene-side context a snapshot needs and `CombatState` does not carry. */
@@ -117,6 +124,7 @@ export interface CombatContext {
   ledgerId: string | null;
   bonusRelic: string | null;
   theftSeq: number;
+  fightDamageTaken: number;
 }
 
 // ----------------------------------------------------------------- 纯映射
@@ -186,6 +194,7 @@ export function snapshotCombat(state: CombatState, ctx: CombatContext): SavedCom
     ledgerId: ctx.ledgerId,
     bonusRelic: ctx.bonusRelic,
     theftSeq: ctx.theftSeq,
+    fightDamageTaken: ctx.fightDamageTaken,
   };
 }
 
@@ -264,6 +273,7 @@ export function toSaved(run: RunState, combat: SavedCombat | null): SavedRun {
     bossRelicOffer: run.bossRelicOffer,
     keys: run.keys,
     blessing: run.blessing,
+    stats: run.stats,
   };
 }
 
@@ -323,6 +333,7 @@ export function fromSaved(saved: SavedRun): RunState {
     bossRelicOffer: saved.bossRelicOffer,
     keys: saved.keys,
     blessing: saved.blessing,
+    stats: saved.stats,
   };
 
   syncPotionSlots(run);

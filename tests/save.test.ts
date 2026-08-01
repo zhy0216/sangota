@@ -252,7 +252,13 @@ function fightAt(run: RunState, turns: number): CombatState {
   return state;
 }
 
-const CTX = { tier: 'monster' as const, ledgerId: null, bonusRelic: null, theftSeq: 2 };
+const CTX = {
+  tier: 'monster' as const,
+  ledgerId: null,
+  bonusRelic: null,
+  theftSeq: 2,
+  fightDamageTaken: 0,
+};
 
 describe('a fight in progress', () => {
   it('comes back identical at turn 3', () => {
@@ -334,11 +340,14 @@ describe('a fight in progress', () => {
       ledgerId: '3_2#fight',
       bonusRelic: 'qinglongdao',
       theftSeq: 2,
+      // 无伤判定的基线 (todos/22)：不随存档走的话，读档就能洗掉已挨的刀。
+      fightDamageTaken: 7,
     });
     expect(snap.tier).toBe('elite');
     expect(snap.ledgerId).toBe('3_2#fight');
     expect(snap.bonusRelic).toBe('qinglongdao');
     expect(snap.theftSeq).toBe(2);
+    expect(snap.fightDamageTaken).toBe(7);
   });
 
   it('is only quiescent between actions', () => {

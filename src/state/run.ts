@@ -1,11 +1,64 @@
 import { canUpgrade, getCard, isNegative } from '../combat/cards';
+import type { CombatTier } from '../combat/enemies';
 import { POTION_DROP, getPotion } from '../combat/potions';
 import { RELICS, relicModifiers } from '../combat/relics';
 import { BASE_CARD_REWARD_COUNT } from '../combat/rewards';
+import type { CombatEvent } from '../combat/types';
 import { ACT1_LAYOUT, generateMap } from '../map/generateMap';
-import type { GameMap } from '../map/types';
+import type { GameMap, RoomType } from '../map/types';
 import type { DeckPick, RoomRecord } from '../rooms/types';
 import { DEFAULT_HERO, type HeroDef } from '../data/heroes';
+
+/**
+ * 跑团全程的统计账本 (todos/22)。只进不出:埋点各处只做「+=」，任何规则都不许
+ * 反过来读它做决定——它是给结算界面看的史料，不是游戏状态。
+ *
+ * todos/22 的草稿还带一个 `startedAt` 时间戳，这里没有：约定 2 全项目禁时钟
+ * （见 `tests/integrity.test.ts` 「keeps the clock out of every file」），
+ * 「本局用时」与 08 存档的 `savedAt` 是同一行建不出来的字段。
+ *
+ * 战斗内的数字**只走 `CombatEvent` 回传**（`recordCombatEvents`）：约定 8
+ * 不让引擎碰 `RunState`，无头模拟里也根本没有跑团可写。
+ */
+export interface RunStats {
+  floorsClimbed: number;
+  enemiesSlain: number;
+  elitesSlain: number;
+  bossesSlain: number;
+  /** 无伤（本场 damageTaken 增量为 0）打完的精英/首领场数。 */
+  flawlessElites: number;
+  flawlessBosses: number;
+  goldEarned: number;
+  goldSpent: number;
+  damageTaken: number;
+  damageDealt: number;
+  cardsPlayed: number;
+  potionsUsed: number;
+  /** 结算 (todos/22 s2) 时写入；跑团进行中恒为 0。 */
+  maxHpAtEnd: number;
+  /** 每层进入的房间类型，结算界面画路线用。跨幕累积，不随 `clearActProgress` 清。 */
+  route: { act: number; row: number; type: RoomType }[];
+}
+
+/** 全零的新账本。函数而非常量：`route` 是数组，共享一份会让两局互相记账。 */
+export function emptyRunStats(): RunStats {
+  return {
+    floorsClimbed: 0,
+    enemiesSlain: 0,
+    elitesSlain: 0,
+    bossesSlain: 0,
+    flawlessElites: 0,
+    flawlessBosses: 0,
+    goldEarned: 0,
+    goldSpent: 0,
+    damageTaken: 0,
+    damageDealt: 0,
+    cardsPlayed: 0,
+    potionsUsed: 0,
+    maxHpAtEnd: 0,
+    route: [],
+  };
+}
 
 /** One physical card in the deck. Upgrades ride on the copy, not on the id. */
 export interface DeckCard {
@@ -86,6 +139,11 @@ export interface RunState {
    * type*, which a blessing does not have.
    */
   blessing: BlessingState | null;
+
+  // ------------------------------------------------------------ 统计 (22)
+
+  /** 结算界面的账本，见 `RunStats`。 */
+  stats: RunStats;
 }
 
 /**
@@ -156,6 +214,7 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string): RunState 
     bossRelicOffer: null,
     keys: { sapphire: false },
     blessing: null,
+    stats: emptyRunStats(),
   };
   syncPotionSlots(active);
   syncRewardCount(active);
@@ -247,6 +306,9 @@ export function travelTo(run: RunState, nodeId: string): void {
   node.visited = true;
   run.currentNodeId = nodeId;
   run.path.push(nodeId);
+  // 埋点 (todos/22)：`path` 每幕清空，登临数和路线要跨幕活到结算，所以另记。
+  run.stats.floorsClimbed += 1;
+  run.stats.route.push({ act: run.act, row: node.row, type: node.type });
 }
 
 /**
@@ -287,7 +349,13 @@ export function heal(run: RunState, amount: number): number {
 export function addGold(run: RunState, amount: number): void {
   const gained =
     amount > 0 ? Math.floor(amount * relicModifiers(run.relics).goldMultiplier) : amount;
+  const before = run.gold;
   run.gold = Math.max(0, run.gold + gained);
+  // 埋点 (todos/22)：按钱袋的实际进出记——宝物加成算进「入」，被 0 兜底的
+  // 那截扣不到就不记，账本上的数永远是真发生过的。
+  const delta = run.gold - before;
+  if (delta > 0) run.stats.goldEarned += delta;
+  else run.stats.goldSpent -= delta;
 }
 
 export const hasRelic = (run: RunState, id: string): boolean => run.relics.includes(id);
@@ -343,6 +411,8 @@ export function usePotionOutOfCombat(run: RunState, slot: number): boolean {
     if (effect.kind === 'heal') heal(run, effect.amount);
   }
   run.potions[slot] = null;
+  // 埋点 (todos/22)：战斗内的那半由 `recordCombatEvents` 数 `potion` 事件。
+  run.stats.potionsUsed += 1;
   return true;
 }
 
@@ -426,3 +496,62 @@ export function applyCombatResult(run: RunState, hpAfter: number): void {
 }
 
 export const isRunOver = (run: RunState): boolean => run.hp <= 0;
+
+// ------------------------------------------------------------- 统计 (22)
+
+/**
+ * 把一批战斗事件累入账本 (todos/22)。约定 8 不让引擎写 `RunState`——无头模拟
+ * 里没有跑团可写——所以引擎只发 `CombatEvent`，由驱动战斗的一方（`CombatScene`
+ * drain 事件队列时）把同一批事件喂到这里。每个事件恰好被 drain 一次
+ * （`events.splice(0)`），所以这里不需要任何去重。
+ *
+ * `damage` 事件的 `amount` 已是穿过护甲的实际掉血，按 target 是否玩家分两栏；
+ * `death` 只有真死才发（逃走是 `escape`、分裂是 `split`），数它就是斩获；
+ * `potion` 每喝一瓶恰好一枚。
+ *
+ * 返回本批事件里**玩家**掉的血——`CombatScene` 拿它累「本场无伤」的判定。
+ */
+export function recordCombatEvents(
+  stats: RunStats,
+  events: readonly CombatEvent[],
+  playerId: string,
+): number {
+  let taken = 0;
+  for (const ev of events) {
+    if (ev.t === 'damage') {
+      if (ev.targetId === playerId) {
+        stats.damageTaken += ev.amount;
+        taken += ev.amount;
+      } else {
+        stats.damageDealt += ev.amount;
+      }
+    } else if (ev.t === 'death') {
+      stats.enemiesSlain += 1;
+    } else if (ev.t === 'potion') {
+      stats.potionsUsed += 1;
+    }
+  }
+  return taken;
+}
+
+/**
+ * 一场打赢的战斗按档次入账 (todos/22)：精英/首领各记一笔，无伤（本场掉血
+ * 恰为 0，含被护甲全挡下的）另记「全甲」/「秋毫无犯」。杂兵不入此账——
+ * 斩获已经按 `death` 事件数过了。
+ *
+ * 只能在**未 resumed** 的胜利里调一次：存档恢复的胜利画面在写档前已经
+ * 结算过（见 `CombatScene.showVictory` 对 `resolveCombatEndHooks` 的同款处理）。
+ */
+export function recordFightSettled(
+  run: RunState,
+  tier: CombatTier,
+  fightDamageTaken: number,
+): void {
+  if (tier === 'elite') {
+    run.stats.elitesSlain += 1;
+    if (fightDamageTaken === 0) run.stats.flawlessElites += 1;
+  } else if (tier === 'boss') {
+    run.stats.bossesSlain += 1;
+    if (fightDamageTaken === 0) run.stats.flawlessBosses += 1;
+  }
+}

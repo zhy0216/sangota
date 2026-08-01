@@ -36,7 +36,14 @@ import type {
   IntentMark,
   StatusId,
 } from '../combat/types';
-import { applyCombatResult, getRun, removePotion, type RunState } from '../state/run';
+import {
+  applyCombatResult,
+  getRun,
+  recordCombatEvents,
+  recordFightSettled,
+  removePotion,
+  type RunState,
+} from '../state/run';
 import {
   clearSave,
   combatIsQuiescent,
@@ -209,6 +216,13 @@ export class CombatScene extends Phaser.Scene {
   private theftSeq = 0;
 
   /**
+   * 本场玩家已掉的血 (todos/22)——「全甲」/「秋毫无犯」的判定基线，由
+   * `playEvents` 在 drain 事件时累加。跟 `theftSeq` 一样在 `init` 重置、
+   * 随存档往返：不存的话，先挨一刀、读档再打完就成了「无伤」。
+   */
+  private fightDamageTaken = 0;
+
+  /**
    * Built on the first hover — most fights never show a status tooltip. All
    * three are cleared in `init`: `shutdown` destroys every Game Object in the
    * display list, and a field still pointing at a destroyed `Text` makes the
@@ -244,6 +258,14 @@ export class CombatScene extends Phaser.Scene {
   /** The enemy currently resolving a move, so its hits can reach for the player. */
   private currentAttacker: ActorView | null = null;
 
+  /**
+   * 本场最后行动的敌人名 (todos/22 s3)——结算界面的「殁于 XXX」。在
+   * `playEvents` drain `enemyMove` 事件时记下，因为死亡总是落在某次行动
+   * 的余波里：直击、烧伤、中毒，账都记在最后动手的那个头上。不随存档
+   * 往返——读档回来还没人动过手就死（回合初的灼烧），报「乱军之中」。
+   */
+  private lastEnemyMoveName: string | null = null;
+
   constructor() {
     super('Combat');
   }
@@ -268,6 +290,7 @@ export class CombatScene extends Phaser.Scene {
     // already destroyed every Game Object the old one held, and asking a stale
     // roster to tidy up would reach into them.
     this.theftSeq = 0;
+    this.fightDamageTaken = 0;
     this.selectedUid = null;
     this.selectedPotion = null;
     this.busy = false;
@@ -277,6 +300,7 @@ export class CombatScene extends Phaser.Scene {
     this.statusTipBg = null;
     this.statusTipText = null;
     this.currentAttacker = null;
+    this.lastEnemyMoveName = null;
     this.lastEnergy = 0;
     this.comboBadge = null;
     this.comboText = null;
@@ -294,6 +318,7 @@ export class CombatScene extends Phaser.Scene {
       this.bonusRelic = this.resumeFrom.bonusRelic;
       this.ledgerId = this.resumeFrom.ledgerId;
       this.theftSeq = this.resumeFrom.theftSeq;
+      this.fightDamageTaken = this.resumeFrom.fightDamageTaken;
     }
   }
 
@@ -384,6 +409,7 @@ export class CombatScene extends Phaser.Scene {
         ledgerId: this.ledgerId,
         bonusRelic: this.bonusRelic,
         theftSeq: this.theftSeq,
+        fightDamageTaken: this.fightDamageTaken,
       }),
     );
   }
@@ -1144,6 +1170,9 @@ export class CombatScene extends Phaser.Scene {
       this.refresh();
       return;
     }
+    // 埋点 (todos/22)：打出即记。没有对应的 CombatEvent 可数——引擎不为
+    // 一次成功的 `playCard` 发事件——所以在唯一的调用点数返回值。
+    this.run.stats.cardsPlayed += 1;
 
     if (def.type === 'attack') {
       await this.lunge(this.playerView, 1, 76, 110);
@@ -1348,6 +1377,18 @@ export class CombatScene extends Phaser.Scene {
 
   private async playEvents(): Promise<void> {
     const events = this.state.events.splice(0);
+    // 统计埋点 (todos/22)：约定 8 不让引擎写 RunState，所以账走事件回传，
+    // 在 drain 的这一下入账——每个事件恰好经过这里一次，`finished` 只跳过
+    // 动画，不跳过记账。
+    this.fightDamageTaken += recordCombatEvents(this.run.stats, events, this.state.player.id);
+    for (const ev of events) {
+      // 死因 (todos/22 s3)：在同一个 drain 点记「谁刚动了手」——`playEvent`
+      // 在 `finished` 后会跳过动画，账不能跟着丢。
+      if (ev.t === 'enemyMove') {
+        this.lastEnemyMoveName =
+          this.state.enemies.find((e) => e.id === ev.enemyId)?.name ?? this.lastEnemyMoveName;
+      }
+    }
     for (const ev of events) {
       if (this.finished && ev.t !== 'death') continue;
       await this.playEvent(ev);
@@ -2278,6 +2319,10 @@ export class CombatScene extends Phaser.Scene {
       // 贪念 collects here — before the gold roll, so a curse can never eat the
       // reward the player is about to be shown.
       resolveCombatEndHooks(this.state, this.run);
+      // 统计入账 (todos/22)：精英/首领与无伤判定。写在 `saveFight` 之前，
+      // 和 `resolveCombatEndHooks` 同一道 `resumed` 闸——存档恢复的胜利
+      // 画面已经记过账，再记就是双份。
+      recordFightSettled(this.run, this.nodeType, this.fightDamageTaken);
       // Written *now*, still tagged as a won fight, because the screen the
       // player is about to see owes them a card and a 首领 relic. Saved as「on
       // the map」instead, a reload would strand the run on a node whose spoils
@@ -2613,42 +2658,22 @@ export class CombatScene extends Phaser.Scene {
     layer.add(keep);
   }
 
+  /**
+   * 兵败改道结算 (todos/22 s3)。原先在这里画的「兵败」占位屏由
+   * `SummaryScene` 接手，死因取本场最后行动的敌人名。
+   */
   private showDefeat(): void {
     applyCombatResult(this.run, 0);
     // 存档 (todos/08): the run is over the moment 体力 hits zero. Cleared here
-    // rather than on the way to the title so that closing the tab on the 兵败
-    // screen ends the run too — a roguelike may not offer a way back past this.
+    // rather than on the way to 结算 so that closing the tab mid-fade ends the
+    // run too — a roguelike may not offer a way back past this.
     clearSave();
 
-    const layer = this.add.container(0, 0).setDepth(DEPTH.overlay);
-    layer.add(
-      this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 0.93),
+    const killedBy = this.lastEnemyMoveName ?? '乱军之中';
+    this.cameras.main.fadeOut(420, 8, 6, 4);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
+      this.scene.start('Summary', { victory: false, killedBy }),
     );
-    layer.add(
-      this.add.text(GAME_WIDTH / 2, 240, '兵 败', brushStyle(64, C.cinnabar)).setOrigin(0.5).setLetterSpacing(14),
-    );
-    layer.add(
-      this.add
-        .text(GAME_WIDTH / 2, 320, `止步于第 ${this.run.path.length} 层`, bodyStyle(18, C.paperDim))
-        .setOrigin(0.5),
-    );
-
-    const again = inkButton(this, GAME_WIDTH / 2, 430, '再 战', {
-      width: 200,
-      height: 62,
-      fontSize: 28,
-      onClick: () => {
-        this.cameras.main.fadeOut(300, 8, 6, 4);
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
-          this.scene.start('Title'),
-        );
-      },
-    });
-    again.setDepth(DEPTH.overlay + 1);
-    layer.add(again);
-
-    layer.setAlpha(0);
-    this.tweens.add({ targets: layer, alpha: 1, duration: 400 });
   }
 
   /**

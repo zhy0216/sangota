@@ -86,10 +86,9 @@ export interface OutcomeReport {
   /** A deck pick the view still has to collect. See `resolvePending`. */
   pending?: PendingPick;
   /**
-   * The wound would have killed. Phase three clamps at 1 体力 instead: the
-   * defeat screen is private to `CombatScene` and the room layer cannot reach
-   * it (todo 22). The field is here so that lifting the clamp is a one-line
-   * change rather than a redesign.
+   * The wound killed — 体力 落到 0，跑团到此为止。钳位已随 todos/22 s3 摘掉
+   * （结算界面有了，房间层够得到它）：视图读到这面旗就改道结算，
+   * `killedBy: 'event'`。
    */
   lethal: boolean;
   fight?: { tier: 'monster' | 'elite'; bonusRelic?: string };
@@ -260,7 +259,7 @@ function resolveBranch(outcome: EventOutcome, rng: Rng): EventOutcome {
  * what a roll produced: branch, then relic, then potions, then cards. Nothing
  * else in the module draws.
  *
- * Damage is clamped to leave 1 体力. See `OutcomeReport.lethal` for why.
+ * Damage kills for real — no clamp. See `OutcomeReport.lethal`.
  */
 export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): OutcomeReport {
   const o = resolveBranch(outcome, rng);
@@ -285,7 +284,11 @@ export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): Ou
 
   // -- 资财. Spending first: 五丈原 charges the purse it found, not the one the
   // same outcome is about to fill.
-  if (o.spendAllGold) run.gold = 0;
+  if (o.spendAllGold) {
+    // 倾囊也是花钱 (todos/22)——绕过 `addGold` 清空钱袋，账就得在这里记。
+    run.stats.goldSpent += run.gold;
+    run.gold = 0;
+  }
   if (o.gold) addGold(run, o.gold);
 
   // -- 体力上限. A gain heals for what it grants, exactly the way `addRelic`
@@ -305,7 +308,7 @@ export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): Ou
   if (o.hp && o.hp > 0) heal(run, o.hp);
   if (damage > 0) {
     report.lethal = run.hp - damage <= 0;
-    run.hp = Math.max(1, run.hp - damage);
+    run.hp = Math.max(0, run.hp - damage);
   }
   if (o.healToFull) heal(run, run.maxHp);
 
@@ -494,7 +497,7 @@ function describe(report: OutcomeReport): string[] {
   const woundOrCure = report.hp - report.maxHp;
   if (woundOrCure > 0) lines.push(`回复体力 ${woundOrCure}。`);
   else if (woundOrCure < 0) lines.push(`失去体力 ${-woundOrCure}。`);
-  if (report.lethal) lines.push('几乎丧命，只余一息。');
+  if (report.lethal) lines.push('伤重不治，命陨于此。');
 
   if (report.relicId) lines.push(`得宝物「${getRelic(report.relicId)?.name ?? report.relicId}」。`);
   else if (report.relicRefused) lines.push('库中已无可取之物，折作资财。');

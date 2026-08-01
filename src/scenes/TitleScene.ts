@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, css, FONT_BRUSH, GAME_HEIGHT, GAME_WIDTH, RENDER_SCALE } from '../config';
 import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../data/heroes';
+import { markRunStart } from '../state/history';
 import { startRun } from '../state/run';
 import {
   SAVE_VERSION,
@@ -12,6 +13,7 @@ import {
 } from '../state/save';
 import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
+import { openHistory } from '../ui/HistoryPanel';
 import { pushOverlay } from '../ui/overlayStack';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
 
@@ -237,6 +239,16 @@ export class TitleScene extends Phaser.Scene {
     });
     this.actions.add(deck);
     this.fadeIn(deck, 1020);
+
+    // 战史 (todos/22 s8)：跨局账本的入口，与「初始牌组」同一排收尾。
+    const annals = inkButton(this, crowded ? 780 : LEFT + 546, crowded ? 646 : 658, '战 史', {
+      width: 152,
+      height: crowded ? 50 : 52,
+      fontSize: 20,
+      onClick: () => this.showHistory(),
+    });
+    this.actions.add(annals);
+    this.fadeIn(annals, 1060);
   }
 
   private fadeIn(obj: Phaser.GameObjects.Container | Phaser.GameObjects.Text, delay: number): void {
@@ -267,6 +279,9 @@ export class TitleScene extends Phaser.Scene {
     }
 
     this.leaving = true;
+    // 起表 (todos/22 s4)：续档也从这一刻起算——约定 2 禁墙钟，存档里没有
+    // `savedAt`，「本局用时」只能记本次会话打了多久。
+    markRunStart(this.game.getTime());
     this.cameras.main.fadeOut(420, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       // 拜别 is not on this path: a saved run has already been blessed, and
@@ -498,6 +513,12 @@ export class TitleScene extends Phaser.Scene {
     );
   }
 
+  /** 战史 (todos/22 s8)：最近 50 局的册页，点一行看全录。 */
+  private showHistory(): void {
+    if (this.leaving || isCardGridOpen(this)) return;
+    openHistory(this);
+  }
+
   /** The 07 deck viewer, pointed at a deck that does not exist yet. */
   private showDeck(): void {
     if (this.leaving || isCardGridOpen(this)) return;
@@ -599,6 +620,8 @@ export class TitleScene extends Phaser.Scene {
     if (isCardGridOpen(this)) return;
     this.leaving = true;
     startRun(this.picked);
+    // 起表 (todos/22 s4)：结算的「本局用时」从这一刻读游戏时钟起算。
+    markRunStart(this.game.getTime());
     this.cameras.main.fadeOut(420, 8, 6, 4);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       // 拜别 comes before the map, not after it: the blessing rolls off the run

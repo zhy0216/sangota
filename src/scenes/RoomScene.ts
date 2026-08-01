@@ -9,8 +9,8 @@ import type { PickRequest, RoomOptionView } from '../rooms/types';
 import { EventController } from '../rooms/eventView';
 import { ShopController } from '../rooms/shopView';
 import { TreasureController } from '../rooms/treasureView';
-import { getRun, type RunState } from '../state/run';
-import { writeSave } from '../state/save';
+import { getRun, isRunOver, type RunState } from '../state/run';
+import { clearSave, writeSave } from '../state/save';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, gradientStrip, inkButton, inkPanel } from '../ui/theme';
@@ -78,6 +78,8 @@ export interface RoomHost {
   /** The one exit. */
   requestLeave(): void;
   goCombat(req: { tier: 'monster' | 'elite'; bonusRelic?: string }): void;
+  /** 奇遇致死 (todos/22 s3) — the run is over, straight to 结算. */
+  goSummary(killedBy: string): void;
 }
 
 export interface RoomController {
@@ -264,6 +266,7 @@ export class RoomScene extends Phaser.Scene {
       action: (fn) => this.action(fn),
       requestLeave: () => this.leave(),
       goCombat: (req) => this.goCombat(req),
+      goSummary: (killedBy) => this.goSummary(killedBy),
     };
   }
 
@@ -277,7 +280,10 @@ export class RoomScene extends Phaser.Scene {
       // 商旅 with eight one-shot purchases has no other single point where "the
       // run just changed" is true. `writeSave` de-duplicates on the payload, so
       // a button that decided nothing costs one `JSON.stringify` and no write.
-      writeSave(this.run, null);
+      // 致死的奇遇 (todos/22 s3) 反着走：立即清档，不能等 `goSummary` 的
+      // 节拍——那 900ms 里关掉页面，会留下一份 hp 0 还能「继续」的死档。
+      if (isRunOver(this.run)) clearSave();
+      else writeSave(this.run, null);
     };
   }
 
@@ -486,6 +492,25 @@ export class RoomScene extends Phaser.Scene {
         bonusRelic: req.bonusRelic,
         nodeId: eventFightNodeId(this.node.id),
       }),
+    );
+  }
+
+  /**
+   * 奇遇致死 (todos/22 s3)。An event wound took 体力 to zero: the run ends here,
+   * not on the map behind us. Same shape as `goCombat` — the sleeping map is
+   * stale and dropped — plus the 存档 wipe every run-ending exit owes (todos/08):
+   * closing the tab mid-fade must not hand the title a 「继续」 into a dead run.
+   */
+  private goSummary(killedBy: string): void {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.input.enabled = false;
+    this.controller?.dispose?.();
+    clearSave();
+    this.scene.stop('Map');
+    this.cameras.main.fadeOut(300, 8, 6, 4);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
+      this.scene.start('Summary', { victory: false, killedBy }),
     );
   }
 }

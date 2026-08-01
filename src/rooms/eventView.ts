@@ -121,6 +121,16 @@ export class EventController implements RoomController {
     this.host.refreshHud();
     this.floatDeltas(report);
 
+    if (report.lethal) {
+      // 伤重不治 (todos/22 s3)：跑团到此为止，改道结算。`pending` 也不再收——
+      // 死人无牌可择。`busy` stays true, so `canLeave` keeps refusing until the
+      // scene changes, the same bar the fight beat below holds.
+      this.narrate(report.lines);
+      this.host.showOptions([], () => undefined);
+      this.host.scene.time.delayedCall(FIGHT_BEAT, () => this.host.goSummary('event'));
+      return;
+    }
+
     if (report.pending) {
       this.collectPick(report);
       return;

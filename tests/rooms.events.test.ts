@@ -454,7 +454,9 @@ describe('chooseOption', () => {
     expect(report.pending).toEqual({ kind: 'upgrade', count: 1 });
   });
 
-  it('wounds but never kills — the room layer has no defeat screen to reach', () => {
+  it('kills for real — the clamp came off with todos/22 s3', () => {
+    // 曾经钳位在 1 体力：结算界面没建成前，房间层无处可去。现在有了
+    // `SummaryScene`，视图读 `lethal` 改道结算，体力照实落到 0。
     const run = fresh();
     const id = eventNode(run);
     pin(run, id, 'wolonggang');
@@ -462,9 +464,9 @@ describe('chooseOption', () => {
 
     const report = chooseOption(run, id, 0)!;
     expect(report.lethal).toBe(true);
-    expect(run.hp).toBe(1);
-    expect(report.hp).toBe(-4);
-    expect(report.lines).toContain('几乎丧命，只余一息。');
+    expect(run.hp).toBe(0);
+    expect(report.hp).toBe(-5);
+    expect(report.lines).toContain('伤重不治，命陨于此。');
   });
 
   it('takes two tenths of current 体力 for the 玉玺, rounded up', () => {
@@ -1033,18 +1035,19 @@ describe('applyOutcome ordering and boundaries', () => {
   });
 
   it('flags lethal on a wound that exactly empties the bar', () => {
-    // `<= 0`, not `< 0`. At the boundary the player watches their 体力 drop to
-    // 1 with no line explaining it.
+    // `<= 0`, not `< 0`. At the boundary the run is over — a player left
+    // standing on exactly 0 with no flag would walk on dead.
     const run = fresh('exact');
     run.hp = 12;
     const report = only({ text: '', hp: -12 }, run);
     expect(report.lethal).toBe(true);
-    expect(run.hp).toBe(1);
-    expect(report.lines).toContain('几乎丧命，只余一息。');
+    expect(run.hp).toBe(0);
+    expect(report.lines).toContain('伤重不治，命陨于此。');
 
     const survived = fresh('spare');
     survived.hp = 13;
     expect(only({ text: '', hp: -12 }, survived).lethal).toBe(false);
+    expect(survived.hp).toBe(1);
   });
 
   it('hands over the exact cards an outcome names', () => {
