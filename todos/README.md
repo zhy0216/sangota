@@ -54,7 +54,7 @@
 | [20](20-audio.md) | 音频系统 |
 | [21](21-settings.md) | 设置菜单 |
 | [22](done/22-run-summary.md) ✅ | 结算界面与评分统计 |
-| [23](23-compendium-and-unlocks.md) | 图鉴与解锁进度 |
+| [23](done/23-compendium-and-unlocks.md) ✅ | 图鉴与解锁进度 |
 | [24](24-combat-input.md) | 战斗交互与关键词提示 |
 | [25](25-headless-sim-and-tests-done.md) ✅ | 无头模拟与自动化测试 |
 
@@ -181,7 +181,8 @@
 - ~~`settleRun` 里 19 天命只留了接线点。~~ **同阶段接上**：
   [19 天命](done/19-ascension.md) 落地时 `run.ascension` 真值进
   `computeScore`，victory 更新 `cleared[heroId]`;
-  [23 解锁](23-compendium-and-unlocks.md) 的接线点仍空着。
+  [23 解锁](done/23-compendium-and-unlocks.md) 的 `applyRunUnlocks`
+  也已接进 `settleRun`。
 - 存档格式 `SAVE_VERSION` 1→2（新增 `stats` 与 `fightDamageTaken`），
   按仓库约定拒绝迁移旧档。
 
@@ -201,6 +202,25 @@
 - 后十重（十一到二十）字段已留好（`potionSlots`/`rarityWeightMult`/
   `shopPriceMult`/`enhancedMoves`/`doubleBoss` 接线全在，DEFAULT 恒等），
   改数据即可开级。
+
+### [23 图鉴与解锁](done/23-compendium-and-unlocks.md) ✅ — 阶段八归档
+
+十一条验收全部达成，取舍与偏离：
+
+- **过滤语义是「默认解锁、轨道设门」**：`isUnlocked` 只对写进
+  `UNLOCK_TRACKS`/`HERO_UNLOCKS` 的 id 查账，其余恒放行。门后只有
+  关羽的 13 张扩池牌、3 件宝物、赵云（1 胜）/诸葛亮（2 胜）。
+  **无 localStorage 的环境（Node 测试/sim/隐私模式浏览器）全放行**——
+  有意取舍，锁初始集合等于改掉全部测试期望值。
+- **自定义模式的 modifier 砍了两个**：`infiniteEnergy`（要动引擎的气账，
+  外挂即第二事实源）、`noRelics`（宝物五扇门全设闸等于重写 05/06/10）；
+  `startWithAllCards`（发的是全池，含未解锁——不计分局无妨）与
+  `allCurses` 做了。
+- **标题页六入口是页底横排**（几何有测试钉住），不是条目说的
+  「竖排在立绘右侧」；「设置」入口顶成了「新卷可阅」——
+  [21 设置](21-settings.md) 落地时要回来补第七入口。
+- 敌卷未遭遇的是「？？？」行而非剪影立绘;`pendingChoice` 单槽,
+  多武将同时悬置会互相覆盖（当前只有关羽有轨道，不可达）。
 
 ### 平衡：三张表要分开读，带外行数分别是 15 / 5 / 26
 

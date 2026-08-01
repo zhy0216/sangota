@@ -146,6 +146,16 @@ export interface RunState {
   /** 结算界面的账本，见 `RunStats`。 */
   stats: RunStats;
 
+  // ------------------------------------------------------------ 自定义 (23)
+
+  /**
+   * 自定义局 (todos/23 u5)：不计分不解锁。true 的局在 `settleRun` 里被拦在
+   * 三本账（战史 / 解锁 / 天命进度）之外，敌卷埋点（`recordSeenEnemies`）
+   * 也不写。标记而非开关集合：modifier 只在开局改一次牌组，局中没有任何
+   * 规则读它——读它的只有账房和 HUD 的「自定义 · 不计分」。
+   */
+  custom: boolean;
+
   // ------------------------------------------------------------ 天命 (19)
 
   /** 本局的天命等级，0 = 无天命。开局定死，中途不变。 */
@@ -235,6 +245,9 @@ export function startRun(hero: HeroDef = DEFAULT_HERO, seed?: string, ascension 
     keys: { sapphire: false },
     blessing: null,
     stats: emptyRunStats(),
+    // 自定义局由 startCustomRun (src/state/customRun.ts) 事后盖章——这里恒 false，
+    // 每一个既有调用点和 37 个黄金快照因此一字不动。
+    custom: false,
   };
   // 天命十重 (todos/19 a3)：开局诅咒逐张入组。零至九重列表为空，一张不加；
   // 「宿业」的卡面由 a4 落地（id 见 `SUYE_ID`），这里只按 mods 里的 id 找卡。

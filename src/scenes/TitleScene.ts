@@ -13,11 +13,13 @@ import {
   summarise,
   type SaveSlot,
 } from '../state/save';
+import { chooseUnlock, getUnlocks, isUnlocked } from '../state/unlocks';
 import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
 import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { openHistory } from '../ui/HistoryPanel';
 import { pushOverlay } from '../ui/overlayStack';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
+import { heroLockReason, layoutTitleActions, type TitleActionId } from '../ui/titleView';
 
 /** Cover-fit an image into a box without distorting it. */
 function cover(img: Phaser.GameObjects.Image, w: number, h: number): void {
@@ -64,7 +66,11 @@ export class TitleScene extends Phaser.Scene {
   private heroHolder!: Phaser.GameObjects.Container;
   private heroImg!: Phaser.GameObjects.Image;
   private panel!: Phaser.GameObjects.Container;
-  private tiles: { hero: HeroDef; paint: (state: 'idle' | 'hover' | 'picked') => void }[] = [];
+  private tiles: {
+    hero: HeroDef;
+    locked: boolean;
+    paint: (state: 'idle' | 'hover' | 'picked') => void;
+  }[] = [];
 
   /**
    * 存档 (todos/08). Read once in `create` and repainted from, so the four
@@ -184,21 +190,44 @@ export class TitleScene extends Phaser.Scene {
   private buildActions(): void {
     this.actions.removeAll(true);
     const resumable = this.slot.kind === 'ok';
+    const pending = getUnlocks().pendingChoice;
 
-    const primary = inkButton(
-      this,
-      LEFT + (resumable ? 130 : 118),
-      658,
-      resumable ? '继 续 征 程' : '出 征',
-      {
-        width: resumable ? 260 : 236,
-        height: 66,
-        fontSize: resumable ? 30 : 32,
-        onClick: () => (resumable ? this.continueRun() : this.beginRun()),
-      },
-    );
-    this.actions.add(primary);
-    this.fadeIn(primary, 860);
+    // 六入口 (todos/23 u6)：谁出场、摆在哪全由 `layoutTitleActions` 这只
+    // 纯函数定（`titleView.ts`，测试钉住）；这里只按名册配标签、配色和
+    // 点法。「新卷可阅」(u5) 仍是三选一挂账时才出现，金字压阵——它是
+    // 上一局挣来的赏，不是又一个菜单项。
+    const meta: Record<
+      Exclude<TitleActionId, 'resume' | 'begin'>,
+      { label: string; accent?: number; onClick: () => void }
+    > = {
+      again: { label: '重 新 出 征', accent: C.cinnabar, onClick: () => this.confirmDiscard() },
+      wipe: { label: '清 除 存 档', accent: C.cinnabar, onClick: () => this.discardSave() },
+      compendium: { label: '典 籍', accent: C.jade, onClick: () => this.openCompendium() },
+      annals: { label: '战 史', onClick: () => this.showHistory() },
+      custom: { label: '自 定 义', onClick: () => this.openCustom() },
+      scroll: { label: '新 卷 可 阅', accent: C.goldBright, onClick: () => this.openUnlockChoice() },
+    };
+
+    for (const frame of layoutTitleActions(this.slot.kind, pending !== null)) {
+      // 主位吃 Enter 的同一条路：有档续档，无档出征。
+      const m =
+        frame.id === 'resume' || frame.id === 'begin'
+          ? {
+              label: resumable ? '继 续 征 程' : '出 征',
+              accent: undefined,
+              onClick: () => (resumable ? this.continueRun() : this.beginRun()),
+            }
+          : meta[frame.id];
+      const btn = inkButton(this, frame.x, frame.y, m.label, {
+        width: frame.width,
+        height: frame.height,
+        fontSize: frame.fontSize,
+        accent: m.accent,
+        onClick: m.onClick,
+      });
+      this.actions.add(btn);
+      this.fadeIn(btn, frame.delay);
+    }
 
     if (this.slot.kind === 'ok') {
       const s = summarise(this.slot.saved);
@@ -210,16 +239,6 @@ export class TitleScene extends Phaser.Scene {
       );
       this.actions.add(line);
       this.fadeIn(line, 940);
-
-      const again = inkButton(this, 452, 646, '重 新 出 征', {
-        width: 152,
-        height: 50,
-        fontSize: 20,
-        accent: C.cinnabar,
-        onClick: () => this.confirmDiscard(),
-      });
-      this.actions.add(again);
-      this.fadeIn(again, 980);
     }
 
     if (this.slot.kind === 'stale' || this.slot.kind === 'broken') {
@@ -232,41 +251,35 @@ export class TitleScene extends Phaser.Scene {
       const line = this.add.text(LEFT, 698, why, bodyStyle(13, C.cinnabarBright));
       this.actions.add(line);
       this.fadeIn(line, 940);
-
-      const wipe = inkButton(this, 452, 646, '清 除 存 档', {
-        width: 152,
-        height: 50,
-        fontSize: 20,
-        accent: C.cinnabar,
-        onClick: () => this.discardSave(),
-      });
-      this.actions.add(wipe);
-      this.fadeIn(wipe, 980);
     }
+  }
 
-    // Compact whenever a second button shares the row — 「重新出征」 on a live
-    // save, 「清除存档」 on a stale or broken one. Only an empty slot leaves the
-    // roomy two-button layout.
-    const crowded = this.slot.kind !== 'empty';
-    const deck = inkButton(this, crowded ? 616 : LEFT + 358, crowded ? 646 : 658, '初 始 牌 组', {
-      width: crowded ? 152 : 190,
-      height: crowded ? 50 : 52,
-      fontSize: 20,
-      accent: C.jade,
-      onClick: () => this.showDeck(),
+  /**
+   * 三选一 (todos/23 u5)：三张牌横排选一——`CardGrid` 的 `pick` 模式原样就是
+   * 这个界面。选中的立刻入册（`chooseUnlock`），其余两张按设计随下一批自动
+   * 解锁（`applyRunUnlocks` 的「下一批」语义，见 `unlocks.ts`）。Esc 可退：
+   * 卷还挂着，下次再阅。
+   */
+  private openUnlockChoice(): void {
+    if (this.leaving || isCardGridOpen(this)) return;
+    const pending = getUnlocks().pendingChoice;
+    if (!pending) return;
+    const hero = HEROES_IN_ORDER.find((h) => h.id === pending.heroId);
+    openCardGrid(this, {
+      title: '有 新 卷 可 阅',
+      subtitle: `${hero?.name ?? pending.heroId}的新牌三择其一，先行入册`,
+      entries: pending.options.map((defId) => ({ uid: defId, defId, upgraded: 0 })),
+      mode: 'pick',
+      pickCount: 1,
+      confirmText: '先 阅 此 卷',
+      footerHint: '择一先解锁　·　其余两张随下一卷放出　·　Esc 稍后再选',
+      // uid 就是 defId——三张牌来自轨道数据,天然无重复。
+      onPick: (uids) => {
+        chooseUnlock(uids[0]);
+        this.buildActions();
+      },
+      onClose: () => undefined,
     });
-    this.actions.add(deck);
-    this.fadeIn(deck, 1020);
-
-    // 战史 (todos/22 s8)：跨局账本的入口，与「初始牌组」同一排收尾。
-    const annals = inkButton(this, crowded ? 780 : LEFT + 546, crowded ? 646 : 658, '战 史', {
-      width: 152,
-      height: crowded ? 50 : 52,
-      fontSize: 20,
-      onClick: () => this.showHistory(),
-    });
-    this.actions.add(annals);
-    this.fadeIn(annals, 1060);
   }
 
   private fadeIn(obj: Phaser.GameObjects.Container | Phaser.GameObjects.Text, delay: number): void {
@@ -403,6 +416,10 @@ export class TitleScene extends Phaser.Scene {
       const y = TILE.y + i * (TILE.h + TILE.gap);
       const tile = this.add.container(TILE.x, y).setAlpha(0);
 
+      // 解锁门 (todos/23 u6)：`isUnlocked` 无存储时全放行，浏览器里按账收口。
+      // `CustomScene` 的同款——锁着的压暗且不可点，这里再多印一行理由。
+      const locked = !isUnlocked('hero', hero.id);
+
       const bg = this.add.graphics();
       const glyph = this.add
         .text(0, -14, hero.seal, brushStyle(44, C.paperDim))
@@ -410,6 +427,17 @@ export class TitleScene extends Phaser.Scene {
       const name = this.add.text(0, 30, hero.name, bodyStyle(15, C.paperDim)).setOrigin(0.5);
 
       const paint = (state: 'idle' | 'hover' | 'picked'): void => {
+        if (locked) {
+          // 门就长这样：怎么重画都是暗的，悬停也不亮。
+          bg.clear();
+          bg.fillStyle(C.inkDeep, 0.5);
+          bg.fillRoundedRect(-TILE.w / 2, -TILE.h / 2, TILE.w, TILE.h, 4);
+          bg.lineStyle(1, C.gold, 0.25);
+          bg.strokeRoundedRect(-TILE.w / 2, -TILE.h / 2, TILE.w, TILE.h, 4);
+          glyph.setColor(css(0x554d40));
+          name.setColor(css(0x554d40));
+          return;
+        }
         const border = state === 'picked' ? C.cinnabar : state === 'hover' ? C.goldBright : C.gold;
         bg.clear();
         bg.fillStyle(C.inkDeep, state === 'idle' ? 0.72 : 0.9);
@@ -420,22 +448,37 @@ export class TitleScene extends Phaser.Scene {
         name.setColor(css(state === 'picked' ? C.goldBright : C.paperDim));
       };
 
-      const hit = this.add.zone(0, 0, TILE.w, TILE.h).setInteractive({ useHandCursor: true });
-      hit.on('pointerover', () => paint(hero === this.picked ? 'picked' : 'hover'));
-      hit.on('pointerout', () => paint(hero === this.picked ? 'picked' : 'idle'));
-      hit.on('pointerup', () => this.pick(hero));
+      tile.add([bg, glyph, name]);
 
-      tile.add([bg, glyph, name, hit]);
+      if (locked) {
+        // 理由 (u6)：`HERO_UNLOCKS` 的门槛译成人话，压在名字底下。
+        const reason = heroLockReason(hero.id) ?? '未解锁';
+        tile.add(this.add.text(0, 45, reason, bodyStyle(10, 0x554d40)).setOrigin(0.5));
+      } else {
+        const hit = this.add.zone(0, 0, TILE.w, TILE.h).setInteractive({ useHandCursor: true });
+        hit.on('pointerover', () => paint(hero === this.picked ? 'picked' : 'hover'));
+        hit.on('pointerout', () => paint(hero === this.picked ? 'picked' : 'idle'));
+        hit.on('pointerup', () => this.pick(hero));
+        tile.add(hit);
+      }
+
       this.tweens.add({ targets: tile, alpha: 1, duration: 500, delay: 700 + i * 90 });
-      this.tiles.push({ hero, paint });
+      this.tiles.push({ hero, locked, paint });
     }
   }
 
   private step(delta: number): void {
     if (this.leaving || isCardGridOpen(this)) return;
+    const n = HEROES_IN_ORDER.length;
     const at = HEROES_IN_ORDER.indexOf(this.picked);
-    const next = (at + delta + HEROES_IN_ORDER.length) % HEROES_IN_ORDER.length;
-    this.pick(HEROES_IN_ORDER[next]);
+    // 键盘选将走同一道解锁门 (u6)：跳过锁着的，兜一圈没有可选的就不动。
+    for (let hop = 1; hop <= n; hop++) {
+      const idx = (((at + delta * hop) % n) + n) % n;
+      if (!this.tiles[idx].locked) {
+        this.pick(this.tiles[idx].hero);
+        return;
+      }
+    }
   }
 
   private pick(hero: HeroDef): void {
@@ -630,17 +673,16 @@ export class TitleScene extends Phaser.Scene {
     openHistory(this);
   }
 
-  /** The 07 deck viewer, pointed at a deck that does not exist yet. */
-  private showDeck(): void {
+  /** 典籍 (todos/23 u6)：图鉴的入口。u4 的约定——只认 `scene.start('Compendium')`。 */
+  private openCompendium(): void {
     if (this.leaving || isCardGridOpen(this)) return;
-    const hero = this.picked;
-    openCardGrid(this, {
-      title: `${hero.name} · 初始牌组`,
-      subtitle: `共 ${hero.startingDeck.length} 张　·　${hero.mechanic.name}`,
-      entries: hero.startingDeck.map((defId, i) => ({ uid: `${hero.id}-${i}`, defId, upgraded: 0 })),
-      mode: 'view',
-      onClose: () => undefined,
-    });
+    this.scene.start('Compendium');
+  }
+
+  /** 自定义 (todos/23 u6)：备战屏的入口。u5 的约定——只认 `scene.start('Custom')`。 */
+  private openCustom(): void {
+    if (this.leaving || isCardGridOpen(this)) return;
+    this.scene.start('Custom');
   }
 
   // ------------------------------------------------------------- 立绘占位

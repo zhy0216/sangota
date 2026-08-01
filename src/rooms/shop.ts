@@ -1,13 +1,15 @@
-import { COLORLESS_POOL, poolFor, resolveCard } from '../combat/cards';
+import { COLORLESS_POOL, resolveCard } from '../combat/cards';
 import { POTION_POOL_BY_RARITY, getPotion, rollPotion } from '../combat/potions';
 import { getRelic, relicModifiers, type RelicTier } from '../combat/relics';
 import {
   REWARD_RARITIES,
   availableRarity,
   rollRelicOfTier,
+  unlockedPool,
   type RewardRarity,
 } from '../combat/rewards';
 import type { Rng } from '../core/rng';
+import { filterUnlocked } from '../state/unlocks';
 import {
   addCard,
   addGold,
@@ -164,6 +166,8 @@ const priceIn = (run: RunState, rng: Rng, band: readonly [number, number]): numb
 /**
  * Two draws: the rarity, then the pick. The pick is spent against an empty pool
  * too, which is the only reason a slot may come back null.
+ *
+ * 池子走 `unlockedPool` (todos/23 u2)：未解锁的牌不上架，骰数不动。
  */
 function rollShelfCard(rng: Rng, run: RunState, taken: readonly string[]): string | null {
   const wanted = rng.weighted(
@@ -171,7 +175,7 @@ function rollShelfCard(rng: Rng, run: RunState, taken: readonly string[]): strin
     REWARD_RARITIES.map((r) => SHOP_CARD_WEIGHTS[r]),
   );
   const rarity = availableRarity(run.hero.id, wanted, taken);
-  const pool = rarity ? poolFor(run.hero.id, rarity).filter((id) => !taken.includes(id)) : [];
+  const pool = rarity ? unlockedPool(run.hero.id, rarity).filter((id) => !taken.includes(id)) : [];
   const at = rng.int(Math.max(1, pool.length));
   return pool[at] ?? null;
 }
@@ -187,8 +191,10 @@ function rollShelfCard(rng: Rng, run: RunState, taken: readonly string[]): strin
  * of it draw from the rarity pools, which are disjoint from it) and now real.
  */
 function rollColorlessCard(rng: Rng, run: RunState, taken: readonly string[]): string | null {
-  const colorless = COLORLESS_POOL.filter((id) => !taken.includes(id));
-  const fallback = poolFor(run.hero.id, 'common').filter((id) => !taken.includes(id));
+  // 无色牌今天一张也没上锁，但过滤照过 (todos/23 u2)——哪天有一张进了轨道，
+  // 这格货架不该是唯一漏风的窗。
+  const colorless = filterUnlocked('card', COLORLESS_POOL).filter((id) => !taken.includes(id));
+  const fallback = unlockedPool(run.hero.id, 'common').filter((id) => !taken.includes(id));
   const pool = colorless.length > 0 ? colorless : fallback;
   const at = rng.int(Math.max(1, pool.length));
   return pool[at] ?? null;

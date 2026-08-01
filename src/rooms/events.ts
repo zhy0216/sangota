@@ -1,9 +1,9 @@
 import type { Rng } from '../core/rng';
 import type { CardRarity } from '../combat/types';
-import { getCard, poolFor } from '../combat/cards';
+import { getCard } from '../combat/cards';
 import { getPotion, rollPotion } from '../combat/potions';
 import { getRelic } from '../combat/relics';
-import { rollRelicOfTier } from '../combat/rewards';
+import { rollRelicOfTier, unlockedPool } from '../combat/rewards';
 import {
   addCard,
   addCurse,
@@ -340,7 +340,8 @@ export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): Ou
       addCard(run, id, o.gainCards.upgraded ?? 0);
       report.cardIds.push(id);
     }
-    const pool = poolFor(run.hero.id, o.gainCards.rarity ?? 'common');
+    // 解锁过滤 (todos/23 u2)：随机发的牌只从已解锁的池里出。
+    const pool = unlockedPool(run.hero.id, o.gainCards.rarity ?? 'common');
     // Drawn *without* replacement, like `rollCardReward`. 「秘录 · 得稀世之技
     // 三张」 asks for three cards out of a three-card 稀有 pool and paid the
     // same card twice in 76% of seeds — the largest single payout in the game,
@@ -348,11 +349,14 @@ export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): Ou
     //
     // R3 is untouched: the filter narrows *what* can come out, never how many
     // times the stream is pulled. A pool smaller than `count` falls back to the
-    // whole pool rather than skipping the draw.
+    // whole pool rather than skipping the draw. 解锁过滤后整个池子可能是空的
+    // （新账的稀有池——三张全在门后）：骰照掷，牌发不出来就只是发不出来，
+    // 绝不能把 `undefined` 塞进牌组。
     const taken: string[] = [];
     for (let i = 0; i < (o.gainCards.count ?? 0); i++) {
       const fresh = pool.filter((id) => !taken.includes(id));
-      const id = rng.pick(fresh.length > 0 ? fresh : pool);
+      const id: string | undefined = rng.pick(fresh.length > 0 ? fresh : pool);
+      if (!id) continue;
       taken.push(id);
       addCard(run, id, o.gainCards.upgraded ?? 0);
       report.cardIds.push(id);
@@ -458,7 +462,8 @@ export function applyPick(
       continue;
     }
     if (!rng) continue;
-    const pool = poolFor(run.hero.id, transformRarity(card.defId)).filter(
+    // 易牌也是随机池抽取 (todos/23 u2)——换出来的牌同样不许越过解锁的门。
+    const pool = unlockedPool(run.hero.id, transformRarity(card.defId)).filter(
       (id) => id !== card.defId,
     );
     const at = rng.int(Math.max(1, pool.length));

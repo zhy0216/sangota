@@ -1,6 +1,7 @@
 import { getCard, isCurse } from '../combat/cards';
 import { recordAscensionClear } from './ascension';
 import type { RunState, RunStats } from './run';
+import { applyRunUnlocks, type RunUnlockReport } from './unlocks';
 
 /**
  * 战史 (todos/22 s2) — 跨局的评分、记录与累计统计。
@@ -229,13 +230,21 @@ export interface RunEndInfo {
  *
  * 天命 (todos/19 a5)：级数从 `run.ascension` 读，传给 `computeScore` 入分、
  * 记进 `RunRecord.ascension` 入史；胜利再把 19 的 `cleared[heroId]` 提到本局
- * 级数（只升不降，见 `recordAscensionClear`）。23 的解锁检查也在这里接
- * （拿着返回的 `record` 查一遍即可）。
+ * 级数（只升不降，见 `recordAscensionClear`）。
+ *
+ * 解锁 (todos/23 u3)：`recordRun` 落账后拿同一条 `record` 调
+ * `applyRunUnlocks`，回执原样递给结算界面逐个展示——本模块只过账，不展示。
+ *
+ * 自定义模式 (todos/23 u5)：`run.custom` 的局照样走到这里——结算界面还要
+ * 分数明细看——但在**三本账的入口前**整体拦下：不 `recordRun`（战史）、
+ * 不 `recordAscensionClear`（天命进度）、不 `applyRunUnlocks`（解锁）。
+ * 门设在这一处而不设三处：三本账只有 `settleRun` 这一个入口
+ * （`tests/customRun.test.ts` 按键名对全部账本验白卷）。
  */
 export function settleRun(
   run: RunState,
   info: RunEndInfo,
-): { record: RunRecord; newRecord: boolean } {
+): { record: RunRecord; newRecord: boolean; unlocks: RunUnlockReport } {
   const ascension = run.ascension;
   const previousBest = getCareer().totals.highScore[run.hero.id] ?? 0;
   const { total, breakdown } = computeScore(run, info.victory, ascension);
@@ -260,11 +269,21 @@ export function settleRun(
     // 快照，不是引用：入史之后跑团的账本再动，记录不许跟着动。
     stats: { ...run.stats, route: [...run.stats.route] },
   };
+  // 自定义局到此为止 (todos/23 u5)：分数算完给界面看，三本账一本不写。
+  // 「新纪录」也不判——不入史的分数没有纪录可言。
+  if (run.custom) {
+    return {
+      record,
+      newRecord: false,
+      unlocks: { newCards: [], newRelics: [], newHeroes: [], pendingChoice: null },
+    };
+  }
   recordRun(record);
   // 天命通关入账 (todos/19 a5)：胜利才算通关，cleared 只升不降。
   if (info.victory) recordAscensionClear(run.hero.id, ascension);
-  // 接线点 (todos/23)：解锁检查在此接入。
-  return { record, newRecord: total > previousBest && total > 0 };
+  // 解锁入账 (todos/23 u3)：史料先落，再拿同一条记录去开门。
+  const unlocks = applyRunUnlocks(record);
+  return { record, newRecord: total > previousBest && total > 0, unlocks };
 }
 
 const bump = (table: Record<string, number>, key: string): void => {

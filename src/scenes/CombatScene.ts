@@ -52,6 +52,7 @@ import {
   writeSave,
   type SavedCombat,
 } from '../state/save';
+import { recordSeenEnemies } from '../state/unlocks';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_W, CardView } from '../ui/CardView';
 import type { ActorView, EnemyView, EnemyViewParts } from '../ui/actorView';
@@ -339,6 +340,10 @@ export class CombatScene extends Phaser.Scene {
     // what lets a reloaded save reopen *the fight the player walked into* rather
     // than picking a fresh one out of a pool that has moved on.
     this.encounter = ensureEncounter(this.run, this.nodeId, this.nodeType);
+    // 敌卷埋点 (todos/23 u2)：上台的敌人记进解锁账。写在场景层——引擎是
+    // 纯函数不碰持久化；续档重开同一场也只是幂等地再报一遍，不多记一笔。
+    // 自定义局 (u5) 不写：不计分的局连解锁账的敌卷都不碰。
+    if (!this.run.custom) recordSeenEnemies(this.encounter.enemies);
 
     this.state = this.resumeFrom
       ? restoreCombat(this.resumeFrom, this.run.mods)
@@ -677,6 +682,11 @@ export class CombatScene extends Phaser.Scene {
     );
     this.turnText = this.add.text(30, 52, '', bodyStyle(14, C.paperFaint));
     fixed(this.turnText);
+
+    // 自定义局常驻章 (todos/23 u5)：与地图 HUD 同一句话，回合行下一行。
+    if (this.run.custom) {
+      fixed(this.add.text(30, 74, '自定义 · 不计分', bodyStyle(12, C.gold)).setLetterSpacing(2));
+    }
 
     // Energy orb. Wrapped in a container so it can be scale-popped on spend —
     // scaling a Graphics would pivot on the scene origin, not the orb.

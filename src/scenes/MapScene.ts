@@ -646,6 +646,15 @@ export class MapScene extends Phaser.Scene {
     );
 
     fixed(this.add.text(16, GAME_HEIGHT - 22, `种子 ${this.run.map.seed}`, bodyStyle(11, 0x554d40)));
+
+    // 自定义局常驻章 (todos/23 u5)：压在种子行上方，金字——不计分要一直看得见。
+    if (this.run.custom) {
+      fixed(
+        this.add
+          .text(16, GAME_HEIGHT - 42, '自定义 · 不计分', bodyStyle(12, C.gold))
+          .setLetterSpacing(2),
+      );
+    }
   }
 
   /** Public: `nav.ts` repaints the bars after a room hook pays out. */

@@ -287,6 +287,10 @@ export function toSaved(run: RunState, combat: SavedCombat | null): SavedRun {
     // 天命等级存，`mods` 不存 (S2)：它是 `modsFor(ascension)` 的纯函数结果，
     // 存一份就是第二事实源，一次数值重调就会让旧档带着过期的倍率继续跑。
     ascension: run.ascension,
+    // 自定义标记 (todos/23 u5)：不存的话，续档回来的自定义局会悄悄开始计分。
+    // 不为它 bump SAVE_VERSION：v3 旧档缺这个字段读出来是 undefined，
+    // `fromSaved` 按 false 落——旧档全是普通局，语义恰好正确。
+    custom: run.custom,
   };
 }
 
@@ -355,6 +359,8 @@ export function fromSaved(saved: SavedRun): RunState {
     stats: saved.stats,
     ascension: saved.ascension,
     mods,
+    // 见 `toSaved`：v3 老档没有这个字段，undefined 落成 false（普通局）。
+    custom: saved.custom ?? false,
   };
 
   syncPotionSlots(run);

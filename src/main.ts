@@ -8,6 +8,8 @@ import { CombatScene } from './scenes/CombatScene';
 import { RoomScene } from './scenes/RoomScene';
 import { InterludeScene } from './scenes/InterludeScene';
 import { SummaryScene } from './scenes/SummaryScene';
+import { CompendiumScene } from './scenes/CompendiumScene';
+import { CustomScene } from './scenes/CustomScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -39,6 +41,10 @@ const config: Phaser.Types.Core.GameConfig = {
     RoomScene,
     InterludeScene,
     SummaryScene,
+    // 典籍 (todos/23 u4) 走的是标题页往返,从不与上面任何场景同台,排尾即可。
+    CompendiumScene,
+    // 自定义 (todos/23 u5) 同上:标题页进出的备战屏,入口由 u6 接线。
+    CustomScene,
   ],
 };
 

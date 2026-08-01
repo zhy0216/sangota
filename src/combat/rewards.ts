@@ -12,6 +12,7 @@ import {
 import type { Rng } from '../core/rng';
 import type { AscensionMods } from '../data/ascension';
 import type { RunState } from '../state/run';
+import { filterUnlocked } from '../state/unlocks';
 import type { CardRarity } from './types';
 
 /**
@@ -46,6 +47,18 @@ export const TIER_WEIGHTS: Record<RewardTier, Record<RewardRarity, number>> = {
 
 /** Cards offered when nothing modifies it. */
 export const BASE_CARD_REWARD_COUNT = 3;
+
+/**
+ * 解锁过滤后的抽卡池 (todos/23 u2) — `poolFor` 收窄到 `isUnlocked` 放行的
+ * 那部分。发随机牌的每条路（战斗奖励、坊市货架、奇遇的 gainCards 与易牌）
+ * 都必须走这里而不是裸的 `poolFor`——漏一处，解锁就形同虚设。过滤在抽之前
+ * 收窄池子，掷骰次数一次不多一次不少（R3）；全解锁（以及无存储的测试/sim
+ * 环境，见 `filterUnlocked`）时与 `poolFor` 逐字相等，顺序不动。
+ */
+export const unlockedPool = (
+  heroId: string,
+  rarity: Exclude<CardRarity, 'basic'>,
+): string[] => filterUnlocked('card', poolFor(heroId, rarity));
 
 export interface CardRewardOptions {
   tier: RewardTier;
@@ -86,7 +99,7 @@ export function rollCardReward(opts: CardRewardOptions): string[] {
       continue;
     }
 
-    const options = poolFor(run.hero.id, from).filter((id) => !picked.includes(id));
+    const options = unlockedPool(run.hero.id, from).filter((id) => !picked.includes(id));
     picked.push(rng.pick(options));
     if (from === 'rare') rolledRare = true;
   }
@@ -150,8 +163,10 @@ export function availableRarity(
   wanted: RewardRarity,
   picked: readonly string[],
 ): RewardRarity | null {
+  // 解锁过滤后的池子 (todos/23 u2)：回退查的池和真正抽的池必须是同一个，
+  // 否则一个「只剩锁着的牌」的稀有档会被当成有货，抽的人一头撞进空池。
   const has = (r: RewardRarity): boolean =>
-    poolFor(heroId, r).some((id) => !picked.includes(id));
+    unlockedPool(heroId, r).some((id) => !picked.includes(id));
 
   const at = REWARD_RARITIES.indexOf(wanted);
   for (let i = at; i >= 0; i--) {
@@ -228,10 +243,14 @@ function unowned(run: RunState, tier: RelicTier, exclude: ReadonlySet<string>): 
   // The one place a relic's owner is checked. `relicPool` / `rollRelicOfTier` /
   // `rollBossOffer` / 坊市's `generateStock` all reach the table through here,
   // so a hero-locked relic (`RelicDef.hero`) is unreachable everywhere at once.
-  return relicsOfTier(tier)
-    .filter((def) => !def.hero || def.hero === run.hero.id)
-    .map((def) => def.id)
-    .filter((id) => !run.relics.includes(id) && !exclude.has(id));
+  // 解锁过滤 (todos/23 u2) 也趁同一道门：未解锁的宝物在每条掉落路上一起消失。
+  return filterUnlocked(
+    'relic',
+    relicsOfTier(tier)
+      .filter((def) => !def.hero || def.hero === run.hero.id)
+      .map((def) => def.id)
+      .filter((id) => !run.relics.includes(id) && !exclude.has(id)),
+  );
 }
 
 /**
