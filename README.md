@@ -303,6 +303,26 @@ The driver has two protective bail-outs so a rules bug reports itself instead of
 CI: a turn cap, and a state-hash detector that fires when nothing has changed for 16
 iterations. Both are themselves tested.
 
+**Layer 4 · balance evaluation** (`npm run eval`, `sim/evaluate.sim.ts`) — the tuning
+compass, where the sim above is the acceptance gate. It asserts no balance number;
+it ranks. Three instruments, each answering a question the banded tables cannot:
+
+- **卡牌边际价值** — every draftable card, for every hero: act-1 kit ± two copies
+  against the act-1 bosses, paired seeds, Δ win rate per card and per rarity pool.
+  The instrument that found 土山约三事/斩颜良 by hand, automated.
+- **宝物边际价值** — every droppable relic on a bare act-2 deck: Δ boss win rate and
+  Δ elite HP cost, the same two metrics the bands are written in.
+- **难度曲线** — the 天命连场 walk re-run with per-step bookkeeping: entries, deaths
+  and HP at every one of the 36 steps, so the difficulty spike is a row you point at
+  rather than a mode hidden in "最常阵亡处". Seeds are shared with the gate's table,
+  so its clear rates must match that table exactly — drift means the copy rotted.
+
+Output goes to the console and to `out/eval/report.{md,json}`; the JSON is the
+cross-commit artifact — run before and after a tuning change and diff it. Caveats
+printed in the report header: Δ is policy-playable value (X-cost and engine cards
+read low), ±10 points is noise at 300 fights, and map-economy relics measure ≈0 by
+construction.
+
 ## Retina / HiDPI
 
 Phaser 3 has no HiDPI mode — it renders into a backing store the size of the game
