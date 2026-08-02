@@ -10,7 +10,7 @@ import {
   poolsOf,
 } from '../src/combat/cards';
 import { relicPool } from '../src/combat/rewards';
-import { RELICS, relicModifiers, relicsOfTier } from '../src/combat/relics';
+import { RELICS, relicModifiers } from '../src/combat/relics';
 import { ACT1_LAYOUT, generateFinalAct, generateMap } from '../src/map/generateMap';
 import { RUN_SCOPE, runStream, streamSeed } from '../src/rooms/rng';
 import { payTheft } from '../src/rooms/fight';
@@ -52,6 +52,10 @@ const GUANYU_POOLS = {
     'yeduchunqiu',
     'zhuwenchou',
     'lemahengdao',
+    'huimazhan',
+    'mingjinzhengdui',
+    'duanpaojueyi',
+    'qingzhuangjiancong',
   ],
   uncommon: [
     'wanren',
@@ -64,6 +68,16 @@ const GUANYU_POOLS = {
     'guaguliaodu',
     'daotiaojinpao',
     'fengjinguayin',
+    'yanqiyansha',
+    'zhenqianlidao',
+    'bingyinghezhen',
+    'juantuchonglai',
+    'yijiahuanzhen',
+    'baizhanhuifeng',
+    'zhengjingwu',
+    'libingmoma',
+    'liangdaochangtong',
+    'chizhongdaiji',
   ],
   rare: [
     'weizhenhuaxia',
@@ -76,6 +90,8 @@ const GUANYU_POOLS = {
     'guchenghui',
     'wanjunqushou',
     'baimajiewei',
+    'wusheng',
+    'hanbingzaixing',
   ],
 } as const;
 
@@ -145,10 +161,14 @@ describe('宝物按武将分流', () => {
     const r = run();
     r.relics = [];
     for (const [tier, ids] of Object.entries(BASELINE)) {
-      const his = relicsOfTier(tier as keyof typeof BASELINE)
-        .filter((def) => def.hero === 'guanyu')
-        .map((def) => def.id);
-      expect(relicPool(r, tier as keyof typeof BASELINE), tier).toEqual([...ids, ...his]);
+      const pool = relicPool(r, tier as keyof typeof BASELINE);
+      // Shared and hero-specific additions append after this frozen prefix in
+      // declaration order; the promise here is that the original stock did
+      // not move or disappear when the pool grew.
+      expect(pool.slice(0, ids.length), tier).toEqual(ids);
+      for (const id of pool.slice(ids.length)) {
+        expect(RELICS[id].hero ?? 'guanyu', `${tier}/${id}`).toBe('guanyu');
+      }
     }
   });
 
@@ -303,6 +323,7 @@ describe('clearActProgress', () => {
     const r = run();
     r.rooms['3_2'] = { kind: 'rest', committed: ['rest'] };
     r.usedEncounters.push('m1');
+    r.seenEvents.push('caochuanjiejian');
     r.actCombatCount = 4;
     r.bossRelicOffer = ['chitima'];
     r.currentNodeId = '3_2';
@@ -314,6 +335,7 @@ describe('clearActProgress', () => {
 
     expect(r.rooms).toEqual({});
     expect(r.usedEncounters).toEqual([]);
+    expect(r.seenEvents).toEqual(['caochuanjiejian']);
     expect(r.actCombatCount).toBe(0);
     expect(r.bossRelicOffer).toBeNull();
     expect(r.currentNodeId).toBeNull();

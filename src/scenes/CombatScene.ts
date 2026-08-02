@@ -19,11 +19,13 @@ import { getPotion, type PotionDef } from '../combat/potions';
 import { getRelic, relicByBanner, relicModifiers, relicText } from '../combat/relics';
 import {
   bossOfferPending,
+  bossChestNodeId,
   claimSpoils,
   claimVictoryRelic,
   declinePotionDrop,
   ensureBossOffer,
   ensureEncounter,
+  nextDoubleBossNode,
   payTheft,
   takeBossRelic,
   takeCardReward,
@@ -3169,11 +3171,28 @@ export class CombatScene extends Phaser.Scene {
       this.saveFight();
     }
 
-    if (this.nodeType === 'boss' && bossOfferPending(this.run, this.nodeId)) {
+    // 天命二十重：第三幕第一位首领只结算战斗本身，不发宝箱/金币/牌，原地
+    // 接第二位不同首领。存档仍保留第一战的 won 状态；若在淡出途中退出，
+    // 读档会走 resumed 分支直接接战，不会重复结算体力、诅咒钩子或统计。
+    const nextBoss = nextDoubleBossNode(this.run, this.nodeId, this.nodeType);
+    if (nextBoss) {
+      this.startSecondBoss(nextBoss);
+      return;
+    }
+
+    const chestNodeId = bossChestNodeId(this.nodeId);
+    if (this.nodeType === 'boss' && bossOfferPending(this.run, chestNodeId)) {
       this.showBossChest(() => this.showSpoils());
       return;
     }
     this.showSpoils();
+  }
+
+  private startSecondBoss(nodeId: string): void {
+    this.cameras.main.fadeOut(dur(300), 8, 6, 4);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
+      this.scene.restart({ nodeType: 'boss', nodeId }),
+    );
   }
 
   /**
@@ -3182,7 +3201,8 @@ export class CombatScene extends Phaser.Scene {
    * choice made off a sigil the player cannot read is not a choice (todo 10).
    */
   private showBossChest(done: () => void): void {
-    const offer = ensureBossOffer(this.run, this.nodeId);
+    const chestNodeId = bossChestNodeId(this.nodeId);
+    const offer = ensureBossOffer(this.run, chestNodeId);
     const layer = this.add.container(0, 0).setDepth(DEPTH.overlay);
     layer.add(
       this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 0.92),
@@ -3207,7 +3227,7 @@ export class CombatScene extends Phaser.Scene {
       answered = true;
       // 拿了宝物才有铃声——「不取」的账（第三幕换宝钥）在房间层，不在这儿响。
       if (relicId) this.audio.play('relic-gain');
-      takeBossRelic(this.run, this.nodeId, relicId);
+      takeBossRelic(this.run, chestNodeId, relicId);
       this.relicBar.setRelics(this.run.relics);
       this.tweens.add({
         targets: layer,

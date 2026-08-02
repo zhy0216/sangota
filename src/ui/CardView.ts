@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { CARD_TYPE_META, KEYWORD_LABEL, resolveCard } from '../combat/cards';
-import { X_COST, canPlay, describeCard, hasKeyword } from '../combat/engine';
+import { X_COST, canPlay, describeCard, effectiveCardCost, hasKeyword } from '../combat/engine';
 import type { CardDef, CombatState } from '../combat/types';
 import { Rng } from '../core/rng';
 import { KEYWORDS, cardTipSegments, findKeywords } from './keywords';
@@ -223,6 +223,10 @@ export class CardView extends Phaser.GameObjects.Container {
   /** Re-read the combat state: playability and the live damage/block numbers. */
   refresh(state: CombatState | undefined): void {
     this.descText.setText(describeCard(state, this.def));
+    const cost = this.mode === 'hand' ? effectiveCardCost(state, this.def) : this.def.cost;
+    this.costText.setText(
+      hasKeyword(this.def, 'unplayable') ? '' : cost === X_COST ? 'X' : String(cost),
+    );
     // 文本可能换行不同了（数字随状态变宽），热区跟着文本重铺。
     this.rebuildKeywordZones();
     // The engine's own gate, so 束缚 / 不可打出 / X 费 grey the face by exactly

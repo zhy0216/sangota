@@ -228,6 +228,13 @@ describe('protective bail-outs', () => {
       newDeckCard('guanzhen', 1),
       newDeckCard('quedi'),
     ];
+    const looping: Policy = {
+      name: 'looping-draw',
+      chooseAction: (state) => {
+        const uid = state.hand.find((id) => state.cards[id].defId === 'guanzhen');
+        return uid ? { uid } : null;
+      },
+    };
     const result = simulateCombat({
       encounterId: 'm3',
       deck,
@@ -236,7 +243,7 @@ describe('protective bail-outs', () => {
       maxHp: DEFAULT_HERO.maxHp,
       relics: ['qinglongdao', 'lianhuanjia'],
       seed: 'gauntlet-裁牌 5-1-greedy-5-m3',
-      policy: POLICIES.greedy,
+      policy: looping,
     });
 
     // Reported, not hung — and reported as the bug it is rather than silently

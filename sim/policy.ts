@@ -3,6 +3,7 @@ import {
   canPlay,
   computeAttack,
   defOf,
+  MAX_HAND,
   previewValues,
 } from '../src/combat/engine';
 import type { CardDef, CombatState, EnemyState, PendingChoice } from '../src/combat/types';
@@ -76,8 +77,15 @@ export function totalIncomingDamage(state: CombatState): number {
  */
 const DANGER_RATIO = 0.9;
 
+/** A draw-only card at the hand cap is a proven no-op; replaying it can loop forever. */
+const isDeadDraw = (state: CombatState, uid: string): boolean => {
+  if (state.hand.length < MAX_HAND) return false;
+  const effects = defOf(state, uid).effects;
+  return effects.length > 0 && effects.every((effect) => effect.kind === 'draw');
+};
+
 const playable = (state: CombatState): string[] =>
-  state.hand.filter((uid) => canPlay(state, uid));
+  state.hand.filter((uid) => canPlay(state, uid) && !isDeadDraw(state, uid));
 
 const needsTarget = (def: CardDef): boolean => def.target === 'enemy';
 

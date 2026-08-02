@@ -65,8 +65,8 @@ describe('the status table', () => {
     expect(new Set(STATUS_ORDER).size).toBe(STATUS_ORDER.length);
   });
 
-  it('gives all 19 statuses a name, a description and an icon', () => {
-    expect(STATUS_ORDER).toHaveLength(19);
+  it('gives all 23 statuses a name, a description and an icon', () => {
+    expect(STATUS_ORDER).toHaveLength(23);
     for (const id of STATUS_ORDER) {
       const def = STATUS_META[id];
       expect(def.id, id).toBe(id);

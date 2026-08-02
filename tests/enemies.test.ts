@@ -3,12 +3,14 @@ import { Rng } from '../src/core/rng';
 import {
   ACT1,
   ACT_TABLES,
+  ENHANCED_MOVE_PATCHES,
   ENEMIES,
   FINAL,
   PENDING_ENCOUNTERS,
   allEncounters,
   getEncounter,
   getEnemy,
+  moveSetOf,
   phaseOf,
   pickEncounter,
 } from '../src/combat/enemies';
@@ -119,6 +121,29 @@ describe('the original four are frozen', () => {
       expect(def.hiddenFirstIntent).toBeUndefined();
     });
   }
+});
+
+describe('天命强化招式表', () => {
+  it('每名敌人至少强化一招，且不改招式 id、权重、脚本顺序', () => {
+    expect(Object.keys(ENHANCED_MOVE_PATCHES).sort()).toEqual(Object.keys(ENEMIES).sort());
+    for (const def of Object.values(ENEMIES)) {
+      const patches = ENHANCED_MOVE_PATCHES[def.id]!;
+      const phases = [null, ...Object.keys(def.phases ?? {})];
+      const allMoveIds = new Set(phases.flatMap((phase) => phaseOf(def, phase).moves.map((m) => m.id)));
+      expect(Object.keys(patches).every((id) => allMoveIds.has(id)), def.id).toBe(true);
+
+      let changed = false;
+      for (const phase of phases) {
+        const base = moveSetOf(def, phase, false);
+        const hard = moveSetOf(def, phase, true);
+        expect(hard.moves.map((m) => m.id), def.id).toEqual(base.moves.map((m) => m.id));
+        expect(hard.moves.map((m) => m.weight), def.id).toEqual(base.moves.map((m) => m.weight));
+        expect(hard.script, def.id).toEqual(base.script);
+        if (JSON.stringify(hard.moves) !== JSON.stringify(base.moves)) changed = true;
+      }
+      expect(changed, def.id).toBe(true);
+    }
+  });
 });
 
 // ------------------------------------------------------------------- 被动

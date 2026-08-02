@@ -925,6 +925,378 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
       ],
     },
   },
+
+  // ---------------------------------------------- 2026-08 关羽中层发动机（追加区）
+  //
+  // 16 张把全解锁可构筑池从 12/10/10 扩到 16/20/12。声明顺序仍只追加，
+  // 不重排既有卡；池长变化会有意识地重发同 seed 的奖励，这是扩充内容本身的
+  // 代价。核心闭环分三段：主动弃牌把牌送入弃牌堆并由【整军】兑现防御；洗回
+  // 弃牌堆重置循环并由【粮道】回气；消耗则压薄循环，由【砺兵】与【武圣】把
+  // 一次性牌折成甲和神力。
+
+  /**
+   * 最朴素的主动弃牌入口。比温酒斩多一伤、少破绽，额外的换手不是白抽：
+   * 这张牌自己和被弃的牌都先离手，最后只补回一张，手牌总数照常少一。
+   */
+  huimazhan: {
+    id: 'huimazhan',
+    name: '回马斩',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-huimazhan',
+    text: '造成 {D} 点伤害。\n弃 1 张牌，然后抽 1 张牌。',
+    effects: [
+      { kind: 'damage', amount: 8 },
+      { kind: 'discard', amount: 1 },
+      { kind: 'draw', amount: 1 },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 11 },
+        { kind: 'discard', amount: 1 },
+        { kind: 'draw', amount: 1 },
+      ],
+    },
+  },
+
+  /** 弃牌堆为空时仍是一张较薄的却敌；有旧牌时把整轮循环提前接回。 */
+  mingjinzhengdui: {
+    id: 'mingjinzhengdui',
+    name: '鸣金整队',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'self',
+    art: 'card-mingjinzhengdui',
+    text: '获得 {B} 点护甲。\n将弃牌堆洗回抽牌堆。\n抽 1 张牌。',
+    effects: [
+      { kind: 'block', amount: 6 },
+      { kind: 'shuffleDiscardIn' },
+      { kind: 'draw', amount: 1 },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'block', amount: 9 },
+        { kind: 'shuffleDiscardIn' },
+        { kind: 'draw', amount: 1 },
+      ],
+    },
+  },
+
+  /**
+   * 以一张手牌换永久压薄。裸用是有代价的劈砍上位一点；砺兵、武圣或
+   * 百战回锋到位后，被消耗的牌才成为资源。
+   */
+  duanpaojueyi: {
+    id: 'duanpaojueyi',
+    name: '断袍决义',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-duanpaojueyi',
+    text: '造成 {D} 点伤害。\n消耗 1 张牌。',
+    effects: [
+      { kind: 'damage', amount: 8 },
+      { kind: 'exhaustCards', amount: 1 },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 11 },
+        { kind: 'exhaustCards', amount: 1 },
+      ],
+    },
+  },
+
+  /** 一次性净化手序；升级多看一张，但始终只准每场走一遍。 */
+  qingzhuangjiancong: {
+    id: 'qingzhuangjiancong',
+    name: '轻装简从',
+    type: 'skill',
+    rarity: 'common',
+    cost: 0,
+    target: 'self',
+    art: 'card-qingzhuangjiancong',
+    text: '弃 1 张牌，然后抽 2 张牌。',
+    effects: [
+      { kind: 'discard', amount: 1 },
+      { kind: 'draw', amount: 2 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '弃 1 张牌，然后抽 3 张牌。',
+      effects: [
+        { kind: 'discard', amount: 1 },
+        { kind: 'draw', amount: 3 },
+      ],
+    },
+  },
+
+  /** 群攻与主动弃牌的中间位；两张选择题换回两张，不凭空增手牌。 */
+  yanqiyansha: {
+    id: 'yanqiyansha',
+    name: '偃旗掩杀',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'all',
+    art: 'card-yanqiyansha',
+    text: '对所有敌人造成 {D} 点伤害。\n弃 2 张牌，然后抽 2 张牌。',
+    effects: [
+      { kind: 'damageAll', amount: 8 },
+      { kind: 'discard', amount: 2 },
+      { kind: 'draw', amount: 2 },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damageAll', amount: 11 },
+        { kind: 'discard', amount: 2 },
+        { kind: 'draw', amount: 2 },
+      ],
+    },
+  },
+
+  /** 消耗一张，换回本牌花掉的气并补两张；升级把交换变成净赚一气。 */
+  zhenqianlidao: {
+    id: 'zhenqianlidao',
+    name: '阵前砺刀',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-zhenqianlidao',
+    text: '消耗 1 张牌。\n获得 1 点气。\n抽 2 张牌。',
+    effects: [
+      { kind: 'exhaustCards', amount: 1 },
+      { kind: 'energy', amount: 1 },
+      { kind: 'draw', amount: 2 },
+    ],
+    upgrade: {
+      text: '消耗 1 张牌。\n获得 2 点气。\n抽 2 张牌。',
+      effects: [
+        { kind: 'exhaustCards', amount: 1 },
+        { kind: 'energy', amount: 2 },
+        { kind: 'draw', amount: 2 },
+      ],
+    },
+  },
+
+  /** 防御向的消耗入口；与阵前砺刀分工为保命回合和爆发回合。 */
+  bingyinghezhen: {
+    id: 'bingyinghezhen',
+    name: '并营合阵',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-bingyinghezhen',
+    text: '获得 {B} 点护甲。\n消耗 1 张牌。\n抽 2 张牌。',
+    effects: [
+      { kind: 'block', amount: 8 },
+      { kind: 'exhaustCards', amount: 1 },
+      { kind: 'draw', amount: 2 },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'block', amount: 11 },
+        { kind: 'exhaustCards', amount: 1 },
+        { kind: 'draw', amount: 2 },
+      ],
+    },
+  },
+
+  /**
+   * 显式重启整副牌。消耗让它不能和粮道自循环；升级只减启动费，不多抽牌。
+   */
+  juantuchonglai: {
+    id: 'juantuchonglai',
+    name: '卷土重来',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-juantuchonglai',
+    text: '将弃牌堆洗回抽牌堆。\n抽 3 张牌。',
+    effects: [
+      { kind: 'shuffleDiscardIn' },
+      { kind: 'draw', amount: 3 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: { cost: 0 },
+  },
+
+  /** 一次性大幅换手；牌先弃、后抽，选择不会被新牌污染。 */
+  yijiahuanzhen: {
+    id: 'yijiahuanzhen',
+    name: '易甲换阵',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 0,
+    target: 'self',
+    art: 'card-yijiahuanzhen',
+    text: '弃 2 张牌，然后抽 3 张牌。',
+    effects: [
+      { kind: 'discard', amount: 2 },
+      { kind: 'draw', amount: 3 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '弃 2 张牌，然后抽 4 张牌。',
+      effects: [
+        { kind: 'discard', amount: 2 },
+        { kind: 'draw', amount: 4 },
+      ],
+    },
+  },
+
+  /** 消耗堆达到四张后从 8 跳到 14；阈值让压薄本身变成进攻路线。 */
+  baizhanhuifeng: {
+    id: 'baizhanhuifeng',
+    name: '百战回锋',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-baizhanhuifeng',
+    text: '造成 {D} 点伤害。\n若消耗堆不少于 4 张，改为 14 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 4 },
+        then: [{ kind: 'damage', amount: 14 }],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若消耗堆不少于 4 张，改为 18 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'exhaustedAtLeast', n: 4 },
+          then: [{ kind: 'damage', amount: 18 }],
+          otherwise: [{ kind: 'damage', amount: 11 }],
+        },
+      ],
+    },
+  },
+
+  /** 主动弃牌的防御发动机。层数就是每张牌兑现的护甲，不按回合衰减。 */
+  zhengjingwu: {
+    id: 'zhengjingwu',
+    name: '整军经武',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-zhengjingwu',
+    text: '获得 3 层【整军】。',
+    effects: [{ kind: 'status', status: 'discipline', amount: 3, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 4 层【整军】。',
+      effects: [{ kind: 'status', status: 'discipline', amount: 4, to: 'self' }],
+    },
+  },
+
+  /** 消耗的防御发动机；势牌不触发，避免它进场时给自己返一层收益。 */
+  libingmoma: {
+    id: 'libingmoma',
+    name: '厉兵秣马',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-libingmoma',
+    text: '获得 2 层【砺兵】。',
+    effects: [{ kind: 'status', status: 'armory', amount: 2, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 3 层【砺兵】。',
+      effects: [{ kind: 'status', status: 'armory', amount: 3, to: 'self' }],
+    },
+  },
+
+  /** 自动洗牌和卡牌主动洗牌都返气；升级改启动回合，不翻倍循环收益。 */
+  liangdaochangtong: {
+    id: 'liangdaochangtong',
+    name: '粮道畅通',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-liangdaochangtong',
+    text: '获得 1 层【粮道】。',
+    effects: [{ kind: 'status', status: 'supply', amount: 1, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: { cost: 0 },
+  },
+
+  /** 关羽原本缺少的常驻护甲倍率；纯加法，不替代整军/砺兵的触发玩法。 */
+  chizhongdaiji: {
+    id: 'chizhongdaiji',
+    name: '持重待机',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-chizhongdaiji',
+    text: '获得 2 层【身法】。',
+    effects: [{ kind: 'status', status: 'dexterity', amount: 2, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 3 层【身法】。',
+      effects: [{ kind: 'status', status: 'dexterity', amount: 3, to: 'self' }],
+    },
+  },
+
+  /**
+   * 消耗路线的稀有轴心。每张被烧掉的攻/谋永久转成神力；势牌不触发，既避免
+   * 本牌自赚，也让玩家仍需配置真正的消耗入口。
+   */
+  wusheng: {
+    id: 'wusheng',
+    name: '武圣',
+    type: 'power',
+    rarity: 'rare',
+    cost: 2,
+    target: 'self',
+    art: 'card-wusheng',
+    text: '获得 1 层【武圣】。',
+    effects: [{ kind: 'status', status: 'warSaint', amount: 1, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: { cost: 1 },
+  },
+
+  /**
+   * 稀有重启器：把主动弃出的牌接回来，回一气再看四张。与千里走单骑相比，
+   * 少净赚一气、多看两张，但必须先经营出一个弃牌堆。
+   */
+  hanbingzaixing: {
+    id: 'hanbingzaixing',
+    name: '汉兵再兴',
+    type: 'skill',
+    rarity: 'rare',
+    cost: 1,
+    target: 'self',
+    art: 'card-hanbingzaixing',
+    text: '将弃牌堆洗回抽牌堆。\n获得 1 点气。\n抽 4 张牌。',
+    effects: [
+      { kind: 'shuffleDiscardIn' },
+      { kind: 'energy', amount: 1 },
+      { kind: 'draw', amount: 4 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '将弃牌堆洗回抽牌堆。\n获得 1 点气。\n抽 5 张牌。',
+      effects: [
+        { kind: 'shuffleDiscardIn' },
+        { kind: 'energy', amount: 1 },
+        { kind: 'draw', amount: 5 },
+      ],
+    },
+  },
 });
 
 /**

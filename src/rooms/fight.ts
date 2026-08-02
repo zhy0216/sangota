@@ -64,6 +64,33 @@ import type { Spoils } from './types';
  */
 export const eventFightNodeId = (nodeId: string): string => `${nodeId}#fight`;
 
+/** 天命二十重第三幕的第二场首领战：独立账本、独立 RNG 流。 */
+export const secondBossNodeId = (bossNodeId: string): string => `${bossNodeId}#2`;
+
+/** 第二战仍从地图首领节点领取唯一的一只首领宝箱。 */
+export const bossChestNodeId = (nodeId: string): string =>
+  nodeId.endsWith('#2') ? nodeId.slice(0, -2) : nodeId;
+
+/**
+ * 天命二十重是否还欠第二位首领。只在第三幕地图首领的第一战返回派生节点；
+ * 第二战、其他幕、其他档位一律 null，终章也不会被意外翻倍。
+ */
+export function nextDoubleBossNode(
+  run: RunState,
+  nodeId: string,
+  tier: CombatTier,
+): string | null {
+  if (
+    !run.mods.doubleBoss ||
+    run.act !== 3 ||
+    tier !== 'boss' ||
+    nodeId !== run.map.bossId
+  ) {
+    return null;
+  }
+  return secondBossNodeId(run.map.bossId);
+}
+
 /**
  * Read back a materialised encounter, or pick this node's fight and freeze it.
  *
@@ -244,7 +271,11 @@ export function claimSpoils(
   const record = roomRecord(run, nodeId, 'combat');
   const paid = roomCommit(run, nodeId).once('spoils', (): Spoils => {
     const rng = stream(run, nodeId, 'reward');
-    const gold = rng.range(encounter.goldReward[0], encounter.goldReward[1]);
+    const rolledGold = rng.range(encounter.goldReward[0], encounter.goldReward[1]);
+    // 天命十三重只压精英/首领的战利资财。先照旧掷一次，再乘、再取整：
+    // 零至十二重的 RNG 消耗和每个既有 seed 的数字完全不动。
+    const gold =
+      tier === 'monster' ? rolledGold : Math.round(rolledGold * run.mods.eliteGoldMult);
     const cardIds = rollCardReward({ tier, run, rng });
     const potionId = rollPotionDrop(run, nodeId, tier);
 

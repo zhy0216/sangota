@@ -203,12 +203,13 @@ describe('rollCardReward · 验收标准', () => {
 });
 
 describe('the pool itself', () => {
-  it('hits the 2026-08 expanded shape — 12 common, 10 uncommon, 10 rare', () => {
-    // todos/11 shipped 10/8/3; the 2026-08 expansion appends 诛文丑/勒马横刀
-    // (common), 刀挑锦袍/封金挂印 (uncommon), then seven rare cards in two waves.
-    expect(CARD_POOL_BY_RARITY.common.length).toBe(12);
-    expect(CARD_POOL_BY_RARITY.uncommon.length).toBe(10);
-    expect(CARD_POOL_BY_RARITY.rare.length).toBe(10);
+  it('hits the 2026-08 engine expansion shape — 16 common, 20 uncommon, 12 rare', () => {
+    // The newest append adds four common enablers, ten uncommon engine pieces
+    // and two rares without reordering the 32 existing declarations. A wider
+    // pool intentionally re-deals seeded picks because `rng.int` reads its length.
+    expect(CARD_POOL_BY_RARITY.common.length).toBe(16);
+    expect(CARD_POOL_BY_RARITY.uncommon.length).toBe(20);
+    expect(CARD_POOL_BY_RARITY.rare.length).toBe(12);
   });
 
   it('lists every card exactly once, and each under its own declared rarity', () => {

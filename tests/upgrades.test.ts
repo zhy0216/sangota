@@ -186,6 +186,90 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
     ],
   },
 
+  // --- 2026-08 关羽中层发动机 ---------------------------------------------
+  huimazhan: {
+    effects: [
+      { kind: 'damage', amount: 11 },
+      { kind: 'discard', amount: 1 },
+      { kind: 'draw', amount: 1 },
+    ],
+  },
+  mingjinzhengdui: {
+    effects: [
+      { kind: 'block', amount: 9 },
+      { kind: 'shuffleDiscardIn' },
+      { kind: 'draw', amount: 1 },
+    ],
+  },
+  duanpaojueyi: {
+    effects: [
+      { kind: 'damage', amount: 11 },
+      { kind: 'exhaustCards', amount: 1 },
+    ],
+  },
+  qingzhuangjiancong: {
+    effects: [
+      { kind: 'discard', amount: 1 },
+      { kind: 'draw', amount: 3 },
+    ],
+  },
+  yanqiyansha: {
+    effects: [
+      { kind: 'damageAll', amount: 11 },
+      { kind: 'discard', amount: 2 },
+      { kind: 'draw', amount: 2 },
+    ],
+  },
+  zhenqianlidao: {
+    effects: [
+      { kind: 'exhaustCards', amount: 1 },
+      { kind: 'energy', amount: 2 },
+      { kind: 'draw', amount: 2 },
+    ],
+  },
+  bingyinghezhen: {
+    effects: [
+      { kind: 'block', amount: 11 },
+      { kind: 'exhaustCards', amount: 1 },
+      { kind: 'draw', amount: 2 },
+    ],
+  },
+  juantuchonglai: { cost: 0 },
+  yijiahuanzhen: {
+    effects: [
+      { kind: 'discard', amount: 2 },
+      { kind: 'draw', amount: 4 },
+    ],
+  },
+  baizhanhuifeng: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 4 },
+        then: [{ kind: 'damage', amount: 18 }],
+        otherwise: [{ kind: 'damage', amount: 11 }],
+      },
+    ],
+  },
+  zhengjingwu: {
+    effects: [{ kind: 'status', status: 'discipline', amount: 4, to: 'self' }],
+  },
+  libingmoma: {
+    effects: [{ kind: 'status', status: 'armory', amount: 3, to: 'self' }],
+  },
+  liangdaochangtong: { cost: 0 },
+  chizhongdaiji: {
+    effects: [{ kind: 'status', status: 'dexterity', amount: 3, to: 'self' }],
+  },
+  wusheng: { cost: 1 },
+  hanbingzaixing: {
+    effects: [
+      { kind: 'shuffleDiscardIn' },
+      { kind: 'energy', amount: 1 },
+      { kind: 'draw', amount: 5 },
+    ],
+  },
+
   // --- todos/05 无色 stock, sold only over a 商旅's counter -----------------
   qingnangshu: { effects: [{ kind: 'heal', amount: 9 }] },
   lujiao: { effects: [{ kind: 'status', status: 'thorns', amount: 4, to: 'self' }] },

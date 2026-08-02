@@ -53,8 +53,10 @@ import { adoptRun, syncPotionSlots, syncRewardCount, uidCursor, type RunState } 
  * v4：MAP.paths 6→4（地图节点密度对齐原版尖塔）。地图是从 seed 重长的
  * （S1），行走条数一变，旧档 `path` 里的节点 id 在新图上未必存在——恢复
  * 时会在 327 行的核对上炸。版本一提，旧档走 'stale' 的作废路径，不炸。
+ * v5：保持节点与房型不动，为既有相邻节点补战略连接。S1 不存图的边，旧档
+ * 若继续会在同一节点看见另一组可走出口，因此拓扑变化同样作废旧档。
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 const SAVE_KEY = 'sangota.save.v1';
 
@@ -98,13 +100,20 @@ type SavedEnemy = Omit<EnemyState, 'intent'> & { intentId: string | null };
  * - `effectQueue` and `pendingChoice` hold live `EnemyState` references and a
  *   half-resolved card. Rather than serialise them, snapshots are only ever
  *   taken when both are empty — see `combatIsQuiescent`.
- * - `enemyHpMult` / `enemyDamageMult` 是 `tier` × 天命等级的纯函数 (S2)——两个
+ * - `enemyHpMult` / `enemyDamageMult` / `enemyMovesEnhanced` 是 `tier` × 天命等级的纯函数 (S2)——三个
  *   输入都已在档里（`tier` 在下面、`ascension` 在 `SavedRun`），`restoreCombat`
  *   重导即可，存一份就是第二事实源。
  */
 type PersistedCombat = Omit<
   CombatState,
-  'enemies' | 'rng' | 'events' | 'effectQueue' | 'pendingChoice' | 'enemyHpMult' | 'enemyDamageMult'
+  | 'enemies'
+  | 'rng'
+  | 'events'
+  | 'effectQueue'
+  | 'pendingChoice'
+  | 'enemyHpMult'
+  | 'enemyDamageMult'
+  | 'enemyMovesEnhanced'
 >;
 
 export interface SavedCombat extends PersistedCombat {
@@ -219,9 +228,11 @@ export function snapshotCombat(state: CombatState, ctx: CombatContext): SavedCom
 export function restoreCombat(saved: SavedCombat, mods?: AscensionMods): CombatState {
   const rng = new Rng(0);
   rng.fromState(saved.rngState);
+  const enemyMovesEnhanced = mods?.enhancedMoves[saved.tier] ?? false;
 
   const enemies: EnemyState[] = saved.enemies.map(({ intentId, ...rest }) => {
-    const intent = intentId === null ? null : moveById(rest.defId, rest.phase, intentId);
+    const intent =
+      intentId === null ? null : moveById(rest.defId, rest.phase, intentId, enemyMovesEnhanced);
     if (intentId !== null && !intent) {
       throw new Error(`Saved intent '${intentId}' is not a move of ${rest.defId}`);
     }
@@ -236,6 +247,7 @@ export function restoreCombat(saved: SavedCombat, mods?: AscensionMods): CombatS
     handSize: saved.handSize,
     enemyHpMult: mods?.hpMult[saved.tier] ?? 1,
     enemyDamageMult: mods?.damageMult[saved.tier] ?? 1,
+    enemyMovesEnhanced,
     player: saved.player,
     enemies,
     cards: saved.cards,

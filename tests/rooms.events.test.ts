@@ -66,9 +66,20 @@ function allOutcomes(): { event: string; option: string; outcome: EventOutcome }
 // --------------------------------------------------------------- the content
 
 describe('the event table', () => {
-  it('ships twenty playable events plus a floor', () => {
-    expect(EVENTS.length).toBeGreaterThanOrEqual(20);
+  it('ships twenty-nine playable events plus a floor', () => {
+    expect(EVENTS.length).toBeGreaterThanOrEqual(28);
+    expect(EVENTS.length).toBeLessThanOrEqual(32);
     expect(EVENTS.some((d) => d.id === FALLBACK_EVENT.id)).toBe(false);
+  });
+
+  it('offers eleven global events and six exclusive events per act', () => {
+    expect(EVENTS.filter((def) => !def.acts)).toHaveLength(11);
+    for (const act of [1, 2, 3] as const) {
+      expect(EVENTS.filter((def) => def.acts?.includes(act)), `act ${act}`).toHaveLength(6);
+      expect(EVENTS.filter((def) => !def.acts || def.acts.includes(act)), `pool ${act}`).toHaveLength(
+        17,
+      );
+    }
   });
 
   it('has unique ids and unique names', () => {
@@ -288,6 +299,14 @@ describe('ensureEvent', () => {
     expect(roomRecord(run, id, 'event').eventId).toBe(first.id);
   });
 
+  it('reads a materialised event even if its act gate no longer matches', () => {
+    const run = fresh('materialised-act');
+    const id = eventNode(run);
+    pin(run, id, 'baimenlou');
+    run.act = 1;
+    expect(ensureEvent(run, id).id).toBe('baimenlou');
+  });
+
   it('draws from the event stream exactly once', () => {
     const run = fresh();
     const id = eventNode(run);
@@ -337,6 +356,7 @@ describe('ensureEvent', () => {
       for (let row = 0; row < floor; row++) {
         for (let s = 0; s < 8; s++) {
           const run = fresh(`floor-${def.id}-${row}-${s}`);
+          run.act = def.acts?.[0] ?? 1;
           const id = eventNode(run);
           run.map.nodes.get(id)!.row = row;
           expect(ensureEvent(run, id).id, `${def.id} on row ${row}`).not.toBe(def.id);
@@ -353,6 +373,7 @@ describe('ensureEvent', () => {
       let reached = false;
       for (let s = 0; s < 80 && !reached; s++) {
         const run = fresh(`atfloor-${def.id}-${s}`);
+        run.act = def.acts?.[0] ?? 1;
         const id = eventNode(run);
         run.map.nodes.get(id)!.row = floor;
         // Narrow the pool to this one event so the sample is not the map's.
@@ -376,6 +397,7 @@ describe('ensureEvent', () => {
       expect(getEvent(id).minRow).toBe(floor);
       for (let s = 0; s < 40; s++) {
         const run = fresh(`low-${id}-${s}`);
+        run.act = getEvent(id).acts?.[0] ?? 1;
         const node = eventNode(run);
         run.map.nodes.get(node)!.row = 1;
         expect(ensureEvent(run, node).id).not.toBe(id);
@@ -392,6 +414,58 @@ describe('ensureEvent', () => {
     // Floor 0 admits only events with no minRow, all of which are `once`.
     const def = ensureEvent(run, id);
     expect(def.id).toBe(FALLBACK_EVENT.id);
+  });
+
+  it('filters act-exclusive events before de-duplication and exhaustion', () => {
+    for (const def of EVENTS.filter((event) => event.acts)) {
+      const correct = def.acts![0];
+      const wrong = ([1, 2, 3] as const).find((act) => !def.acts!.includes(act))!;
+
+      const allowed = fresh(`act-allowed-${def.id}`);
+      allowed.act = correct;
+      const allowedNode = eventNode(allowed);
+      allowed.map.nodes.get(allowedNode)!.row = 14;
+      allowed.seenEvents = EVENTS.filter((event) => event.id !== def.id).map((event) => event.id);
+      expect(ensureEvent(allowed, allowedNode).id).toBe(def.id);
+
+      const barred = fresh(`act-barred-${def.id}`);
+      barred.act = wrong;
+      const barredNode = eventNode(barred);
+      barred.map.nodes.get(barredNode)!.row = 14;
+      barred.seenEvents = EVENTS.filter((event) => event.id !== def.id).map((event) => event.id);
+      expect(ensureEvent(barred, barredNode).id).not.toBe(def.id);
+    }
+  });
+
+  it('keeps global events reachable in every act and de-duplicates them across acts', () => {
+    for (const act of [1, 2, 3] as const) {
+      const run = fresh(`global-act-${act}`);
+      run.act = act;
+      const id = eventNode(run);
+      run.map.nodes.get(id)!.row = 14;
+      run.seenEvents = EVENTS.filter((event) => event.id !== 'caochuanjiejian').map(
+        (event) => event.id,
+      );
+      expect(ensureEvent(run, id).id).toBe('caochuanjiejian');
+    }
+
+    const run = fresh('global-cross-act');
+    run.act = 2;
+    run.seenEvents = ['caochuanjiejian'];
+    const id = eventNode(run);
+    run.map.nodes.get(id)!.row = 14;
+    expect(ensureEvent(run, id).id).not.toBe('caochuanjiejian');
+  });
+
+  it('keeps a non-once event available by row one in every act', () => {
+    for (const act of [1, 2, 3] as const) {
+      const run = fresh(`row-one-act-${act}`);
+      run.act = act;
+      run.seenEvents = EVENTS.map((def) => def.id);
+      const id = eventNode(run);
+      run.map.nodes.get(id)!.row = 1;
+      expect(ensureEvent(run, id).id, `act ${act}`).not.toBe(FALLBACK_EVENT.id);
+    }
   });
 });
 

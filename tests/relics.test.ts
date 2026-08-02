@@ -339,6 +339,8 @@ const COMBAT_HOOKS: CombatHook[] = [
   'damageTaken',
   'blockGained',
   'enemyKilled',
+  'cardDiscarded',
+  'cardExhausted',
   'shuffle',
   'combatEnd',
 ];

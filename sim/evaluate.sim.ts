@@ -13,6 +13,7 @@ import {
   MIN_DECK_SIZE,
   newDeckCard,
   startRun,
+  upgradableCards,
   upgradeCard,
   type DeckCard,
 } from '../src/state/run';
@@ -81,8 +82,13 @@ interface Kit {
   relics: string[];
 }
 
-function buildKit(seed: string, p: ActProfile, hero: HeroDef = DEFAULT_HERO): Kit {
-  const run = startRun(hero, seed);
+function buildKit(
+  seed: string,
+  p: ActProfile,
+  hero: HeroDef = DEFAULT_HERO,
+  ascension = 0,
+): Kit {
+  const run = startRun(hero, seed, ascension);
   const rng = new Rng(`${seed}:kit`);
   for (let i = 0; i < p.rewards; i++) {
     const picks = rollCardReward({ tier: i % 4 === 3 ? 'elite' : 'monster', run, rng });
@@ -90,7 +96,7 @@ function buildKit(seed: string, p: ActProfile, hero: HeroDef = DEFAULT_HERO): Ki
   }
   for (let i = 0; i < p.colorless; i++) addCard(run, COLORLESS_POOL[i % COLORLESS_POOL.length]);
   for (let i = 0; i < p.forge; i++) {
-    const open = run.deck.filter((c) => !c.upgraded);
+    const open = upgradableCards(run);
     if (open.length === 0) break;
     upgradeCard(run, rng.pick(open).uid);
   }
@@ -349,7 +355,7 @@ test(`宝物边际价值: 每件对二幕首领/精英, ${SWEEP_N} fights per ro
  * 曲线的「形」在进入数一列：斜率最陡的那一步就是难度尖峰。
  */
 const CURVE_N = 500;
-const CURVE_LEVELS = [0, 5, 10] as const;
+const CURVE_LEVELS = [0, 5, 10, 15, 20] as const;
 const RUN_POTIONS = ['huoyouguan', 'zhuangxingjiu', 'xumintang'];
 
 const runBelt = (name: PolicyName): Policy => ({
@@ -407,6 +413,7 @@ function walkRunRecorded(
     if (act === 4) {
       path = [pick(t.elite), 'REST', pick(t.boss)];
     } else {
+      const firstBoss = pick(t.boss);
       path = [
         pick(t.weak),
         pick(t.weak),
@@ -418,26 +425,28 @@ function walkRunRecorded(
         pick(t.strong),
         pick(t.strong),
         'REST',
-        pick(t.boss),
+        firstBoss,
       ];
+      if (act === 3 && mods.doubleBoss) {
+        const otherBosses = t.boss.filter((boss) => boss.id !== firstBoss);
+        path.push(pick(otherBosses));
+      }
       if (mods.extraElites > 0 && rng.int(2) === 0) path[7] = pick(t.elite);
     }
 
-    const kit = buildKit(`${seed}:${act}`, ACT_PROFILES[act - 1]);
+    const kit = buildKit(`${seed}:${act}`, ACT_PROFILES[act - 1], DEFAULT_HERO, ascension);
     for (let i = 0; i < 5; i++) {
       if (kit.deck.length <= MIN_DECK_SIZE) break;
       const idx = kit.deck.findIndex((c) => c.defId === 'pikan' || c.defId === 'tiebi');
       if (idx < 0) break;
       kit.deck.splice(idx, 1);
     }
-    for (const curseId of mods.startingCurses) kit.deck.push(newDeckCard(curseId));
-
     for (let pos = 0; pos < path.length; pos++) {
       const step = path[pos];
       const key = `${act}幕#${String(pos + 1).padStart(2, '0')}`;
       const stat = steps.get(key) ?? {
         label: key,
-        kind: STEP_KINDS[act - 1][pos],
+        kind: STEP_KINDS[act - 1][pos] ?? '首领二战',
         entered: 0,
         deaths: 0,
         hpInSum: 0,

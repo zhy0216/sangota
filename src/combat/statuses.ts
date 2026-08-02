@@ -1,7 +1,7 @@
 import { C } from '../config';
 import { addStatus, gainBlock, healCombatant, resolveDamage } from './engine';
 import type { DamageContext } from './engine';
-import type { Combatant, CombatState, StatusId, StatusMeta } from './types';
+import type { CardDef, Combatant, CombatState, StatusId, StatusMeta } from './types';
 
 /**
  * 状态效果库 — every status is a row in one table, and the engine reads the
@@ -66,6 +66,12 @@ export interface StatusDef extends StatusMeta {
    * trigger depend on who landed the blow.
    */
   onEnemyKilled?: (state: CombatState, owner: Combatant, n: number) => void;
+  /** Fires when a card effect deliberately discards a card from the owner's hand. */
+  onCardDiscarded?: (state: CombatState, owner: Combatant, n: number, card?: CardDef) => void;
+  /** Fires whenever one of the owner's cards enters the exhaust pile. */
+  onCardExhausted?: (state: CombatState, owner: Combatant, n: number, card?: CardDef) => void;
+  /** Fires after the discard pile has been shuffled into the draw pile. */
+  onShuffle?: (state: CombatState, owner: Combatant, n: number, card?: CardDef) => void;
 }
 
 /**
@@ -90,6 +96,10 @@ export const STATUS_ORDER: readonly StatusId[] = [
   'metallicize',
   'ritual',
   'slayer',
+  'discipline',
+  'armory',
+  'supply',
+  'warSaint',
   'noDraw',
   'entangled',
   'curlUp',
@@ -300,6 +310,63 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
     decay: 'none',
     blockable: false,
     onEnemyKilled: (state, owner, n) => addStatus(state, owner, 'strength', n),
+  },
+
+  // --- 关羽 · 整军循环 ----------------------------------------------------
+  /**
+   * Only deliberate discard effects fire this hook. The ordinary end-of-turn
+   * hand cleanup stays ordinary cleanup; otherwise a five-card hand would turn
+   * this uncommon power into 12+ free block every turn without an enabler.
+   */
+  discipline: {
+    id: 'discipline',
+    label: '整军',
+    desc: '每主动弃掉一张牌，获得等量护甲。',
+    kind: 'buff',
+    color: C.jade,
+    icon: 'status-discipline',
+    decay: 'none',
+    blockable: false,
+    onCardDiscarded: (state, owner, n) => gainBlock(state, owner, n, 'power'),
+  },
+  armory: {
+    id: 'armory',
+    label: '砺兵',
+    desc: '每消耗一张非【势】牌，获得等量护甲。',
+    kind: 'buff',
+    color: C.paperDim,
+    icon: 'status-armory',
+    decay: 'none',
+    blockable: false,
+    onCardExhausted: (state, owner, n, card) => {
+      if (card?.type !== 'power') gainBlock(state, owner, n, 'power');
+    },
+  },
+  supply: {
+    id: 'supply',
+    label: '粮道',
+    desc: '每次将弃牌堆洗回抽牌堆，获得等量气。',
+    kind: 'buff',
+    color: C.gold,
+    icon: 'status-supply',
+    decay: 'none',
+    blockable: false,
+    onShuffle: (state, _owner, n) => {
+      state.energy = Math.max(0, state.energy + n);
+    },
+  },
+  warSaint: {
+    id: 'warSaint',
+    label: '武圣',
+    desc: '每消耗一张非【势】牌，获得等量【神力】。',
+    kind: 'buff',
+    color: C.cinnabarBright,
+    icon: 'status-warSaint',
+    decay: 'none',
+    blockable: false,
+    onCardExhausted: (state, owner, n, card) => {
+      if (card?.type !== 'power') addStatus(state, owner, 'strength', n);
+    },
   },
 
   // --- 规则改写 -----------------------------------------------------------

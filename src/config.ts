@@ -123,6 +123,12 @@ export const MAP = {
    * 动这个数等于重排每一张既有地图——SAVE_VERSION 必须跟着走。
    */
   paths: 4,
+  /**
+   * Share of walkable nodes that should offer more than one onward route.
+   * Extra links use an isolated RNG after rooms are typed, so this increases
+   * route choice without changing node density, room rolls or visual jitter.
+   */
+  branchTarget: 0.3,
   colSpacing: 148,
   rowSpacing: 118,
   jitterX: 26,

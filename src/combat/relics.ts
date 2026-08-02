@@ -33,6 +33,8 @@ export type CombatHook =
   | 'damageTaken' // we lost HP, block already subtracted
   | 'blockGained' // we gained block
   | 'enemyKilled' // an enemy dropped
+  | 'cardDiscarded' // a deliberate card effect discarded one card
+  | 'cardExhausted' // a card entered the exhaust pile
   | 'shuffle' // the discard pile was reshuffled into the draw pile
   | 'combatEnd'; // the fight was won, before rewards
 
@@ -91,6 +93,14 @@ export interface RelicModifiers {
   cardRewardCount?: number;
   /** 「不取」 pays this much 最大体力 instead of nothing. */
   skipRewardMaxHp?: number;
+  /** Unspent 气 carried into the next turn, capped after all relics sum. */
+  energyCarryCap?: number;
+  /** Every non-negative card acquired after this relic arrives is forged. */
+  newCardsUpgraded?: boolean;
+  /** Multiplier on the 坊市 card-removal price. Multiple relics compound. */
+  removalPriceMultiplier?: number;
+  /** The run-wide card-removal surcharge is ignored and no longer grows. */
+  noRemovalSurcharge?: boolean;
   /**
    * 布衣: the 坊市 will not sell this run a 宝物 at all. Summed with **or**, not
    * with `+` — one relic forbidding the counter forbids it.
@@ -104,6 +114,12 @@ export interface RelicQuery {
   def: CardDef;
   counter: number;
   value: number;
+}
+
+/** Payload shared by the two deliberate pile-transition hooks. */
+export interface RelicCardPilePayload {
+  uid: string;
+  def: CardDef;
 }
 
 export interface RelicDef {
@@ -132,6 +148,10 @@ export interface RelicDef {
    * mutate anything or push events.
    */
   damageBonus?: (q: RelicQuery) => number;
+  /** Delta applied to the printed cost. Pure: hand rendering calls it too. */
+  costDelta?: (q: RelicQuery) => number;
+  /** Additional copies of this card's effects to enqueue. The card itself moves once. */
+  playCopies?: (q: RelicQuery) => number;
   /**
    * Announce a firing with the full-screen flourish under this label instead of
    * the quiet icon flash.
@@ -894,6 +914,384 @@ export const RELICS: Record<string, RelicDef> = {
       },
     },
   },
+
+  // ------------------------------------------- 2026-08 关羽宝物扩充
+  //
+  // 关羽全解锁可得池从 9/9/5/6/4 扩到 15/15/10/8/5。开放
+  // 档中十五件携 `hero: 'guanyu'`，不稀释赵云/诸葛亮的池；
+  // 首领、坊市与两件通用开放档共五件，让其他武将也能见到新
+  // 规则。全部只追加在表尾，既有声明顺序一字不动。
+
+  // --- 常见 -----------------------------------------------------------------
+
+  zhuquejie: {
+    id: 'zhuquejie',
+    name: '朱雀节',
+    tier: 'common',
+    hero: 'guanyu',
+    art: 'relic-zhuquejie',
+    text: '战斗开始时，所有敌人添 1 层【怯战】。',
+    hooks: {
+      combatStart: ({ state, trigger }) => {
+        const enemies = aliveEnemies(state);
+        if (enemies.length === 0) return;
+        trigger();
+        for (const enemy of enemies) addStatus(state, enemy, 'weak', 1);
+      },
+    },
+  },
+
+  duanjinwan: {
+    id: 'duanjinwan',
+    name: '断金腕',
+    tier: 'common',
+    hero: 'guanyu',
+    art: 'relic-duanjinwan',
+    text: '每回合首次获得护甲时，额外获得 {N} 点护甲。',
+    value: 3,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      blockGained: ({ state, counter, value, trigger }) => {
+        // startingBlock lands before turn one and is not a turn's first grant.
+        if (state.turn <= 0 || counter.value > 0) return;
+        // Mark first: gainBlock recursively fires blockGained.
+        counter.value = 1;
+        trigger();
+        gainBlock(state, state.player, value, 'relic');
+      },
+    },
+  },
+
+  bingliangce: {
+    id: 'bingliangce',
+    name: '兵粮册',
+    tier: 'common',
+    hero: 'guanyu',
+    art: 'relic-bingliangce',
+    text: '每次将弃牌堆洗回抽牌堆时，抽 {N} 张牌。',
+    value: 1,
+    hooks: {
+      shuffle: ({ state, value, trigger }) => {
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  pohujia: {
+    id: 'pohujia',
+    name: '破胡甲',
+    tier: 'common',
+    hero: 'guanyu',
+    art: 'relic-pohujia',
+    text: '每回合首次损失体力后，获得 {N} 点护甲。',
+    value: 4,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      damageTaken: ({ state, counter, value, trigger }) => {
+        if (counter.value > 0) return;
+        counter.value = 1;
+        trigger();
+        gainBlock(state, state.player, value, 'relic');
+      },
+    },
+  },
+
+  huatuoyaofang: {
+    id: 'huatuoyaofang',
+    name: '华佗药方',
+    tier: 'common',
+    hero: 'guanyu',
+    art: 'relic-huatuoyaofang',
+    text: '每击杀一名敌人，回复 {N} 点体力。',
+    value: 1,
+    hooks: {
+      enemyKilled: ({ state, value, trigger }) => {
+        if (state.player.hp >= state.player.maxHp) return;
+        trigger();
+        healCombatant(state, state.player, value);
+      },
+    },
+  },
+
+  fenghuotai: {
+    id: 'fenghuotai',
+    name: '烽火台',
+    tier: 'common',
+    art: 'relic-fenghuotai',
+    text: '战斗开始时，若敌人不少于 2 名，获得 {N} 层【神力】。',
+    value: 1,
+    hooks: {
+      combatStart: ({ state, value, trigger }) => {
+        if (aliveEnemies(state).length < 2) return;
+        trigger();
+        addStatus(state, state.player, 'strength', value);
+      },
+    },
+  },
+
+  // --- 罕见 -----------------------------------------------------------------
+
+  shangjiangling: {
+    id: 'shangjiangling',
+    name: '上将令',
+    tier: 'uncommon',
+    hero: 'guanyu',
+    art: 'relic-shangjiangling',
+    text: '每回合首次打出费用 2 及以上的【攻】牌时，抽 {N} 张牌。',
+    value: 1,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      attackPlayed: ({ state, payload, counter, value, trigger }) => {
+        const def = payload as CardDef | undefined;
+        if (!def || def.cost < 2 || counter.value > 0) return;
+        counter.value = 1;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  jingzhouyin: {
+    id: 'jingzhouyin',
+    name: '荆州印',
+    tier: 'uncommon',
+    hero: 'guanyu',
+    art: 'relic-jingzhouyin',
+    text: '若空手结束回合，下回合获得 {N} 点气。',
+    value: 1,
+    hooks: {
+      turnEnd: ({ state, counter }) => {
+        counter.value = state.hand.length === 0 ? 1 : 0;
+      },
+      turnStart: ({ state, counter, value, trigger }) => {
+        if (counter.value === 0) return;
+        counter.value = 0;
+        trigger();
+        state.energy += value;
+      },
+    },
+  },
+
+  liangcaojie: {
+    id: 'liangcaojie',
+    name: '粮草节',
+    tier: 'uncommon',
+    hero: 'guanyu',
+    art: 'relic-liangcaojie',
+    text: '回合结束时，至多将 3 点未耗气各转为 {N} 点护甲。',
+    value: 2,
+    hooks: {
+      turnEnd: ({ state, value, trigger }) => {
+        const spent = Math.min(3, Math.max(0, state.energy));
+        if (spent === 0) return;
+        state.energy -= spent;
+        trigger();
+        gainBlock(state, state.player, spent * value, 'relic');
+      },
+    },
+  },
+
+  hujunxin: {
+    id: 'hujunxin',
+    name: '护军心',
+    tier: 'uncommon',
+    hero: 'guanyu',
+    art: 'relic-hujunxin',
+    text: '战斗开始时，获得 {N} 层【护身符】。',
+    value: 1,
+    hooks: {
+      combatStart: ({ state, value, trigger }) => {
+        trigger();
+        addStatus(state, state.player, 'artifact', value);
+      },
+    },
+  },
+
+  tunbingfu: {
+    id: 'tunbingfu',
+    name: '屯兵符',
+    tier: 'uncommon',
+    hero: 'guanyu',
+    art: 'relic-tunbingfu',
+    text: '每回合首次单次损失至少 10 点体力时，获得 {N} 层【神力】。',
+    value: 1,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      damageTaken: ({ state, payload, counter, value, trigger }) => {
+        if ((payload as number | undefined) === undefined || (payload as number) < 10) return;
+        if (counter.value > 0) return;
+        counter.value = 1;
+        trigger();
+        addStatus(state, state.player, 'strength', value);
+      },
+    },
+  },
+
+  yanxingling: {
+    id: 'yanxingling',
+    name: '严行令',
+    tier: 'uncommon',
+    hero: 'guanyu',
+    art: 'relic-yanxingling',
+    text: '每回合首次主动弃牌时，获得 {N} 点气。',
+    value: 1,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      cardDiscarded: ({ state, counter, value, trigger }) => {
+        if (counter.value > 0) return;
+        counter.value = 1;
+        trigger();
+        state.energy += value;
+      },
+    },
+  },
+
+  // --- 稀有 -----------------------------------------------------------------
+
+  qinglongdaopu: {
+    id: 'qinglongdaopu',
+    name: '青龙刀谱',
+    tier: 'rare',
+    hero: 'guanyu',
+    art: 'relic-qinglongdaopu',
+    text: '每回合首次打出费用 2 及以上的【攻】牌时，少耗 {N} 点气。',
+    value: 1,
+    costDelta: ({ def, counter, value }) =>
+      def.type === 'attack' && def.cost >= 2 && counter === 0 ? -value : 0,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      attackPlayed: ({ payload, counter }) => {
+        const def = payload as CardDef | undefined;
+        if (def && def.cost >= 2 && counter.value === 0) counter.value = 1;
+      },
+    },
+  },
+
+  qinglongnizhan: {
+    id: 'qinglongnizhan',
+    name: '青龙逆斩',
+    tier: 'rare',
+    hero: 'guanyu',
+    art: 'relic-qinglongnizhan',
+    text: '每场战斗首次打出费用 2 及以上的【攻】牌时，其效果额外结算一次。',
+    playCopies: ({ def, counter }) =>
+      def.type === 'attack' && def.cost >= 2 && counter === 0 ? 1 : 0,
+    hooks: {
+      attackPlayed: ({ payload, counter }) => {
+        const def = payload as CardDef | undefined;
+        if (def && def.cost >= 2 && counter.value === 0) counter.value = 1;
+      },
+    },
+  },
+
+  chunqiubaodian: {
+    id: 'chunqiubaodian',
+    name: '春秋宝笺',
+    tier: 'rare',
+    hero: 'guanyu',
+    art: 'relic-chunqiubaodian',
+    text: '每回合前 2 张非【势】牌被消耗时，各抽 {N} 张牌。',
+    value: 1,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      cardExhausted: ({ state, payload, counter, value, trigger }) => {
+        const def = (payload as RelicCardPilePayload | undefined)?.def;
+        if (!def || def.type === 'power' || counter.value >= 2) return;
+        counter.value += 1;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  jingzhougudao: {
+    id: 'jingzhougudao',
+    name: '荆州古道',
+    tier: 'rare',
+    hero: 'guanyu',
+    art: 'relic-jingzhougudao',
+    text: '每场战斗首次主动弃掉的牌改为置于抽牌堆顶。',
+    hooks: {
+      cardDiscarded: ({ state, payload, counter, trigger }) => {
+        if (counter.value > 0) return;
+        const uid = (payload as RelicCardPilePayload | undefined)?.uid;
+        if (!uid) return;
+        const at = state.discardPile.indexOf(uid);
+        if (at < 0) return;
+        state.discardPile.splice(at, 1);
+        state.drawPile.push(uid);
+        counter.value = 1;
+        trigger();
+      },
+    },
+  },
+
+  longlin: {
+    id: 'longlin',
+    name: '龙鳞',
+    tier: 'rare',
+    art: 'relic-longlin',
+    text: '战斗开始时，获得 {N} 层【天佑】。',
+    value: 1,
+    hooks: {
+      combatStart: ({ state, value, trigger }) => {
+        trigger();
+        addStatus(state, state.player, 'buffer', value);
+      },
+    },
+  },
+
+  // --- 首领 -----------------------------------------------------------------
+
+  shouhanzhaoshu: {
+    id: 'shouhanzhaoshu',
+    name: '受汉诏书',
+    tier: 'boss',
+    art: 'relic-shouhanzhaoshu',
+    text: '此后获得的牌均为【精】，但战后可选的卡牌 -1 张。',
+    modifiers: { newCardsUpgraded: true, cardRewardCount: -1 },
+  },
+
+  maichengcanqi: {
+    id: 'maichengcanqi',
+    name: '麦城残旗',
+    tier: 'boss',
+    art: 'relic-maichengcanqi',
+    text: '至多保留 {N} 点未耗气到下回合，但每回合少抽 1 张牌。',
+    value: 2,
+    modifiers: { energyCarryCap: 2, handSize: -1 },
+    hooks: {
+      turnStart: ({ state, trigger }) => {
+        if (state.energy > state.maxEnergy) trigger();
+      },
+    },
+  },
+
+  // --- 坊市 -----------------------------------------------------------------
+
+  xiaojiling: {
+    id: 'xiaojiling',
+    name: '销籍令',
+    tier: 'shop',
+    art: 'relic-xiaojiling',
+    text: '坊市弃牌费用减半，且不再递增。',
+    modifiers: { removalPriceMultiplier: 0.5, noRemovalSurcharge: true },
+  },
 };
 
 // -------------------------------------------------------------- 掉落档位数据
@@ -1001,6 +1399,10 @@ export interface ResolvedModifiers {
   potionSlots: number;
   cardRewardCount: number;
   skipRewardMaxHp: number;
+  energyCarryCap: number;
+  newCardsUpgraded: boolean;
+  removalPriceMultiplier: number;
+  noRemovalSurcharge: boolean;
   /** True when *any* owned relic forbids buying 宝物 — an or, not a sum. */
   noRelicPurchase: boolean;
 }
@@ -1016,6 +1418,10 @@ export function relicModifiers(ids: readonly string[]): ResolvedModifiers {
     potionSlots: 0,
     cardRewardCount: 0,
     skipRewardMaxHp: 0,
+    energyCarryCap: 0,
+    newCardsUpgraded: false,
+    removalPriceMultiplier: 1,
+    noRemovalSurcharge: false,
     noRelicPurchase: false,
   };
   for (const id of ids) {
@@ -1029,7 +1435,11 @@ export function relicModifiers(ids: readonly string[]): ResolvedModifiers {
     total.potionSlots += mods.potionSlots ?? 0;
     total.cardRewardCount += mods.cardRewardCount ?? 0;
     total.skipRewardMaxHp += mods.skipRewardMaxHp ?? 0;
-    // The one flag among the sums: any relic that forbids the counter wins.
+    total.energyCarryCap += mods.energyCarryCap ?? 0;
+    total.newCardsUpgraded ||= mods.newCardsUpgraded ?? false;
+    total.removalPriceMultiplier *= mods.removalPriceMultiplier ?? 1;
+    total.noRemovalSurcharge ||= mods.noRemovalSurcharge ?? false;
+    // Boolean rules compose by OR: one relic rewriting the door wins.
     total.noRelicPurchase ||= mods.noRelicPurchase ?? false;
   }
   return total;
@@ -1100,6 +1510,68 @@ export interface DamageBonus {
   amount: number;
   /** Relics that contributed, so the caller can announce them. */
   sources: RelicDef[];
+}
+
+export interface RelicCardAdjustment {
+  amount: number;
+  sources: RelicDef[];
+}
+
+/**
+ * Effective cost of a card in the current fight. Pure because the hand view,
+ * `canPlay` and `playCard` all ask the same question at different moments.
+ * X-cost stays X: a printed variable is not a costly card made cheaper.
+ */
+export function relicCardCost(
+  state: CombatState | undefined,
+  def: CardDef,
+): RelicCardAdjustment {
+  const adjusted: RelicCardAdjustment = { amount: def.cost, sources: [] };
+  if (!state || def.cost < 0) return adjusted;
+  for (const id of state.relics) {
+    const relic = RELICS[id];
+    if (!relic?.costDelta) continue;
+    const delta = relic.costDelta({
+      state,
+      def,
+      counter: state.relicCounters[id] ?? 0,
+      value: relic.value ?? 0,
+    });
+    if (delta === 0) continue;
+    adjusted.amount += delta;
+    adjusted.sources.push(relic);
+  }
+  adjusted.amount = Math.max(0, adjusted.amount);
+  return adjusted;
+}
+
+/**
+ * Extra copies of a card's effects. The card itself is paid, counted and moved
+ * exactly once; this only repeats the queued effects, so hooks cannot recurse.
+ */
+export function relicCardCopies(
+  state: CombatState | undefined,
+  def: CardDef,
+): RelicCardAdjustment {
+  const adjusted: RelicCardAdjustment = { amount: 0, sources: [] };
+  if (!state) return adjusted;
+  for (const id of state.relics) {
+    const relic = RELICS[id];
+    if (!relic?.playCopies) continue;
+    const copies = Math.max(
+      0,
+      relic.playCopies({
+        state,
+        def,
+        counter: state.relicCounters[id] ?? 0,
+        value: relic.value ?? 0,
+      }),
+    );
+    if (copies === 0) continue;
+    adjusted.amount += copies;
+    adjusted.sources.push(relic);
+  }
+  return adjusted;
 }
 
 /**

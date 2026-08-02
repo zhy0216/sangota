@@ -19,6 +19,10 @@ export type StatusId =
   | 'buffer'
   | 'ritual'
   | 'slayer'
+  | 'discipline'
+  | 'armory'
+  | 'supply'
+  | 'warSaint'
   | 'noDraw'
   | 'entangled'
   | 'curlUp'
@@ -30,7 +34,7 @@ export interface StatusMeta {
   desc: string;
   kind: 'buff' | 'debuff';
   color: number;
-  /** 20×20 icon texture key. Text pills do not survive 18 statuses. */
+  /** 20×20 icon texture key. Text pills do not survive a library this wide. */
   icon?: string;
 }
 
@@ -454,6 +458,8 @@ export interface CombatState {
    * ——顺序反了就和怯战/破绽的乘法打架。意图数字走同一个入口。零重恒 1。
    */
   enemyDamageMult: number;
+  /** 天命十七至十九重：本场所处档位是否启用敌人强化招式表。 */
+  enemyMovesEnhanced: boolean;
   player: Combatant;
   enemies: EnemyState[];
   cards: Record<string, CardInstance>;

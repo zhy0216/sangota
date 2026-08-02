@@ -15,7 +15,7 @@ import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
  *
  * 规则一行没有：种子怎么裁、modifier 改什么组，全在 `startCustomRun`
  * （`src/state/customRun.ts`，纯函数，测试钉住）；本场景只收集三样输入。
- * 天命在这里**任选** 0–10：不计分的局推不动 19 的 `cleared`，也就没有
+ * 天命在这里**任选** 0–20：不计分的局推不动 19 的 `cleared`，也就没有
  * 「通关才放行下一重」的门要守。
  *
  * 种子输入不是 DOM 而是键盘直录：Phaser 没有文本框，`keydown` 收
@@ -244,7 +244,7 @@ export class CustomScene extends Phaser.Scene {
 
     p.add(
       this.add
-        .text(ASC.x, 210, lv > 0 ? `本重新增 · ${ASCENSION_STEP_DESC[lv]}` : '任选 0–10 重，不受通关进度限制', {
+        .text(ASC.x, 210, lv > 0 ? `本重新增 · ${ASCENSION_STEP_DESC[lv]}` : `任选 0–${MAX_ASCENSION} 重，不受通关进度限制`, {
           ...bodyStyle(11, lv > 0 ? C.goldBright : C.paperFaint),
           wordWrap: { width: ASC.w },
           align: 'center',

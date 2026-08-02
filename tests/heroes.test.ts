@@ -482,16 +482,21 @@ const GUANYU = {
     'wenjiu', 'quedi', 'baima', 'jieying', 'guanzhen', 'xuzhao',
     'dandaofuhui', 'huarongdao', 'bingzhudadan', 'yeduchunqiu',
     'zhuwenchou', 'lemahengdao',
+    'huimazhan', 'mingjinzhengdui', 'duanpaojueyi', 'qingzhuangjiancong',
   ],
   uncommon: [
     'wanren', 'yiyong', 'shuiyanqijun', 'zhanyanliang', 'hulaoguan',
     'tushanyuesanshi', 'wubaijiaodaoshou', 'guaguliaodu',
     'daotiaojinpao', 'fengjinguayin',
+    'yanqiyansha', 'zhenqianlidao', 'bingyinghezhen', 'juantuchonglai',
+    'yijiahuanzhen', 'baizhanhuifeng', 'zhengjingwu', 'libingmoma',
+    'liangdaochangtong', 'chizhongdaiji',
   ],
   rare: [
     'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei',
     'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
     'shenzaicaoying', 'guchenghui', 'wanjunqushou', 'baimajiewei',
+    'wusheng', 'hanbingzaixing',
   ],
 };
 
@@ -670,14 +675,18 @@ describe('武将机制互不串味', () => {
     expect(guanyuScaling).toEqual([]);
   });
 
-  it('keeps the 消耗 payoffs to 诸葛亮', () => {
+  it('keeps each hero on his own 消耗 payoff', () => {
     const readers = Object.keys(CARDS).filter((id) =>
       JSON.stringify(CARDS[id].effects).includes('exhaustedAtLeast'),
     );
     expect(readers.sort()).toEqual([
-      'chushibiao', 'fubing', 'huoji', 'huoshaobowang', 'huoshaotengjia', 'muniuliuma',
+      'baizhanhuifeng', 'chushibiao', 'fubing', 'huoji', 'huoshaobowang',
+      'huoshaotengjia', 'muniuliuma',
     ]);
-    for (const id of readers) expect(CARDS[id].hero, id).toBe('zhugeliang');
+    expect(CARDS.baizhanhuifeng.hero).toBe('guanyu');
+    for (const id of readers.filter((id) => id !== 'baizhanhuifeng')) {
+      expect(CARDS[id].hero, id).toBe('zhugeliang');
+    }
   });
 
   it('keeps the 连击 readers to 赵云', () => {

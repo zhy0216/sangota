@@ -1,9 +1,16 @@
 import { Rng } from '../core/rng';
 import type { AscensionMods } from '../data/ascension';
 import { resolveCard } from './cards';
-import { getEnemy, phaseOf, type CombatTier } from './enemies';
+import { getEnemy, moveSetOf, type CombatTier } from './enemies';
 import { REVIVE_HP, getPotion, type PotionSpecial } from './potions';
-import { fireHook, relicDamageBonus, relicEvent, relicModifiers } from './relics';
+import {
+  fireHook,
+  relicCardCopies,
+  relicCardCost,
+  relicDamageBonus,
+  relicEvent,
+  relicModifiers,
+} from './relics';
 import { STATUS_META, STATUS_ORDER, type BlockSource, type TickPhase } from './statuses';
 import type {
   CardDef,
@@ -75,6 +82,7 @@ export function startCombat(opts: StartCombatOptions): CombatState {
   const tier = opts.tier ?? 'monster';
   const enemyHpMult = opts.mods?.hpMult[tier] ?? 1;
   const enemyDamageMult = opts.mods?.damageMult[tier] ?? 1;
+  const enemyMovesEnhanced = opts.mods?.enhancedMoves[tier] ?? false;
 
   const cards: Record<string, CardInstance> = {};
   const drawPile: string[] = [];
@@ -96,6 +104,7 @@ export function startCombat(opts: StartCombatOptions): CombatState {
     handSize: Math.max(0, HAND_SIZE + mods.handSize),
     enemyHpMult,
     enemyDamageMult,
+    enemyMovesEnhanced,
     player: {
       id: 'player',
       name: opts.heroName,
@@ -182,7 +191,8 @@ function makeEnemy(defId: string, slot: number, rng: Rng, hpMult: number): Enemy
 }
 
 /** The move table in force: the phase the enemy switched into, or the default. */
-const moveSet = (def: EnemyDef, enemy: EnemyState): EnemyPhase => phaseOf(def, enemy.phase);
+const moveSet = (state: CombatState, def: EnemyDef, enemy: EnemyState): EnemyPhase =>
+  moveSetOf(def, enemy.phase, state.enemyMovesEnhanced);
 
 /** Living enemies, the one asking included — 「友军」 in a `MoveCondition`. */
 const allyCount = (state: CombatState): number => aliveEnemies(state).length;
@@ -242,7 +252,7 @@ function scriptedMove(set: EnemyPhase, enemy: EnemyState): EnemyMove {
 
 /** Chooses and telegraphs the enemy's next move. */
 export function pickIntent(state: CombatState, enemy: EnemyState): void {
-  const set = moveSet(getEnemy(enemy.defId), enemy);
+  const set = moveSet(state, getEnemy(enemy.defId), enemy);
   const picked = set.script ? scriptedMove(set, enemy) : rollMove(state, enemy, set.moves);
 
   enemy.repeat = enemy.intent?.id === picked.id ? enemy.repeat + 1 : 1;
@@ -254,9 +264,13 @@ export function pickIntent(state: CombatState, enemy: EnemyState): void {
 export function startPlayerTurn(state: CombatState): void {
   // Turn 1 keeps whatever combatStart relics granted; later turns wipe as usual.
   if (state.turn > 0) clearBlock(state.player);
+  const carry = Math.min(
+    Math.max(0, state.energy),
+    relicModifiers(state.relics).energyCarryCap,
+  );
   state.turn += 1;
   state.phase = 'player';
-  state.energy = state.maxEnergy;
+  state.energy = state.maxEnergy + carry;
   state.attacksThisTurn = 0;
   state.cardsPlayedThisTurn = 0;
   // 中毒 bites after the block wipe and before the draw, so a stack can never
@@ -287,7 +301,11 @@ export function drawCards(state: CombatState, count: number): void {
       state.drawPile = state.rng.shuffle(state.discardPile);
       state.discardPile = [];
       state.events.push({ t: 'shuffle' });
+      firePlayerStatusHook(state, 'onShuffle');
       fireHook(state, 'shuffle');
+      // A shuffle hook may draw cards of its own (兵粮册). Re-check the cap
+      // before the outer draw resumes, or a nine-card hand could grow to eleven.
+      if (state.hand.length >= MAX_HAND) return;
     }
     const uid = state.drawPile.pop();
     if (!uid) return;
@@ -310,6 +328,22 @@ function fireCardHook(
 ): void {
   const fn: CardHooks[typeof hook] = defOf(state, uid).hooks?.[hook];
   fn?.(state, uid);
+}
+
+type PlayerStatusHook = 'onCardDiscarded' | 'onCardExhausted' | 'onShuffle';
+
+/**
+ * Pile reactions belong to status rows, not card ids. Only the player owns
+ * cards, so these hooks deliberately run against `state.player`; enemies can
+ * carry the same status ids without gaining a phantom deck to react to.
+ */
+function firePlayerStatusHook(state: CombatState, hook: PlayerStatusHook, card?: CardDef): void {
+  for (const id of STATUS_ORDER) {
+    const n = stacks(state.player, id);
+    if (n === 0) continue;
+    const fn = STATUS_META[id][hook];
+    fn?.(state, state.player, n, card);
+  }
 }
 
 export function endPlayerTurn(state: CombatState): void {
@@ -488,6 +522,10 @@ function leaveFight(state: CombatState, enemy: EnemyState): void {
 export const hasKeyword = (def: CardDef, keyword: CardKeyword): boolean =>
   !!def.keywords?.includes(keyword);
 
+/** The number the hand prints and `playCard` charges. X stays X. */
+export const effectiveCardCost = (state: CombatState | undefined, def: CardDef): number =>
+  relicCardCost(state, def).amount;
+
 export function canPlay(state: CombatState, uid: string): boolean {
   if (state.phase !== 'player') return false;
   // Everything is frozen while a card waits on the player's pick.
@@ -503,7 +541,8 @@ export function canPlay(state: CombatState, uid: string): boolean {
     if (gate && !gate(state)) return false;
   }
   // An X-cost card is affordable at any 气, including none.
-  return def.cost === X_COST || state.energy >= def.cost;
+  const cost = effectiveCardCost(state, def);
+  return cost === X_COST || state.energy >= cost;
 }
 
 export function playCard(state: CombatState, uid: string, targetId?: string): boolean {
@@ -516,15 +555,21 @@ export function playCard(state: CombatState, uid: string, targetId?: string): bo
     if (!target) return false;
   }
 
-  const spent = def.cost === X_COST ? state.energy : def.cost;
+  const cost = relicCardCost(state, def);
+  const spent = cost.amount === X_COST ? state.energy : cost.amount;
   state.energy -= spent;
   state.hand.splice(state.hand.indexOf(uid), 1);
 
   // Announced before the effects resolve, so the flourish leads the damage.
+  for (const relic of cost.sources) state.events.push(relicEvent(relic));
   const bonus = relicDamageBonus(state, def);
   for (const relic of bonus.sources) state.events.push(relicEvent(relic));
+  const copies = relicCardCopies(state, def);
+  for (const relic of copies.sources) state.events.push(relicEvent(relic));
 
-  enqueue(state, def.effects, {
+  const effects: Effect[] = [];
+  for (let i = 0; i <= copies.amount; i++) effects.push(...def.effects);
+  enqueue(state, effects, {
     target,
     bonus: bonus.amount,
     energy: spent,
@@ -555,8 +600,11 @@ export function playCard(state: CombatState, uid: string, targetId?: string): bo
 
 /** Sends a card to the 消耗堆 from wherever it was. */
 export function exhaustCard(state: CombatState, uid: string): void {
+  const def = defOf(state, uid);
   state.exhaustPile.push(uid);
   state.events.push({ t: 'exhaust', uid });
+  firePlayerStatusHook(state, 'onCardExhausted', def);
+  fireHook(state, 'cardExhausted', { uid, def });
 }
 
 // ------------------------------------------------------------------ potions
@@ -715,6 +763,7 @@ function applyEffect(state: CombatState, step: QueuedStep): void {
       state.drawPile = state.rng.shuffle([...state.drawPile, ...state.discardPile]);
       state.discardPile = [];
       state.events.push({ t: 'shuffle' });
+      firePlayerStatusHook(state, 'onShuffle');
       fireHook(state, 'shuffle');
       break;
     case 'conditional': {
@@ -838,6 +887,9 @@ function applyChoice(state: CombatState, kind: PendingChoice['kind'], uid: strin
   } else {
     state.discardPile.push(uid);
     state.events.push({ t: 'discard', uid });
+    const def = defOf(state, uid);
+    firePlayerStatusHook(state, 'onCardDiscarded', def);
+    fireHook(state, 'cardDiscarded', { uid, def });
   }
 }
 

@@ -121,13 +121,14 @@ export function isResolved(run: RunState, nodeId: string): boolean {
  *
  * De-duplication is against the whole pool and not just `once` events: a run
  * enters ~9–10 event rooms (per *run* — the old 3.14 was one act's worth),
- * and nine draws against twenty ids collide far more often than not.
+ * and nine draws against an act-visible pool of seventeen still collide often.
  * When the pool runs dry the repeats are let back in, minus anything flagged
  * `once` — that flag outlives the exhaustion, which is the whole of what it
  * means.
  */
 function eligible(run: RunState, row: number): EventDef[] {
-  const onFloor = EVENTS.filter((def) => row >= (def.minRow ?? 0));
+  const inAct = EVENTS.filter((def) => !def.acts || def.acts.includes(run.act as 1 | 2 | 3));
+  const onFloor = inAct.filter((def) => row >= (def.minRow ?? 0));
   const unseen = onFloor.filter((def) => !run.seenEvents.includes(def.id));
   if (unseen.length > 0) return unseen;
   const repeatable = onFloor.filter((def) => !def.once);

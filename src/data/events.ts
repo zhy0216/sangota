@@ -116,6 +116,8 @@ export interface EventDef {
   once?: boolean;
   /** Earliest floor, 0-indexed. Keeps the 20-体力 gambles off floor one. */
   minRow?: number;
+  /** Acts in which this event may be rolled. Absent means all three main acts. */
+  acts?: readonly (1 | 2 | 3)[];
 }
 
 /**
@@ -139,17 +141,16 @@ export const RISK_FLOOR_TEXT = '伤重难行，此事做不得。';
 // -------------------------------------------------------------------- the table
 
 /**
- * Twenty, against ~9–10 event rooms a run — 0.22 pool weight over the ~36
- * rollable floors of three acts (the old 「~3.14」 was one act's expectation
- * wearing a per-run label). With `seenEvents` de-duplicating inside a run, a
- * run sees about half the table, and two runs share ~4–5 entries (9.5²⁄20);
- * at twelve they shared ~7–8 of ~9.5, and every second run was a rerun.
+ * Twenty-nine total: eleven global plus six exclusive to each main act. A run
+ * enters roughly nine event rooms, so it now sees about a third of the whole
+ * table while each act still carries a distinct historical flavour.
  */
 export const EVENTS: EventDef[] = [
   {
     id: 'taoyuan',
     name: '桃园结义',
     sub: '涿郡 · 中平元年',
+    acts: [1],
     once: true,
     body: '桃林深处，三人焚香列拜，血酒尚温。\n为首者回身看你：「同生共死，可愿？」\n篱外另有一队商旅，正以五十金招募护卫。',
     options: [
@@ -284,6 +285,7 @@ export const EVENTS: EventDef[] = [
     id: 'huatuo',
     name: '华佗行医',
     sub: '谯县 · 青囊在侧',
+    acts: [1],
     minRow: 3,
     body: '案上一卷青囊书，一柄薄如蝉翼的刀。\n神医说：汤药只能镇住头风，\n要除根，得开颅。他说这话时手很稳。',
     options: [
@@ -329,6 +331,7 @@ export const EVENTS: EventDef[] = [
     id: 'huangjintai',
     name: '黄金台',
     sub: '易水 · 燕昭王旧筑',
+    acts: [1],
     minRow: 2,
     body: '燕昭王筑台以千金求士，台已倾颓，金却还在砖缝里。\n取之无人知晓。只是自此以后，\n每一次收兵，都会先想起这堆金子。',
     options: [
@@ -354,6 +357,7 @@ export const EVENTS: EventDef[] = [
     id: 'yuxichenjiang',
     name: '玉玺沉江',
     sub: '洛阳城南 · 枯井',
+    acts: [2],
     once: true,
     minRow: 6,
     body: '枯井里捞起一方血裹的玉玺，螭纽缺角，以黄金镶补。\n孙文台的旧事，就是从这一件东西开始的。\n藏，则此物噬主；沉，则换个心安。',
@@ -384,6 +388,7 @@ export const EVENTS: EventDef[] = [
     id: 'zuijiuzhangfei',
     name: '醉酒张飞',
     sub: '下邳 · 城破前夜',
+    acts: [2],
     minRow: 4,
     body: '翼德抱坛而坐，见人便斟，酒气冲得帐帘直晃。\n这酒能解一身乏，也能误一座城——\n徐州就是这么丢的。',
     options: [
@@ -433,6 +438,7 @@ export const EVENTS: EventDef[] = [
     id: 'wuzhangyuan',
     name: '五丈原',
     sub: '渭水南岸 · 秋',
+    acts: [3],
     once: true,
     minRow: 8,
     body: '七星灯已燃了六夜，主灯摇曳欲灭。\n续命之法要以军资供奉，且只此一次。\n帐外是渭水，帐内是最后一夜。',
@@ -609,6 +615,7 @@ export const EVENTS: EventDef[] = [
     id: 'baimenlou',
     name: '白门楼',
     sub: '下邳 · 建安三年',
+    acts: [2],
     minRow: 4,
     body: '城破之日，白门楼下缚着一员虓将，三姓的旧主都没能拴住他。\n他抬眼看你：「缚太急，可少宽乎？」\n此人骁勇冠绝当世，只是刀太快的，从来不问主人是谁。',
     options: [
@@ -696,6 +703,7 @@ export const EVENTS: EventDef[] = [
     id: 'baizouhuarong',
     name: '败走华容',
     sub: '华容小道 · 大雨初歇',
+    acts: [3],
     once: true,
     minRow: 6,
     body: '败军自赤壁来，烧残的旌旗拖在泥里，人马塞满了半条窄道。\n为首者于马上欠身，笑得从容：「将军别来无恙？」\n旧年的恩，今日的功，两样只能全一样。',
@@ -733,6 +741,7 @@ export const EVENTS: EventDef[] = [
     id: 'hanshuibaoyi',
     name: '汉水暴溢',
     sub: '襄樊 · 秋霖不止',
+    acts: [3],
     minRow: 7,
     body: '秋雨连绵十日，汉水在堤内翻涌如沸。\n低处扎着敌军七营，旗号泡得发白，鼓声都是潮的。\n只需掘开一道口子，水会替你打完这一仗。',
     options: [
@@ -759,12 +768,289 @@ export const EVENTS: EventDef[] = [
       },
     ],
   },
+
+  // --- 第一幕 · 黄巾与募兵 -------------------------------------------------
+
+  {
+    id: 'yingchuanmuyong',
+    name: '颍川募勇',
+    sub: '颍川 · 义旗初举',
+    acts: [1],
+    minRow: 1,
+    body: '县署外挤满了投军的乡勇，甲不齐，粮也不足。\n主簿说四十五金可置一批伤药；若亲去乡里征粮，\n钱能省下，只怕要挨几下闷棍。',
+    options: [
+      {
+        label: '出资募勇',
+        hint: '费 45 资财，得两瓶丹药',
+        requires: (run) => run.gold >= 45,
+        requiresText: '需 45 资财',
+        outcome: {
+          text: '钱交给主簿，新兵背着药箱入列。队伍不整，救命的东西倒齐了。',
+          gold: -45,
+          gainPotion: 2,
+        },
+      },
+      {
+        label: '亲往征粮',
+        hint: '失 6 体力，资财 +35',
+        tone: 'danger',
+        outcome: {
+          text: '粮车带回来了，乡里的棍棒也没少落在肩背上。',
+          hp: -6,
+          gold: 35,
+        },
+      },
+      {
+        label: '整队离去',
+        hint: '毫无所得',
+        outcome: { text: '兵未足，粮未齐。至少没有在起兵第一日就欠下一笔账。' },
+      },
+    ],
+  },
+
+  {
+    id: 'changshehuogong',
+    name: '长社火攻',
+    sub: '长社 · 夜风骤起',
+    acts: [1],
+    minRow: 2,
+    body: '黄巾依草结营，夜风正往营中吹。\n火把一点，乱军必溃；但纵火的人要贴着鹿角进去，\n能带回什么，全看退得够不够快。',
+    options: [
+      {
+        label: '衔枚纵火',
+        hint: '失 8 体力，得一件普通宝物',
+        tone: 'danger',
+        outcome: {
+          text: '火借风势卷过营盘。撤回时衣袖烧穿，怀里却多了一件敌军遗物。',
+          hp: -8,
+          gainRelic: { tier: 'common' },
+        },
+      },
+      {
+        label: '候风而退',
+        hint: '毫无所得',
+        outcome: { text: '风向半夜便转了。营火依旧，机会随烟散去。' },
+      },
+    ],
+  },
+
+  {
+    id: 'taipingdaotan',
+    name: '太平道坛',
+    sub: '巨鹿 · 黄幡蔽日',
+    acts: [1],
+    minRow: 1,
+    body: '废坛上摆着符水、铜钱与一卷太平要术的残页。\n取钱，便要饮符立誓；取书，则须以血洗去坛上的旧名。\n道人只在远处看着，不来相劝。',
+    options: [
+      {
+        label: '饮符受财',
+        hint: '资财 +60，牌组混入诅咒【疑心】',
+        tone: 'danger',
+        outcome: {
+          text: '符水苦涩，铜钱却很实在。离坛十里，仍觉得身后有人跟着。',
+          gold: 60,
+          gainCurse: 'yixin',
+        },
+      },
+      {
+        label: '血洗残卷',
+        hint: '失 7 体力，精进一张牌',
+        tone: 'danger',
+        outcome: {
+          text: '旧名被血冲淡，残卷上的字却一行行清楚起来。',
+          hp: -7,
+          upgradeCards: 1,
+        },
+      },
+      {
+        label: '焚坛而去',
+        hint: '毫无所得',
+        outcome: { text: '黄幡化灰，铜钱熔在泥里。至少誓不是你立的。' },
+      },
+    ],
+  },
+
+  // --- 第二幕 · 洛阳与群雄 -------------------------------------------------
+
+  {
+    id: 'sishuaduanliang',
+    name: '汜水断粮',
+    sub: '汜水关外 · 粮道三十里',
+    acts: [2],
+    minRow: 1,
+    body: '西凉军的粮队沿河而来，前后相隔半里。\n截下一段，军资便够用许久；只是关上鼓声一响，\n押粮兵立刻会合围回来。',
+    options: [
+      {
+        label: '伏击粮队',
+        hint: '先得 50 资财，随即陷入战斗',
+        tone: 'danger',
+        requires: RISK_FLOOR,
+        requiresText: RISK_FLOOR_TEXT,
+        outcome: {
+          text: '粮车刚推入林中，关上便响了三通鼓。追兵已到。',
+          gold: 50,
+          fight: { tier: 'monster' },
+        },
+      },
+      {
+        label: '放其过去',
+        hint: '毫无所得',
+        outcome: { text: '车轮声渐远。关上今夜会吃得很饱。' },
+      },
+    ],
+  },
+
+  {
+    id: 'luoyangcanjuan',
+    name: '洛阳残卷',
+    sub: '洛阳旧宫 · 焦梁之下',
+    acts: [2],
+    minRow: 2,
+    body: '宫室烧尽，焦梁下压着几箱尚未成灰的兵书。\n纸页一碰便碎，只够抢救其中两卷；\n烟火未熄，进去的人得拿皮肉挡落木。',
+    options: [
+      {
+        label: '入火抢书',
+        hint: '失 8 体力，择两张牌易之',
+        tone: 'danger',
+        outcome: {
+          text: '两卷兵书抱了出来，肩上也留下两道火痕。旧法换新法，正合乱世。',
+          hp: -8,
+          transformCards: 2,
+        },
+      },
+      {
+        label: '任其成灰',
+        hint: '毫无所得',
+        outcome: { text: '梁柱轰然倒下，前朝兵法与宫瓦一道成了灰。' },
+      },
+    ],
+  },
+
+  {
+    id: 'hulaocanqi',
+    name: '虎牢残骑',
+    sub: '虎牢关东 · 败旗未倒',
+    acts: [2],
+    minRow: 4,
+    body: '一队并州残骑守着主将遗下的兵匣，马瘦，人却不散。\n夺匣便得重器，但这些人已经没有退路，\n也不会再受第二次招降。',
+    options: [
+      {
+        label: '破阵夺匣',
+        hint: '先得一件罕见宝物，随即陷入精锐死斗',
+        tone: 'danger',
+        requires: RISK_FLOOR,
+        requiresText: RISK_FLOOR_TEXT,
+        outcome: {
+          text: '匣已到手，残骑却从两翼合拢。最后一阵只能硬闯。',
+          gainRelic: { tier: 'uncommon' },
+          fight: { tier: 'elite' },
+        },
+      },
+      {
+        label: '收兵绕行',
+        hint: '毫无所得',
+        outcome: { text: '残旗在风里越来越小。没人追来，也没人投降。' },
+      },
+    ],
+  },
+
+  // --- 第三幕 · 汉中与北伐 -------------------------------------------------
+
+  {
+    id: 'dingjunshao',
+    name: '定军斥候',
+    sub: '定军山 · 暮色压营',
+    acts: [3],
+    minRow: 1,
+    body: '斥候从敌营带回一册将校名录，夹页中还有一篇未传的阵法。\n他只要七十五金，今夜便离开此地。\n天亮之后，这册东西会落到谁手里就难说了。',
+    options: [
+      {
+        label: '重金购册',
+        hint: '费 75 资财，得一张随机稀有牌',
+        requires: (run) => run.gold >= 75,
+        requiresText: '需 75 资财',
+        outcome: {
+          text: '金袋落手，斥候没入暮色。名录烧了，阵法留在你的兵册里。',
+          gold: -75,
+          gainCards: { count: 1, rarity: 'rare' },
+        },
+      },
+      {
+        label: '扣册拿人',
+        hint: '失 9 体力，得一张随机罕见牌',
+        tone: 'danger',
+        outcome: {
+          text: '人拿住了，暗处的弩箭也到了。册页只保下半卷。',
+          hp: -9,
+          gainCards: { count: 1, rarity: 'uncommon' },
+        },
+      },
+      {
+        label: '不问来路',
+        hint: '毫无所得',
+        outcome: { text: '斥候带册离去。暮色里没有脚印。' },
+      },
+    ],
+  },
+
+  {
+    id: 'muniuzidui',
+    name: '木牛辎队',
+    sub: '褒斜道 · 木轮无声',
+    acts: [3],
+    minRow: 2,
+    body: '一列木牛停在栈道阴影里，车上没有押运兵，只有封好的军械。\n取走军械，须把随身资财全留作转运；\n空手的人，连车轴都不会为他转一下。',
+    options: [
+      {
+        label: '散财转运',
+        hint: '散尽资财，得一件罕见宝物',
+        requires: (run) => run.gold >= 60,
+        requiresText: '需至少 60 资财',
+        outcome: {
+          text: '钱袋尽数挂上车辕，军械则入了你的营。木轮重新转动，没有一声吱响。',
+          spendAllGold: true,
+          gainRelic: { tier: 'uncommon' },
+        },
+      },
+      {
+        label: '封车不取',
+        hint: '毫无所得',
+        outcome: { text: '木牛仍停在阴影里。回头再看时，栈道上已空无一物。' },
+      },
+    ],
+  },
+
+  {
+    id: 'hanzhongzhandao',
+    name: '汉中栈道',
+    sub: '秦岭 · 云下千仞',
+    acts: [3],
+    minRow: 3,
+    body: '旧栈道半悬于绝壁，新修的木板只容一骑。\n走险路可省十日，并有时间重整两套战法；\n一步踩空，山下连尸骨都寻不回来。',
+    options: [
+      {
+        label: '负伤走险',
+        hint: '失去两成当前体力，精进两张牌',
+        tone: 'danger',
+        outcome: {
+          text: '木板在身后断了三处。人过了山，兵册也在十日险路上改定。',
+          hpLossPercent: 0.2,
+          upgradeCards: 2,
+        },
+      },
+      {
+        label: '绕行旧道',
+        hint: '毫无所得',
+        outcome: { text: '多走十日，鞋底磨穿。好在每个人都走到了山那边。' },
+      },
+    ],
+  },
 ];
 
 /**
  * The floor under the pool. Never in `EVENTS`, so it is never rolled and never
  * de-duplicated — it only appears when every real event has been spent, which
- * takes twenty-one event rooms in one run.
+ * takes thirty event rooms in one run.
  */
 export const FALLBACK_EVENT: EventDef = {
   id: 'huangjingwuren',

@@ -609,8 +609,15 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
     p.add(fresh);
 
-    // 全部累积修改：一到本重逐条连排，压暗——名单，不是重点。
-    const all = Array.from({ length: lv }, (_, i) => ASCENSION_STEP_DESC[i + 1]).join('　');
+    // 全部累积修改：高重数不把二十行全塞进窄栏，只列最近五重；前面的规则
+    // 仍全部生效，用一行摘要交代。当前重已经在上面高亮，这里照样保留，方便
+    // 一眼读出连续坡度。
+    const from = Math.max(1, lv - 4);
+    const recent = Array.from(
+      { length: lv - from + 1 },
+      (_, i) => `${from + i} · ${ASCENSION_STEP_DESC[from + i]}`,
+    ).join('\n');
+    const all = from > 1 ? `一至${from - 1}重规则继续生效\n${recent}` : recent;
     const list = this.add.text(ASC.x - ASC.w / 2, ASC.y + 58 + fresh.height + 10, all, {
       ...bodyStyle(10, C.paperDim),
       wordWrap: { width: ASC.w },

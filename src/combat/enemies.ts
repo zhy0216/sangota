@@ -1453,6 +1453,67 @@ export const getEnemy = (id: string): EnemyDef => {
 export const phaseOf = (def: EnemyDef, phase: string | null): EnemyPhase =>
   (phase ? def.phases?.[phase] : undefined) ?? def;
 
+type EnhancedMovePatch = Partial<Omit<EnemyMove, 'id' | 'label'>>;
+
+/**
+ * 天命十七至十九重的强化招式数据。只覆盖招式字段，不换 id、不改权重与脚本，
+ * 因而同一个 seed 仍会选中同一招，只是那一招更凶。表放在敌军数据层，引擎
+ * 不按敌人 id 分支；以后新增或调一名敌人只动这里。
+ */
+export const ENHANCED_MOVE_PATCHES: Readonly<
+  Partial<Record<string, Readonly<Record<string, EnhancedMovePatch>>>>
+> = {
+  yellowturban: { roar: { status: { status: 'strength', amount: 3, to: 'self' } } },
+  bandit: { ambush: { status: { status: 'weak', amount: 2, to: 'player' } } },
+  huaxiong: { fury: { block: 11 } },
+  lubu: { peerless: { block: 16 } },
+  luanmin: { huddle: { block: 7 } },
+  jijiu: { preach: { statusAll: { status: 'strength', amount: 2 } } },
+  qishou: { trample: { status: { status: 'vulnerable', amount: 2, to: 'player' } } },
+  guanhai: { bellow: { block: 11 } },
+  zhangliang: { sigil: { block: 15, status: { status: 'ritual', amount: 2, to: 'self' } } },
+  liukou: { bolt: { steal: 40 } },
+  zhangmancheng: { banner: { block: 9 } },
+  zhangbao: { ward: { block: 20 } },
+  zhangbaofenshen: { gather: { block: 11 } },
+  tieqi: { dust: { addCards: { defId: 'chuangshang', count: 3, to: 'discard' } } },
+  dongzhuoqinbing: { parry: { block: 9 } },
+  qiangbing: { rally: { block: 11 } },
+  feixiongjun: { wall: { block: 16 } },
+  xiliangduwei: { drive: { statusAll: { status: 'strength', amount: 2 } } },
+  licui: { hold: { block: 18 } },
+  guosi: { camp: { block: 20 } },
+  liru: { chenmou: { block: 18, status: { status: 'ritual', amount: 2, to: 'self' } } },
+  dongzhuo: { fortress: { block: 21 } },
+  hubaoqi: { encircle: { status: { status: 'vulnerable', amount: 2, to: 'player' } } },
+  lianubing: { wind: { block: 9 } },
+  junshi: { array: { statusAll: { status: 'strength', amount: 2 } } },
+  qingzhoubing: { swarm: { hits: 3 } },
+  tuntianbing: { rampart: { block: 12 } },
+  mojinxiaowei: { grave: { block: 11 } },
+  xuchu: { bare: { status: { status: 'strength', amount: 3, to: 'self' } } },
+  pangde: { laststand: { block: 18, status: { status: 'ritual', amount: 2, to: 'self' } } },
+  xiahouyuan: { banner: { block: 20, status: { status: 'ritual', amount: 2, to: 'self' } } },
+  zhangliao: { regroup: { block: 23, status: { status: 'strength', amount: 4, to: 'self' } } },
+  simayi: { endure: { block: 20, status: { status: 'metallicize', amount: 4, to: 'self' } } },
+  tianming: { wuzhang: { block: 25, status: { status: 'ritual', amount: 3, to: 'self' } } },
+};
+
+/** 当前阶段实际使用的招式表；强化只做不可变覆盖，不改原始敌军数据。 */
+export function moveSetOf(def: EnemyDef, phase: string | null, enhanced = false): EnemyPhase {
+  const base = phaseOf(def, phase);
+  if (!enhanced) return base;
+  const patches = ENHANCED_MOVE_PATCHES[def.id];
+  if (!patches) return base;
+  return {
+    ...base,
+    moves: base.moves.map((move) => {
+      const patch = patches[move.id];
+      return patch ? { ...move, ...patch } : move;
+    }),
+  };
+}
+
 /**
  * A telegraphed move, recovered from what a save can hold.
  *
@@ -1463,5 +1524,10 @@ export const phaseOf = (def: EnemyDef, phase: string | null): EnemyPhase =>
  * an incompatible save rather than re-rolling a different intent under a player
  * who was already shown one.
  */
-export const moveById = (defId: string, phase: string | null, moveId: string): EnemyMove | null =>
-  phaseOf(getEnemy(defId), phase).moves.find((m) => m.id === moveId) ?? null;
+export const moveById = (
+  defId: string,
+  phase: string | null,
+  moveId: string,
+  enhanced = false,
+): EnemyMove | null =>
+  moveSetOf(getEnemy(defId), phase, enhanced).moves.find((m) => m.id === moveId) ?? null;

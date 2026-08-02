@@ -140,6 +140,7 @@ export function generateMap(
   // --- Phase 2: assign room types ------------------------------------------
   assignRoomTypes(rng, nodes, byRow, layout);
   promoteExtraElites(rng, nodes, byRow, layout, extraElites);
+  addStrategicLinks(seed, nodes, byRow, layout);
 
   // --- Boss crown -----------------------------------------------------------
   const bossId = 'boss';
@@ -171,6 +172,103 @@ export function generateMap(
   }
 
   return { seed, rows, cols, width, height, nodes, byRow, bossId };
+}
+
+interface LinkCandidate {
+  parentId: string;
+  childId: string;
+  /** A branch into a different room type is the more meaningful choice. */
+  distinct: boolean;
+}
+
+/**
+ * Adds choices without adding rooms. The original four walks still decide
+ * every node, room type and coordinate; an isolated stream only chooses which
+ * already-adjacent cells gain a second legal connection.
+ */
+function addStrategicLinks(
+  seed: string,
+  nodes: Map<string, MapNode>,
+  byRow: string[][],
+  layout: ActLayout,
+): void {
+  const walkable = byRow
+    .slice(0, layout.rows - 1)
+    .flatMap((row) => row.map((id) => nodes.get(id)!))
+    .filter((node) => node.children.length > 0);
+  const target = Math.ceil(walkable.length * MAP.branchTarget);
+  let branched = walkable.filter((node) => node.children.length > 1).length;
+  if (branched >= target) return;
+
+  const candidates: LinkCandidate[] = [];
+  for (const parent of walkable) {
+    if (parent.children.length !== 1) continue;
+    const original = nodes.get(parent.children[0])!;
+    for (const childId of byRow[parent.row + 1]) {
+      if (childId === original.id) continue;
+      const child = nodes.get(childId)!;
+      if (Math.abs(parent.col - child.col) > 1) continue;
+      candidates.push({
+        parentId: parent.id,
+        childId,
+        distinct: child.type !== original.type,
+      });
+    }
+  }
+
+  const linkRng = new Rng(`${seed}:map-links:v1`);
+  const ordered = [
+    ...linkRng.shuffle(candidates.filter((candidate) => candidate.distinct)),
+    ...linkRng.shuffle(candidates.filter((candidate) => !candidate.distinct)),
+  ];
+
+  for (const candidate of ordered) {
+    if (branched >= target) return;
+    const parent = nodes.get(candidate.parentId)!;
+    const child = nodes.get(candidate.childId)!;
+    if (parent.children.length !== 1 || parent.children.includes(child.id)) continue;
+    if (!strategicLinkLegal(parent, child, nodes, byRow)) continue;
+
+    parent.children.push(child.id);
+    parent.children.sort((a, b) => nodes.get(a)!.col - nodes.get(b)!.col);
+    child.parents.push(parent.id);
+    child.parents.sort((a, b) => nodes.get(a)!.col - nodes.get(b)!.col);
+    branched += 1;
+  }
+}
+
+function strategicLinkLegal(
+  parent: MapNode,
+  child: MapNode,
+  nodes: Map<string, MapNode>,
+  byRow: string[][],
+): boolean {
+  if (child.row !== parent.row + 1 || Math.abs(child.col - parent.col) > 1) return false;
+
+  // The new edge itself may not repeat a restricted room type.
+  if (parent.type === child.type && RESTRICTED.has(child.type)) return false;
+
+  // The new child joins the parent's existing children as a sibling.
+  if (RESTRICTED.has(child.type)) {
+    for (const siblingId of parent.children) {
+      if (nodes.get(siblingId)!.type === child.type) return false;
+    }
+  }
+
+  // General crossing test, not only the direct swaps the random walks can make.
+  for (const parentId of byRow[parent.row]) {
+    const other = nodes.get(parentId)!;
+    for (const otherChildId of other.children) {
+      const otherChild = nodes.get(otherChildId)!;
+      if (
+        (parent.col < other.col && child.col > otherChild.col) ||
+        (parent.col > other.col && child.col < otherChild.col)
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /**

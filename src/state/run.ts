@@ -109,8 +109,8 @@ export interface RunState {
   rooms: Record<string, RoomRecord>;
   /**
    * Event ids resolved this run. Drives both `once` events and same-run
-   * de-duplication — ~9–10 event rooms a run against a 20-event pool means
-   * repeats are the norm, not the exception, without this.
+   * de-duplication across acts. Act filtering narrows the 29-event table, but
+   * an event seen in one act still stays spent if it is globally eligible.
    */
   seenEvents: string[];
   /** Card-removal price escalation. Run-long: it survives leaving the shop. */
@@ -470,7 +470,8 @@ export function addCard(run: RunState, cardId: string, upgraded = 0): DeckCard {
   if (isNegative(def)) {
     throw new Error(`${def.type} cards are never a reward: ${cardId} — use addCurse`);
   }
-  return pushCard(run, cardId, upgraded);
+  const forged = relicModifiers(run.relics).newCardsUpgraded ? 1 : 0;
+  return pushCard(run, cardId, Math.max(upgraded, forged));
 }
 
 /** Events, relics and enemies inflict these; they ride in the deck for good. */

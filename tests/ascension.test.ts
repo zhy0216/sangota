@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { getCard } from '../src/combat/cards';
 import { CURSE_POOL } from '../src/combat/curses';
-import { encounterTierOf, getEncounter, getEnemy, type CombatTier } from '../src/combat/enemies';
+import {
+  encounterTierOf,
+  getEncounter,
+  getEnemy,
+  moveById,
+  type CombatTier,
+} from '../src/combat/enemies';
 import { endPlayerTurn, runEnemyTurn, startCombat } from '../src/combat/engine';
 import { intentLabel, intentOf } from '../src/combat/intent';
 import { Rng } from '../src/core/rng';
@@ -58,6 +64,7 @@ describe('modsFor', () => {
     const nine = modsFor(9);
     expect(Object.isFrozen(nine)).toBe(true);
     expect(Object.isFrozen(nine.damageMult)).toBe(true);
+    expect(Object.isFrozen(modsFor(20).enhancedMoves)).toBe(true);
   });
 
   it('一重只加一间精英房，其余原样', () => {
@@ -81,7 +88,7 @@ describe('modsFor', () => {
     expect(nine.actStartHpLossPercent).toBe(10); // 六重
     expect(nine.damageMult.monster).toBeCloseTo(1.05, 10); // 七重
     expect(nine.damageMult.elite).toBeCloseTo(1.05, 10); // 三重
-    expect(nine.damageMult.boss).toBeCloseTo(1.05, 10); // 九重（2026-08 复标定）
+    expect(nine.damageMult.boss).toBeCloseTo(1.04, 10); // 九重（2026-08 复标定）
   });
 
   it('倍率相乘而不是覆盖——todo 点名最容易写错的地方', () => {
@@ -97,9 +104,20 @@ describe('modsFor', () => {
     expect(modsFor(10).startingCurses).toEqual(['suye']);
   });
 
-  it('超出已做的十重按十重算——后十重的行落进表里之前就是没有', () => {
-    expect(modsFor(15)).toEqual(modsFor(10));
-    expect(ASCENSION_STEPS[11]).toBeUndefined();
+  it('十一至二十重依次压资源、强化三档招式并开启双首领', () => {
+    const twenty = modsFor(20);
+    expect(MAX_ASCENSION).toBe(20);
+    expect(Object.keys(ASCENSION_STEPS).map(Number)).toEqual(
+      Array.from({ length: 20 }, (_, i) => i + 1),
+    );
+    expect(twenty.potionSlots).toBe(2);
+    expect(twenty.rarityWeightMult).toEqual({ uncommon: 0.9, rare: 0.75 });
+    expect(twenty.eliteGoldMult).toBe(0.85);
+    expect(twenty.maxHpMult).toBeCloseTo(0.97 * 0.95, 10);
+    expect(twenty.restHealPercent).toBe(20);
+    expect(twenty.shopPriceMult).toBe(1.1);
+    expect(twenty.enhancedMoves).toEqual({ monster: true, elite: true, boss: true });
+    expect(twenty.doubleBoss).toBe(true);
   });
 });
 
@@ -152,6 +170,7 @@ describe('引擎接线 (a2)：hpMult / damageMult / intentOf', () => {
     expect(zero.enemies[0].maxHp).toBe(plain.enemies[0].maxHp);
     expect(zero.enemyHpMult).toBe(1);
     expect(zero.enemyDamageMult).toBe(1);
+    expect(zero.enemyMovesEnhanced).toBe(false);
     const enemy = telegraph(plain, 'cleave');
     expect(intentOf(plain, enemy)!.damage).toBe(15); // 表上的原值
   });
@@ -202,9 +221,31 @@ describe('引擎接线 (a2)：hpMult / damageMult / intentOf', () => {
     const back = restoreCombat(saved, modsFor(3));
     expect(back.enemyHpMult).toBeCloseTo(1.05, 10);
     expect(back.enemyDamageMult).toBeCloseTo(1.05, 10);
+    expect(back.enemyMovesEnhanced).toBe(false);
     // 旧调用形态（只给档）按零重算——既有测试与旧档一个不惊动。
     expect(restoreCombat(saved).enemyHpMult).toBe(1);
     expect(restoreCombat(saved).enemyDamageMult).toBe(1);
+  });
+
+  it('十七至十九重按档位逐层开启强化招式，存档意图也从强化表恢复', () => {
+    expect(modsFor(16).enhancedMoves).toEqual({ monster: false, elite: false, boss: false });
+    expect(modsFor(17).enhancedMoves).toEqual({ monster: true, elite: false, boss: false });
+    expect(modsFor(18).enhancedMoves).toEqual({ monster: true, elite: true, boss: false });
+    expect(modsFor(19).enhancedMoves).toEqual({ monster: true, elite: true, boss: true });
+
+    const state = fight(modsFor(18), 'elite');
+    const enhanced = moveById('huaxiong', null, 'fury', true)!;
+    state.enemies[0].intent = enhanced;
+    expect(enhanced.block).toBe(11);
+    const saved = snapshotCombat(state, {
+      tier: 'elite',
+      ledgerId: null,
+      bonusRelic: null,
+      theftSeq: 0,
+      fightDamageTaken: 0,
+    });
+    expect(restoreCombat(saved, modsFor(18)).enemies[0].intent?.block).toBe(11);
+    expect(restoreCombat(saved, modsFor(17)).enemies[0].intent?.block).toBe(8);
   });
 
   it('encounterTierOf：无头模拟反查档位的那把尺', () => {
@@ -235,8 +276,7 @@ describe('跑团接线 (a3)：startRun / syncPotionSlots', () => {
   // `tests/rooms.campfire.test.ts`、`tests/acts.test.ts`、`tests/rewards.test.ts`、
   // `tests/rooms.shop.test.ts`。这里只管 `startRun` 一次到位的三样。
 
-  it('一到十重不动上限、槽位、牌组张数——接线在，DEFAULT 值下恒等', () => {
-    // 十重本尊要等宿业的卡面 (a4)，这里用九重锁「接了线也不多扣一滴」。
+  it('一到九重不动上限、槽位、牌组张数——接线在，DEFAULT 值下恒等', () => {
     const run = startRun(DEFAULT_HERO, 'asc-a3-idem', 9);
     expect(run.maxHp).toBe(82);
     expect(run.hp).toBe(82);
@@ -244,20 +284,14 @@ describe('跑团接线 (a3)：startRun / syncPotionSlots', () => {
     expect(run.deck).toHaveLength(DEFAULT_HERO.startingDeck.length);
   });
 
-  it('maxHpMult / potionSlots 从 mods 读——后十级落地只改数据不改代码', () => {
-    // 十四重 (-5% 上限) 和十一重 (槽 3 → 2) 都还没落表；临时把数值挂上第
-    // 9 行验证接线本身，用完复原。正式落地那天动的就只是 `ASCENSION_STEPS`。
-    const nine = ASCENSION_STEPS[9];
-    ASCENSION_STEPS[9] = { ...nine, maxHpMult: 0.95, potionSlots: 2 };
-    try {
-      const run = startRun(DEFAULT_HERO, 'asc-a3-mult', 9);
-      expect(run.maxHp).toBe(78); // round(82 × 0.95)，遗物加成乘在里面
-      expect(run.hp).toBe(78);
-      expect(run.potionSlots).toBe(2);
-      expect(run.potions).toHaveLength(2);
-    } finally {
-      ASCENSION_STEPS[9] = nine;
-    }
+  it('十一重缩丹药槽，十四重再次压体力上限', () => {
+    const eleven = startRun(DEFAULT_HERO, 'asc-a3-slots-real', 11);
+    expect(eleven.potionSlots).toBe(2);
+    expect(eleven.potions).toHaveLength(2);
+
+    const fourteen = startRun(DEFAULT_HERO, 'asc-a3-mult-real', 14);
+    expect(fourteen.maxHp).toBe(76); // round(82 × 0.97 × 0.95)
+    expect(fourteen.hp).toBe(76);
   });
 
   it('syncPotionSlots 的基础槽位是 run.mods 的，遗物加成照旧叠上去', () => {
@@ -442,7 +476,7 @@ describe('天命进度持久化 (a5)', () => {
     expect(maxSelectableAscension('zhaoyun')).toBe(2);
   });
 
-  it('上限封顶 MAX_ASCENSION——通关十重也开不出十一重', () => {
+  it('上限封顶 MAX_ASCENSION——通关二十重也开不出二十一重', () => {
     withStorage();
     recordAscensionClear('guanyu', MAX_ASCENSION);
     expect(maxSelectableAscension('guanyu')).toBe(MAX_ASCENSION);

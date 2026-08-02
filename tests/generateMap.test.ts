@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACT1_LAYOUT, generateMap } from '../src/map/generateMap';
 import type { GameMap, RoomType } from '../src/map/types';
+import { Rng } from '../src/core/rng';
 
 /**
  * The README claims the generator was validated across 400 seeds. This is that
@@ -93,6 +94,59 @@ describe(`generateMap over ${SEEDS} seeds`, () => {
         }
       }
     }
+  });
+
+  it('keeps every edge unique, symmetric and between adjacent cells', () => {
+    for (const map of maps) {
+      for (const node of map.nodes.values()) {
+        expect(new Set(node.children).size, `${map.seed}/${node.id} duplicate child`).toBe(
+          node.children.length,
+        );
+        expect(new Set(node.parents).size, `${map.seed}/${node.id} duplicate parent`).toBe(
+          node.parents.length,
+        );
+        for (const childId of node.children) {
+          const child = map.nodes.get(childId)!;
+          expect(child.parents, `${map.seed} ${node.id} -> ${childId}`).toContain(node.id);
+          if (childId === map.bossId) continue;
+          expect(child.row).toBe(node.row + 1);
+          expect(Math.abs(child.col - node.col)).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
+
+  it('roughly doubles strategic branching without changing room density', () => {
+    let nodes = 0;
+    let walkable = 0;
+    let branches = 0;
+    let routeChoices = 0;
+    for (const map of maps) {
+      nodes += map.nodes.size - 1;
+      const parents = map.byRow
+        .slice(0, map.rows - 1)
+        .flatMap((row) => row.map((id) => map.nodes.get(id)!));
+      walkable += parents.length;
+      branches += parents.filter((node) => node.children.length > 1).length;
+
+      const rng = new Rng(`${map.seed}:route-choice-probe`);
+      let choices = map.byRow[0].length > 1 ? 1 : 0;
+      let node = map.nodes.get(rng.pick(map.byRow[0]))!;
+      while (node.id !== map.bossId) {
+        if (node.children.length > 1) choices += 1;
+        node = map.nodes.get(rng.pick(node.children))!;
+      }
+      routeChoices += choices;
+    }
+
+    const averageNodes = nodes / maps.length;
+    const branchShare = branches / walkable;
+    const averageChoices = routeChoices / maps.length;
+    expect(averageNodes).toBeGreaterThan(45);
+    expect(averageNodes).toBeLessThan(49);
+    expect(branchShare).toBeGreaterThan(0.28);
+    expect(branchShare).toBeLessThan(0.33);
+    expect(averageChoices).toBeGreaterThan(5.8);
   });
 
   it('pins the fixed floors: combat, treasure, camp', () => {

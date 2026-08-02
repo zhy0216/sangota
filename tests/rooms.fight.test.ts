@@ -6,11 +6,14 @@ import type { Spoils } from '../src/rooms/types';
 import { roomCommit, roomRecord } from '../src/rooms/commit';
 import {
   bossOfferPending,
+  bossChestNodeId,
   claimSpoils,
   claimVictoryRelic,
   declinePotionDrop,
   ensureBossOffer,
   ensureEncounter,
+  nextDoubleBossNode,
+  secondBossNodeId,
   takeBossRelic,
   takeCardReward,
   takePotionDrop,
@@ -66,6 +69,17 @@ describe('ensureEncounter', () => {
       const drawn = nodes.map((id) => ensureEncounter(run, id, 'monster').id);
       expect(new Set(drawn).size).toBe(drawn.length);
     }
+  });
+
+  it('天命二十重第三幕两位首领使用独立账本且必不相同', () => {
+    const run = startRun(DEFAULT_HERO, 'double-boss-pick', 20);
+    run.act = 3;
+    const first = ensureEncounter(run, run.map.bossId, 'boss');
+    const secondId = secondBossNodeId(run.map.bossId);
+    const second = ensureEncounter(run, secondId, 'boss');
+    expect(second.id).not.toBe(first.id);
+    expect(roomRecord(run, run.map.bossId, 'combat').encounterId).toBe(first.id);
+    expect(roomRecord(run, secondId, 'combat').encounterId).toBe(second.id);
   });
 
   it('re-opens the pool rather than running out', () => {
@@ -361,6 +375,16 @@ describe('claimSpoils', () => {
     expect(claimSpoils(run, id, 'monster', encounter).gold).toBe(expectedGold);
   });
 
+  it('天命十三重只把精英/Boss 资财乘 0.85，杂兵数字与骰流不变', () => {
+    const paid = (level: number, tier: 'monster' | 'elite'): number => {
+      const run = startRun(DEFAULT_HERO, `spoils-a13-${tier}`, level);
+      const id = `${tier}#a13`;
+      return claimSpoils(run, id, tier, ensureEncounter(run, id, tier)).gold;
+    };
+    expect(paid(13, 'monster')).toBe(paid(12, 'monster'));
+    expect(paid(13, 'elite')).toBe(Math.round(paid(12, 'elite') * 0.85));
+  });
+
   it('rolls the bottle id on a miss as well as a hit (R3)', () => {
     // A guaranteed miss and a guaranteed hit must consume the identical amount
     // of the `potion` stream, or one relic that changes the drop rate would
@@ -383,6 +407,26 @@ describe('claimSpoils', () => {
     expect(miss.dropped).toBe(false);
     expect(hit.dropped).toBe(true);
     expect(miss.rolls).toBe(hit.rolls);
+  });
+});
+
+describe('天命二十重双首领路由', () => {
+  it('只在第三幕第一场首领战后接第二战，第二战与终章都不再续接', () => {
+    const run = startRun(DEFAULT_HERO, 'double-boss-route', 20);
+    const root = run.map.bossId;
+    expect(nextDoubleBossNode(run, root, 'boss')).toBeNull();
+    run.act = 3;
+    expect(nextDoubleBossNode(run, root, 'monster')).toBeNull();
+    expect(nextDoubleBossNode(run, root, 'boss')).toBe(secondBossNodeId(root));
+    expect(nextDoubleBossNode(run, secondBossNodeId(root), 'boss')).toBeNull();
+    run.act = 4;
+    expect(nextDoubleBossNode(run, root, 'boss')).toBeNull();
+  });
+
+  it('第二战的首领宝箱归根节点，战利品账仍留在第二战节点', () => {
+    expect(bossChestNodeId('boss')).toBe('boss');
+    expect(bossChestNodeId('boss#2')).toBe('boss');
+    expect(bossChestNodeId('event#fight')).toBe('event#fight');
   });
 });
 

@@ -5,8 +5,8 @@
  * 各接线点（地图生成、引擎、营帐、商店……）只读 `run.mods`，
  * 不许自己按 `run.ascension` 写 if——散落的 if 就是难度不生效的温床。
  *
- * 先做十重，覆盖全部修改类型（敌人强化、资源削减、规则追加）；
- * 十一至二十重的字段已经在 `AscensionMods` 里占好位，内容留待后续。
+ * 二十重全部从这张表接线：前十重抬战斗基线，后十重压资源并分档强化招式，
+ * 最后一重把第三幕首领改成连续两战。
  */
 
 /** 一局生效的全部难度修改，开局由 `modsFor` 算好，全程只读。 */
@@ -33,9 +33,9 @@ export interface AscensionMods {
   shopPriceMult: number;
   /** 开局附加的诅咒 id 列表。 */
   startingCurses: string[];
-  /** 敌人使用强化招式。 */
-  enhancedMoves: boolean;
-  /** 每幕双 Boss。 */
+  /** 敌人使用强化招式，按遭遇档位逐重开启。 */
+  enhancedMoves: { monster: boolean; elite: boolean; boss: boolean };
+  /** 第三幕连续两位不同首领。 */
   doubleBoss: boolean;
 }
 
@@ -55,7 +55,7 @@ export const DEFAULT_MODS: AscensionMods = deepFreeze({
   eliteGoldMult: 1,
   shopPriceMult: 1,
   startingCurses: [],
-  enhancedMoves: false,
+  enhancedMoves: { monster: false, elite: false, boss: false },
   doubleBoss: false,
 });
 
@@ -67,12 +67,32 @@ export const DEFAULT_MODS: AscensionMods = deepFreeze({
 export const SUYE_ID = 'suye';
 
 /**
- * 已落地的最高天命重数。选将界面的选择器到此封顶——后十重的行落进
- * `ASCENSION_STEPS` 之前，能选的就是这十重。
+ * 已落地的最高天命重数。选将界面与自定义局都以此封顶。
  */
-export const MAX_ASCENSION = 10;
+export const MAX_ASCENSION = 20;
 
-const CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'] as const;
+const CN_NUM = [
+  '一',
+  '二',
+  '三',
+  '四',
+  '五',
+  '六',
+  '七',
+  '八',
+  '九',
+  '十',
+  '十一',
+  '十二',
+  '十三',
+  '十四',
+  '十五',
+  '十六',
+  '十七',
+  '十八',
+  '十九',
+  '二十',
+] as const;
 
 /** 「天命五重」。零重没有名号，交给界面自己决定印「无天命」还是不印。 */
 export function ascensionLabel(level: number): string {
@@ -92,8 +112,18 @@ export const ASCENSION_STEP_DESC: Record<number, string> = {
   6: '每幕开始失去 10% 当前体力',
   7: '杂兵伤害 +5%',
   8: '精英体力再 +2%',
-  9: '首领体力再 +2%、伤害 +5%',
-  10: '开局携带诅咒「宿业」、体力上限 −5%',
+  9: '首领体力再 +2%、伤害 +4%',
+  10: '开局携带诅咒「宿业」、体力上限 −3%',
+  11: '丹药槽位 3 → 2',
+  12: '奖励中罕见牌与稀有牌更少',
+  13: '精英与首领资财奖励 −15%',
+  14: '体力上限再 −5%',
+  15: '营帐回血 25% → 20%',
+  16: '商店价格 +10%',
+  17: '杂兵使用强化招式',
+  18: '精英使用强化招式',
+  19: '首领使用强化招式',
+  20: '第三幕连续迎战两位不同首领',
 };
 
 /**
@@ -107,10 +137,9 @@ export const ASCENSION_STEP_DESC: Record<number, string> = {
  * ——所以 4/8/9 初版动的是体力。改这里任何一个数，先跑 `npm run sim`：
  * 「天命连场」的断言把十重 threat 通关率钉在 15-25%。
  *
- * 2026-08 复标定：新手武将调参把关羽的卡池底抬高（`cards.ts` pool
- * expansion 段），零重通关 41%→~50%，十重跟着涨到 30%、破带。多出的
- * 预算按原笔记的汇率花回九重——「首领伤害 +5%」一刀约值 10 个通关点，
- * 十重 threat 落回带内；一至八重不动，新手爬梯的前段坡度保持原样。
+ * 2026-08 复标定：关羽扩到 48 张、宝物池扩到 53 件后，固定种子的整局
+ * threat 曲线量得零重 43%、十重 14%、二十重 1%。九重首领伤害收在 +4%，
+ * 十重上限收在 −3%；一至八重不动，前段爬梯坡度保持原样。
  */
 export const ASCENSION_STEPS: Record<number, Partial<AscensionMods>> = {
   1: { extraElites: 1 },
@@ -129,9 +158,19 @@ export const ASCENSION_STEPS: Record<number, Partial<AscensionMods>> = {
   8: { hpMult: { monster: 1, elite: 1.02, boss: 1 } },
   9: {
     hpMult: { monster: 1, elite: 1, boss: 1.02 },
-    damageMult: { monster: 1, elite: 1, boss: 1.05 },
+    damageMult: { monster: 1, elite: 1, boss: 1.04 },
   },
-  10: { startingCurses: [SUYE_ID], maxHpMult: 0.95 },
+  10: { startingCurses: [SUYE_ID], maxHpMult: 0.97 },
+  11: { potionSlots: 2 },
+  12: { rarityWeightMult: { uncommon: 0.9, rare: 0.75 } },
+  13: { eliteGoldMult: 0.85 },
+  14: { maxHpMult: 0.95 },
+  15: { restHealPercent: 20 },
+  16: { shopPriceMult: 1.1 },
+  17: { enhancedMoves: { monster: true, elite: false, boss: false } },
+  18: { enhancedMoves: { monster: false, elite: true, boss: false } },
+  19: { enhancedMoves: { monster: false, elite: false, boss: true } },
+  20: { doubleBoss: true },
 };
 
 /**
@@ -143,7 +182,7 @@ export const ASCENSION_STEPS: Record<number, Partial<AscensionMods>> = {
  *   eliteGoldMult / shopPriceMult）：两重各 +15% / +10% 得 1.265，不是 1.10；
  * - **计数相加**（extraElites）；
  * - **取值覆盖**（restHealPercent / actStartHpLossPercent / potionSlots）；
- * - **拼接 / 一开不关**（startingCurses；enhancedMoves / doubleBoss）。
+ * - **拼接 / 一开不关**（startingCurses；enhancedMoves 各档 / doubleBoss）。
  *
  * 返回值冻结，和 `DEFAULT_MODS` 一个待遇：`run.mods` 是只读的，接线点谁都
  * 不许往里写。
@@ -156,12 +195,13 @@ export function modsFor(level: number): AscensionMods {
     hpMult: { ...DEFAULT_MODS.hpMult },
     damageMult: { ...DEFAULT_MODS.damageMult },
     rarityWeightMult: { ...DEFAULT_MODS.rarityWeightMult },
+    enhancedMoves: { ...DEFAULT_MODS.enhancedMoves },
     startingCurses: [...DEFAULT_MODS.startingCurses],
   };
 
   for (let step = 1; step <= level; step++) {
     const mod = ASCENSION_STEPS[step];
-    if (!mod) continue; // 超出已做的十重：后十重落地前，更高的等级就是十重原样。
+    if (!mod) continue;
 
     if (mod.extraElites !== undefined) out.extraElites += mod.extraElites;
 
@@ -190,7 +230,11 @@ export function modsFor(level: number): AscensionMods {
     if (mod.potionSlots !== undefined) out.potionSlots = mod.potionSlots;
 
     if (mod.startingCurses) out.startingCurses.push(...mod.startingCurses);
-    if (mod.enhancedMoves) out.enhancedMoves = true;
+    if (mod.enhancedMoves) {
+      out.enhancedMoves.monster ||= mod.enhancedMoves.monster;
+      out.enhancedMoves.elite ||= mod.enhancedMoves.elite;
+      out.enhancedMoves.boss ||= mod.enhancedMoves.boss;
+    }
     if (mod.doubleBoss) out.doubleBoss = true;
   }
 

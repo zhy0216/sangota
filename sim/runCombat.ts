@@ -40,8 +40,8 @@ const NO_PROGRESS_LIMIT = 16;
  * This is a sim bug, not an engine one: every iteration is one independent
  * top-level `playCard` that returns normally. A real player would end the turn.
  *
- * 4000 is far above any legitimate fight — the longest thing the tables produce
- * is ~60 turns at a handful of actions each — so tripping it is always a report,
+ * 4000 is far above any legitimate fight — the longest ordinary result is
+ * ~60 turns at a handful of actions each — so tripping it is always a report,
  * never a truncation. It surfaces as `aborted: 'noProgress'`, which the balance
  * tables already assert is zero.
  */

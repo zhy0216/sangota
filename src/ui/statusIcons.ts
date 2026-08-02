@@ -4,7 +4,7 @@ import { STATUS_META, STATUS_ORDER } from '../combat/statuses';
 import type { StatusId } from '../combat/types';
 
 /**
- * PLACEHOLDER ART — the 18 status icons are drawn procedurally here rather than
+ * PLACEHOLDER ART — status icons are drawn procedurally here rather than
  * loaded, because this repo has no art pipeline. They are white line glyphs on
  * transparent, so the pill tints each one with its own `StatusDef.color`.
  *
@@ -34,7 +34,11 @@ type Glyph =
   | 'chain'
   | 'spiral'
   | 'bang'
-  | 'blade';
+  | 'blade'
+  | 'rows'
+  | 'hammer'
+  | 'cart'
+  | 'crescent';
 
 /** One glyph per status, grouped so a family reads at a glance. */
 const GLYPH: Record<StatusId, Glyph> = {
@@ -53,6 +57,10 @@ const GLYPH: Record<StatusId, Glyph> = {
   buffer: 'dome',
   ritual: 'diamond',
   slayer: 'blade',
+  discipline: 'rows',
+  armory: 'hammer',
+  supply: 'cart',
+  warSaint: 'crescent',
   noDraw: 'ban',
   entangled: 'chain',
   curlUp: 'spiral',
@@ -145,6 +153,39 @@ function drawGlyph(ctx: CanvasRenderingContext2D, glyph: Glyph): void {
       ctx.fill();
       break;
     }
+    case 'rows':
+      for (let y = 5; y <= 15; y += 5) {
+        ctx.fillRect(3, y - 1, 3, 3);
+        ctx.fillRect(9, y - 1, 3, 3);
+        ctx.fillRect(15, y - 1, 3, 3);
+      }
+      break;
+    case 'hammer':
+      ctx.save();
+      ctx.translate(10, 10);
+      ctx.rotate(-Math.PI / 4);
+      ctx.fillRect(-2, -7, 4, 14);
+      ctx.fillRect(-6, -8, 12, 5);
+      ctx.restore();
+      break;
+    case 'cart':
+      ctx.strokeRect(3, 5, 12, 8);
+      ctx.beginPath();
+      ctx.arc(6, 16, 2, 0, Math.PI * 2);
+      ctx.arc(14, 16, 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(15, 7);
+      ctx.lineTo(19, 4);
+      ctx.stroke();
+      break;
+    case 'crescent':
+      ctx.beginPath();
+      ctx.arc(9, 10, 7, -Math.PI / 2, Math.PI / 2);
+      ctx.arc(12, 10, 5, Math.PI / 2, -Math.PI / 2, true);
+      ctx.closePath();
+      ctx.fill();
+      break;
     case 'ring':
       ctx.beginPath();
       ctx.arc(10, 10, 7.5, 0, Math.PI * 2);
@@ -248,7 +289,7 @@ function drawGlyph(ctx: CanvasRenderingContext2D, glyph: Glyph): void {
   }
 }
 
-/** Registers `status-<id>` for all 18 statuses. Idempotent. */
+/** Registers `status-<id>` for every status. Idempotent. */
 export function makeStatusIcons(scene: Phaser.Scene): void {
   const size = Math.max(BOX, Math.round(BOX * RENDER_SCALE));
 

@@ -526,7 +526,8 @@ describe('rollBossOffer · 战利品', () => {
 
   it('tops a thinning 首领 pool up from 稀有 rather than showing two relics', () => {
     const r = run('boss-thin');
-    for (const id of relicsOfTier('boss').slice(0, 4)) addRelic(r, id.id);
+    const bosses = relicsOfTier('boss');
+    for (const id of bosses.slice(0, bosses.length - 2)) addRelic(r, id.id);
     const offer = rollBossOffer(new Rng('thin'), r);
 
     expect(offer).toHaveLength(BOSS_OFFER_SIZE);

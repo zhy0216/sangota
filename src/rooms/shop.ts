@@ -394,7 +394,11 @@ export function buy(run: RunState, nodeId: string, slot: ShopSlot): BuyResult {
 // ------------------------------------------------------------------ 弃卡服务
 
 /** 52 the first time, then 18 more for every removal taken this run. */
-export const removalPrice = (run: RunState): number => REMOVAL_BASE + run.cardRemovalSurcharge;
+export const removalPrice = (run: RunState): number => {
+  const mods = relicModifiers(run.relics);
+  const surcharge = mods.noRemovalSurcharge ? 0 : run.cardRemovalSurcharge;
+  return Math.max(0, Math.floor((REMOVAL_BASE + surcharge) * mods.removalPriceMultiplier));
+};
 
 export const removalsTaken = (run: RunState, nodeId: string): number =>
   roomCommit(run, nodeId).count(REMOVAL_PREFIX);
@@ -430,7 +434,9 @@ export function buyRemoval(run: RunState, nodeId: string, uid: string): boolean 
     commit.once(`${REMOVAL_PREFIX}${removalsTaken(run, nodeId)}`, () => {
       addGold(run, -price);
       removeCard(run, uid);
-      run.cardRemovalSurcharge += REMOVAL_STEP;
+      if (!relicModifiers(run.relics).noRemovalSurcharge) {
+        run.cardRemovalSurcharge += REMOVAL_STEP;
+      }
       return true;
     }) ?? false
   );

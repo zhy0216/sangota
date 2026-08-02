@@ -46,24 +46,35 @@ import { addGold, addRelic, startRun, type RunState } from '../src/state/run';
 const GUANYU_COMMON = [
   'wenjiu', 'quedi', 'baima', 'jieying', 'guanzhen',
   'xuzhao', 'dandaofuhui', 'huarongdao', 'bingzhudadan', 'yeduchunqiu',
+  'zhuwenchou', 'lemahengdao', 'huimazhan', 'mingjinzhengdui',
+  'duanpaojueyi', 'qingzhuangjiancong',
 ];
 const GUANYU_RARE = [
   'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei',
   'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
   'shenzaicaoying', 'guchenghui', 'wanjunqushou', 'baimajiewei',
+  'wusheng', 'hanbingzaixing',
 ];
 const ZHAOYUN_RARE = ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang', 'changbanpo'];
 
 const COMMON_RELICS = [
   'shufajinguan', 'dujunlingqi', 'xuanwujia', 'xingjuntu', 'lianhuanjia',
   'jinchuangyao', 'xiandengdun', 'xuanjia', 'yaonang',
+  'zhuquejie', 'duanjinwan', 'bingliangce', 'pohujia', 'huatuoyaofang', 'fenghuotai',
 ];
 const UNCOMMON_RELICS = [
   'lianu', 'tiemian', 'huxinjing', 'xiaoshouling', 'qiuxianling',
-  'yushan', 'mumaliu', 'huangshishu',
+  'yushan', 'mumaliu', 'huangshishu', 'hanshoutinghouyin',
+  'shangjiangling', 'jingzhouyin', 'liangcaojie', 'hujunxin', 'tunbingfu', 'yanxingling',
 ];
-const RARE_RELICS = ['chuanguoyuxi', 'tengjia', 'gudingdao', 'sunzibingfa', 'qixingdeng'];
-const BOSS_RELICS = ['chitima', 'duduan', 'fangtianhuaji', 'hufu', 'tongquetai', 'jiuxi'];
+const RARE_RELICS = [
+  'chuanguoyuxi', 'tengjia', 'gudingdao', 'sunzibingfa', 'qixingdeng',
+  'qinglongdaopu', 'qinglongnizhan', 'chunqiubaodian', 'jingzhougudao', 'longlin',
+];
+const BOSS_RELICS = [
+  'chitima', 'duduan', 'fangtianhuaji', 'hufu', 'tongquetai', 'jiuxi',
+  'shouhanzhaoshu', 'maichengcanqi',
+];
 
 const MINOR_IDS = ['m_yangjing', 'm_ziliang', 'm_qiwu', 'm_yipai', 'm_xieyao'];
 const MAJOR_IDS = ['j_jingjian', 'j_michuan', 'j_zengbao', 'j_duanlian', 'j_huanxue'];
