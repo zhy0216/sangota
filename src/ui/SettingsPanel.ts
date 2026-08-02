@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { clearSave } from '../state/save';
 import { getSettings, updateSettings, type Settings } from '../state/settings';
-import { toDesign } from './designSpace';
+import { pinToCamera, toDesign } from './designSpace';
 import { openHistory } from './HistoryPanel';
 import { overlayDepth, pushOverlay } from './overlayStack';
 import {
@@ -223,6 +223,7 @@ export function openSettings(scene: Phaser.Scene): void {
 
     if (tab === 'keys') {
       buildKeys();
+      pinToCamera(body);
       return;
     }
 
@@ -306,6 +307,9 @@ export function openSettings(scene: Phaser.Scene): void {
         buildSlider(row.key, y, row.percent);
       }
     }
+    // 每次重画都要重钉:新建的 zone/text 默认 scrollFactor 1,在滚动的地图
+    // 相机上命中区会偏出面板(designSpace.pinToCamera 的文档)。
+    pinToCamera(body);
   };
 
   /** 按键组：两列只读的「动作 — 键帽」。第一版不许改（todo 明说可以）。 */
@@ -415,6 +419,8 @@ export function openSettings(scene: Phaser.Scene): void {
       }),
     );
 
+    pinToCamera(box);
+
     function closeSub(): void {
       if (done) return;
       done = true;
@@ -465,6 +471,7 @@ export function openSettings(scene: Phaser.Scene): void {
     teardown();
   }
 
+  pinToCamera(root);
   root.setAlpha(0);
   scene.tweens.add({ targets: root, alpha: 1, duration: 180 });
 }

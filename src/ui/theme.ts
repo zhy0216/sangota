@@ -184,8 +184,11 @@ export function inkButton(
   hit.on('pointerdown', () => {
     audio.play('ui-click');
     scene.tweens.add({ targets: container, scale: 0.97, duration: 60, yoyo: true });
-    onClick();
   });
+  // onClick 必须在 pointerup：覆盖层（设置/战史）的「点面板外关闭」听的是
+  // scene 级 pointerdown，而 Phaser 先发对象级、后发 scene 级——pointerdown
+  // 里开面板，开门的这次按下会立刻命中刚挂上的关闭监听（按钮都在面板外）。
+  hit.on('pointerup', () => onClick());
 
   return container;
 }

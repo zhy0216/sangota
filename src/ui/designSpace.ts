@@ -24,3 +24,22 @@ export function useDesignSpace(scene: Phaser.Scene): Phaser.Cameras.Scene2D.Came
 export function toDesign(value: number): number {
   return value / RENDER_SCALE;
 }
+
+/**
+ * Lock an object and every nested child to the camera (scrollFactor 0 all the
+ * way down). Rendering multiplies scrollFactors along the container chain, so
+ * a fixed root already draws its children screen-locked — but the hit test
+ * reads the scrollFactor of the interactive leaf itself (Phaser
+ * InputManager.hitTest), and `Container.setScrollFactor(0, 0, true)` cascades
+ * only one level. On a scrolled camera (the map, scrollY ≈ 1400) that leaves
+ * every zone inside a fixed container hit-tested at world coordinates — pinned
+ * panels whose buttons cannot be clicked. Call this after (re)building any
+ * interactive subtree that must stay put while the camera scrolls.
+ */
+export function pinToCamera<T extends Phaser.GameObjects.GameObject>(obj: T): T {
+  (obj as { setScrollFactor?: (x: number) => unknown }).setScrollFactor?.(0);
+  if (obj instanceof Phaser.GameObjects.Container) {
+    for (const child of obj.list) pinToCamera(child);
+  }
+  return obj;
+}

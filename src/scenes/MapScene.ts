@@ -20,7 +20,7 @@ import { isCardGridOpen, openCardGrid } from '../ui/CardGrid';
 import { PotionBelt } from '../ui/PotionBelt';
 import { RelicBar } from '../ui/RelicBar';
 import { openSettings } from '../ui/SettingsPanel';
-import { toDesign, useDesignSpace } from '../ui/designSpace';
+import { pinToCamera, toDesign, useDesignSpace } from '../ui/designSpace';
 import { bodyStyle, brushStyle, circleMask, goldRing, gradientStrip, inkButton, inkPanel } from '../ui/theme';
 import { enterRoom } from './nav';
 
@@ -464,7 +464,8 @@ export class MapScene extends Phaser.Scene {
   private buildHud(): void {
     const hero = this.run.hero;
     const fixed = <T extends Phaser.GameObjects.GameObject>(obj: T): T => {
-      (obj as unknown as { setScrollFactor: (v: number) => void }).setScrollFactor(0);
+      // 递归钉住：⚙ 这样的 inkButton 是容器，命中区在孙辈,见 pinToCamera 文档。
+      pinToCamera(obj);
       (obj as unknown as { setDepth: (v: number) => void }).setDepth(DEPTH.hud);
       return obj;
     };
@@ -812,6 +813,7 @@ export class MapScene extends Phaser.Scene {
     close.setInteractive({ useHandCursor: true });
     close.on('pointerup', () => this.toggleDrawer(false));
     this.drawer.add(close);
+    pinToCamera(this.drawer);
   }
 
   private toggleDrawer(force?: boolean): void {

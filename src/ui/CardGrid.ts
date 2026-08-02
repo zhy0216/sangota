@@ -4,7 +4,7 @@ import { Rng, randomSeed } from '../core/rng';
 import type { CombatState } from '../combat/types';
 import { CARD_H, CARD_W, CardView } from './CardView';
 import { shuffleForDisplay, sortForDisplay, type CardGridEntry } from './cardOrder';
-import { toDesign } from './designSpace';
+import { pinToCamera, toDesign } from './designSpace';
 import { pushOverlay } from './overlayStack';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from './theme';
 import { popText } from './vfx';
@@ -427,6 +427,7 @@ export function openCardGrid(scene: Phaser.Scene, opts: CardGridOptions): void {
     else opts.onClose?.();
   }
 
+  pinToCamera(root);
   root.setAlpha(0);
   scene.tweens.add({ targets: root, alpha: 1, duration: 180 });
 }

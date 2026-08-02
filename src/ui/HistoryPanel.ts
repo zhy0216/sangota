@@ -4,7 +4,7 @@ import { getRelic } from '../combat/relics';
 import { getCareer, type RunRecord } from '../state/history';
 import { CardView } from './CardView';
 import { sortForDisplay } from './cardOrder';
-import { toDesign } from './designSpace';
+import { pinToCamera, toDesign } from './designSpace';
 import { actName, annalsSubtitle, historyRow, routeLines } from './historyView';
 import { overlayDepth, pushOverlay } from './overlayStack';
 import { bodyStyle, brushStyle, inkPanel } from './theme';
@@ -269,6 +269,7 @@ export function openHistory(scene: Phaser.Scene): void {
     teardown();
   }
 
+  pinToCamera(root);
   root.setAlpha(0);
   scene.tweens.add({ targets: root, alpha: 1, duration: 180 });
 }
@@ -466,6 +467,7 @@ function openDetail(scene: Phaser.Scene, rec: RunRecord): void {
     teardown();
   }
 
+  pinToCamera(root);
   root.setAlpha(0);
   scene.tweens.add({ targets: root, alpha: 1, duration: 160 });
 }
