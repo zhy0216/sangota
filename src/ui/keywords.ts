@@ -1,6 +1,7 @@
 import { KEYWORD_LABEL } from '../combat/cards';
+import { X_COST, describeCard } from '../combat/engine';
 import { STATUS_META, STATUS_ORDER } from '../combat/statuses';
-import type { CardKeyword } from '../combat/types';
+import type { CardDef, CardKeyword, CombatState } from '../combat/types';
 import { C } from '../config';
 
 /**
@@ -96,6 +97,43 @@ register({
   body: '被【消耗】的牌落在这里，本场战斗不再回来。',
   color: C.paperDim,
 });
+
+/**
+ * 一张卡面值得解释的全部词条，按出现顺序去重（todos/24 k7 · 关键词
+ * 悬浮全覆盖）。三个来源，顺序即优先级：
+ *
+ * 1. X 费——它印在费用球上而不在规则文本里，`findKeywords` 扫不到，
+ *    单独领头一段。
+ * 2. 规则文本——走 `describeCard`，所以带 `state` 时热区文案和卡面
+ *    打出的实际数字同一出处；不带 `state`（奖励卡、牌库、商店）读印
+ *    刷值，同样是玩家眼前那行字。
+ * 3. 卡底关键词行——「消耗」「虚无」印在小字里，规则文本未必再提。
+ *
+ * 纯函数，Node 可测；悬浮面板（`cardTipPanel`, CardView.ts）和任何想
+ * 列出「这张卡有哪些词条」的地方都从这里拿，不各自扫一遍。
+ */
+export function cardTipTerms(def: CardDef, state?: CombatState): string[] {
+  const terms: string[] = [];
+  const push = (term: string): void => {
+    if (KEYWORDS[term] && !terms.includes(term)) terms.push(term);
+  };
+
+  if (def.cost === X_COST) push('X');
+  for (const hit of findKeywords(describeCard(state, def))) push(hit.term);
+  for (const k of def.keywords ?? []) push(KEYWORD_LABEL[k]);
+  return terms;
+}
+
+/** `cardTipTerms`, delivered as tooltip segments — the shape `composeTip` eats. */
+export function cardTipSegments(
+  def: CardDef,
+  state?: CombatState,
+): { title: string; body: string; color: number }[] {
+  return cardTipTerms(def, state).map((term) => {
+    const kw = KEYWORDS[term];
+    return { title: kw.title, body: kw.body, color: kw.color };
+  });
+}
 
 /**
  * 匹配用的词表：按长度降序，防止短词吃掉长词——「消耗堆」先占位，

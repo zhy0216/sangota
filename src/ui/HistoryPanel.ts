@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { getRelic } from '../combat/relics';
 import { getCareer, type RunRecord } from '../state/history';
-import { CardView } from './CardView';
+import { CardView, openCardPreview } from './CardView';
 import { sortForDisplay } from './cardOrder';
 import { pinToCamera, toDesign } from './designSpace';
 import { actName, annalsSubtitle, historyRow, routeLines } from './historyView';
@@ -352,6 +352,17 @@ function openDetail(scene: Phaser.Scene, rec: RunRecord): void {
 
   const deckContent = scene.add.container(0, gridTop);
   root.add(deckContent);
+
+  // 悬停预览 (k7)：详录仍旧只看不选，但 0.62 的缩样读不清 13px 的规则
+  // 文本——悬停放出全尺寸牌面带词条面板，和图鉴同一副手感。预览开在
+  // scene 层而不是 root 里，所以收场路径上（teardown / 滚动）都要亲手收。
+  let preview: Phaser.GameObjects.Container | null = null;
+  const hidePreview = (): void => {
+    preview?.destroy(true);
+    preview = null;
+  };
+
+  const deckViews: CardView[] = [];
   for (const [i, entry] of entries.entries()) {
     const view = new CardView(scene, entry.uid, entry.defId, entry.upgraded, undefined, 'display');
     view.setPosition(
@@ -359,10 +370,31 @@ function openDetail(scene: Phaser.Scene, rec: RunRecord): void {
       8 + CELL_H / 2 + Math.floor(i / DECK_COLS) * CELL_H,
     );
     view.setScale(THUMB);
-    // 详录只看不选——留着手型光标只会骗一次点击。
-    view.hitZone.disableInteractive();
+    view.hitZone.on('pointerover', () => {
+      hidePreview();
+      preview = openCardPreview(scene, {
+        defId: entry.defId,
+        upgraded: entry.upgraded,
+        x: view.x,
+        y: deckContent.y + view.y,
+        depth: DEPTH + 60,
+      });
+    });
+    view.hitZone.on('pointerout', () => hidePreview());
     deckContent.add(view);
+    deckViews.push(view);
   }
+
+  /** 蒙版只裁画面不裁热区——滚出窗外的缩样得亲手关掉输入（同 CardGrid）。 */
+  const cullDeck = (): void => {
+    for (const view of deckViews) {
+      const input = view.hitZone.input;
+      if (input) {
+        input.enabled = deckContent.y + view.y >= gridTop && deckContent.y + view.y <= gridTop + gridH;
+      }
+    }
+  };
+  cullDeck();
 
   const deckMask = scene.make.graphics({}, false).setScrollFactor(0);
   deckMask.fillStyle(0xffffff);
@@ -438,6 +470,8 @@ function openDetail(scene: Phaser.Scene, rec: RunRecord): void {
     if (overlayDepth(scene) !== DEPTH || deckMaxScroll <= 0) return;
     deckScroll = Phaser.Math.Clamp(deckScroll + dy * 0.6, 0, deckMaxScroll);
     deckContent.y = gridTop - deckScroll;
+    hidePreview();
+    cullDeck();
     paintDeckScroll();
   };
   const onPointerDown = (pointer: Phaser.Input.Pointer): void => {
@@ -459,6 +493,7 @@ function openDetail(scene: Phaser.Scene, rec: RunRecord): void {
     scene.input.off('wheel', onWheel);
     scene.input.off('pointerdown', onPointerDown);
     scene.events.off(Phaser.Scenes.Events.SHUTDOWN, teardown);
+    hidePreview();
     deckMask.destroy();
     root.destroy(true);
   }

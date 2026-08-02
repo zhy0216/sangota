@@ -70,6 +70,18 @@ describe('rollCardReward · 验收标准', () => {
     expect(boss.rare).toBeGreaterThan(elite.rare);
   });
 
+  it('never offers a common after a 首领, and pays rare half the time (2026-08 抬档)', () => {
+    // The table itself, spelled out — retuning it has to edit this line too.
+    expect(TIER_WEIGHTS.boss).toEqual({ common: 0, uncommon: 50, rare: 50 });
+
+    // And the behaviour: the pools are 12/10/6, a reward takes 3, so the
+    // fallback ladder can never be forced down into common at this tier.
+    const d = distribution('boss', 600, 'dist-boss-floor');
+    expect(d.common).toBe(0);
+    expect(d.rare).toBeGreaterThan(44);
+    expect(d.rare).toBeLessThan(56);
+  });
+
   it('raises the rare weight once per dry reward and resets it on a hit', () => {
     const r = run('bump');
     expect(r.rareBump).toBe(0);

@@ -16,10 +16,11 @@ import { filterUnlocked } from '../state/unlocks';
 import type { CardRarity } from './types';
 
 /**
- * 卡牌奖励 — which cards a fight offers. The rarity weights are the original's,
- * and so is the escalation: a reward that produces no rare makes the next one
- * likelier to, which is what stops a run from going twenty fights without ever
- * being offered a build-around.
+ * 卡牌奖励 — which cards a fight offers. The monster/elite rarity weights are
+ * the original's (首领 runs hotter — see `TIER_WEIGHTS`), and so is the
+ * escalation: a reward that produces no rare makes the next one likelier to,
+ * which is what stops a run from going twenty fights without ever being
+ * offered a build-around.
  *
  * No Phaser here, and no `CombatState` either — a reward is a property of the
  * run, so this module reads `RunState` and the fight is already over.
@@ -34,15 +35,24 @@ export type RewardRarity = Exclude<CardRarity, 'basic'>;
 export const REWARD_RARITIES: readonly RewardRarity[] = ['common', 'uncommon', 'rare'];
 
 /**
- * Base pick weights per tier. Elites and bosses buy their better odds out of
- * the common share rather than the uncommon one: the tier a player notices is
- * "how often do I see a rare", and shrinking uncommon would just make elite
- * rewards feel swingier without making them feel better.
+ * Base pick weights per tier. Elites buy their better odds out of the common
+ * share rather than the uncommon one: the tier a player notices is "how often
+ * do I see a rare", and shrinking uncommon would just make elite rewards feel
+ * swingier without making them feel better.
+ *
+ * 首领 offers no common at all (2026-08 boss 奖励抬档): the fight that ends an
+ * act has to pay in cards the player can feel, and a 40/40/20 table showed
+ * three commons often enough to read as an insult. Half rare rather than all
+ * rare because the rare pools are six cards deep — three all-rare offers per
+ * run off a six-card pool would replay the same faces by 第二幕. The common
+ * weight being 0 also survives 天命's `rarityWeightMult` squeeze by
+ * construction: multiplying uncommon/rare down re-balances the two, but can
+ * never re-introduce commons into a 首领 offer.
  */
 export const TIER_WEIGHTS: Record<RewardTier, Record<RewardRarity, number>> = {
   monster: { common: 60, uncommon: 37, rare: 3 },
   elite: { common: 50, uncommon: 37, rare: 13 },
-  boss: { common: 40, uncommon: 40, rare: 20 },
+  boss: { common: 0, uncommon: 50, rare: 50 },
 };
 
 /** Cards offered when nothing modifies it. */

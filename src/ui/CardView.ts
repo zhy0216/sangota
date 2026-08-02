@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
-import { C } from '../config';
+import { C, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { CARD_TYPE_META, KEYWORD_LABEL, resolveCard } from '../combat/cards';
 import { X_COST, canPlay, describeCard, hasKeyword } from '../combat/engine';
 import type { CardDef, CombatState } from '../combat/types';
 import { Rng } from '../core/rng';
-import { KEYWORDS, findKeywords } from './keywords';
-import type { TooltipManager } from './Tooltip';
-import { bodyStyle, brushStyle } from './theme';
+import { KEYWORDS, cardTipSegments, findKeywords } from './keywords';
+import { composeTip, placeTip, type TipBox, type TipSide, type TooltipManager } from './Tooltip';
+import { bodyStyle, brushStyle, paintInkPanel } from './theme';
 import { dur } from './timing';
 
 export const CARD_W = 144;
@@ -298,6 +298,12 @@ export class CardView extends Phaser.GameObjects.Container {
       }
       rowRuler.destroy();
     }
+
+    // 费用球上的「X」：X 费印在球里而不在规则文本里，上面两轮都扫不到
+    // 它——虎牢关的手牌悬停「X」本该有说法（cardTipTerms 同一笔账）。
+    if (this.def.cost === X_COST) {
+      this.addKeywordZone(tips, 'X', -56, -78, 36, 36);
+    }
   }
 
   /** 一块词条热区：叠在主点击区之上，指针/拖拽事件原样转发回去。 */
@@ -375,4 +381,130 @@ export class CardView extends Phaser.GameObjects.Container {
   get hitZone(): Phaser.GameObjects.Zone {
     return this.hit;
   }
+}
+
+// ---------------------------------------------------- 关键词悬浮面板 (k7)
+//
+// 战斗手牌逐词铺热区（上面的 rebuildKeywordZones）；其余每一处卡面——
+// 战斗奖励、牌堆查看器的放大预览、商旅货架、图鉴、结算——悬停整卡时把
+// 该卡的全部词条一次列成一块面板。手牌不用它：出牌途中每次悬停都弹一板
+// 字是噪音，逐词热区才是那里的正确密度。
+//
+// 独立于 `TooltipManager` 的静态构建，因为这些卡活在各自的 overlay 深度
+// 里（战罢层、CardGrid 的 900+、商旅的房间层），场景级管理器的面板会被
+// 盖住；一块跟着宿主容器走的面板天然继承正确深度。样式与管理器同源：
+// 同一块 `paintInkPanel` 墨板、同一套字号行距，玩家看不出两套来。
+
+/** 面板内边距，与 TooltipManager 的 PAD 同值同义。 */
+const TIP_PAD = 12;
+
+export interface CardTipPanel {
+  root: Phaser.GameObjects.Container;
+  w: number;
+  h: number;
+}
+
+/**
+ * 一张卡的关键词汇总面板。没有词条可讲时返回 null——调用方一律先判空，
+ * 白板卡（劈砍）悬停不该出一块空墨。
+ */
+export function cardTipPanel(
+  scene: Phaser.Scene,
+  def: CardDef,
+  state?: CombatState,
+): CardTipPanel | null {
+  const { blocks, border } = composeTip(cardTipSegments(def, state));
+  if (blocks.length === 0) return null;
+
+  const bg = scene.add.graphics();
+  const root = scene.add.container(0, 0, [bg]);
+  let y = TIP_PAD - 2;
+  let w = 96;
+  for (const block of blocks) {
+    const title = scene.add.text(TIP_PAD, y, block.title, bodyStyle(13, block.color));
+    y += title.height + 3;
+    const body = scene.add.text(TIP_PAD, y, block.body, {
+      ...bodyStyle(13, C.paperDim),
+      wordWrap: { width: 240 },
+      lineSpacing: 4,
+    });
+    y += body.height + 9;
+    w = Math.max(w, title.width, body.width);
+    root.add([title, body]);
+  }
+  const panelW = w + TIP_PAD * 2;
+  const panelH = y - 9 + TIP_PAD - 2;
+  paintInkPanel(bg, 0, 0, panelW, panelH, { alpha: 0.94, border });
+  return { root, w: panelW, h: panelH };
+}
+
+/**
+ * 把面板摆到卡面世界坐标框的旁边——贴边翻转与出屏 clamp 走 `placeTip`
+ * 的同一套规则。返回的落点是**世界坐标**；面板挂在带偏移的容器里时，
+ * 调用方自减容器原点。
+ */
+export function placeCardTipPanel(
+  panel: CardTipPanel,
+  target: TipBox,
+  side: TipSide | 'auto' = 'top',
+): { x: number; y: number } {
+  const at = placeTip(side, target, { w: panel.w, h: panel.h }, { w: GAME_WIDTH, h: GAME_HEIGHT });
+  panel.root.setPosition(at.x, at.y);
+  return at;
+}
+
+export interface CardPreviewOptions {
+  defId: string;
+  upgraded: number;
+  /** Desired centre, world coordinates. Clamped so the face never leaves the screen. */
+  x: number;
+  y: number;
+  depth?: number;
+  state?: CombatState;
+  /** 词条面板开在哪一侧。缺省 'right'；装不下时 placeTip 自会翻转。 */
+  tipSide?: TipSide;
+}
+
+/**
+ * 悬停放大的独卡预览：全尺寸牌面 + 词条面板，一个容器一次建好。
+ * 图鉴、结算牌组、史料详录共用——`CardGrid.showPreview` 因为还背着
+ * 锻造比较和 disabledReason，保留自己的装配，但面板走同一个构建器。
+ *
+ * 调用方拿到容器后自持自灭（pointerout / 滚动 / 场景收场时 destroy）。
+ */
+export function openCardPreview(
+  scene: Phaser.Scene,
+  opts: CardPreviewOptions,
+): Phaser.GameObjects.Container {
+  const px = Phaser.Math.Clamp(opts.x, CARD_W / 2 + 12, GAME_WIDTH - CARD_W / 2 - 12);
+  const py = Phaser.Math.Clamp(opts.y, CARD_H / 2 + 12, GAME_HEIGHT - CARD_H / 2 - 16);
+  const layer = scene.add.container(px, py);
+  if (opts.depth !== undefined) layer.setDepth(opts.depth);
+
+  const card = new CardView(
+    scene,
+    `preview-${opts.defId}`,
+    opts.defId,
+    opts.upgraded,
+    opts.state,
+    'display',
+  );
+  // The blown-up copy must not steal the pointer from the thumbnail under it.
+  card.hitZone.disableInteractive();
+  layer.add(card);
+
+  const panel = cardTipPanel(scene, resolveCard(opts.defId, opts.upgraded), opts.state);
+  if (panel) {
+    const at = placeCardTipPanel(
+      panel,
+      { x: px - CARD_W / 2, y: py - CARD_H / 2, w: CARD_W, h: CARD_H },
+      opts.tipSide ?? 'right',
+    );
+    panel.root.setPosition(at.x - px, at.y - py);
+    layer.add(panel.root);
+  }
+
+  layer.setScale(0.62).setAlpha(0.7);
+  scene.tweens.add({ targets: layer, scale: 1, alpha: 1, duration: 120, ease: 'Back.easeOut' });
+  return layer;
 }

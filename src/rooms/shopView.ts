@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { C, GAME_WIDTH } from '../config';
+import { resolveCard } from '../combat/cards';
 import { getPotion, potionText } from '../combat/potions';
 import { getRelic, relicText } from '../combat/relics';
 import type { RoomController, RoomHost } from '../scenes/RoomScene';
 import { removeDisabledReason } from '../state/run';
-import { CARD_H, CARD_W, CardView } from '../ui/CardView';
+import { CARD_H, CARD_W, CardView, cardTipPanel, placeCardTipPanel, type CardTipPanel } from '../ui/CardView';
 import { bodyStyle, brushStyle, inkPanel, paintInkPanel } from '../ui/theme';
 import {
   buy,
@@ -67,6 +68,9 @@ export class ShopController implements RoomController {
   private tip!: Phaser.GameObjects.Container;
   private tipPanel!: Phaser.GameObjects.Graphics;
   private tipText!: Phaser.GameObjects.Text;
+  /** 货架卡面的关键词面板 (k7)，悬停建、移开拆。自己的一层，压过货与签。 */
+  private cardTipLayer!: Phaser.GameObjects.Container;
+  private cardTip: CardTipPanel | null = null;
 
   enter(host: RoomHost): void {
     this.host = host;
@@ -76,10 +80,12 @@ export class ShopController implements RoomController {
 
     this.goods = host.layer();
     this.buildTip();
+    this.cardTipLayer = host.layer(30);
     this.redraw();
   }
 
   dispose(): void {
+    this.hideCardTip();
     this.killTweens();
   }
 
@@ -120,6 +126,23 @@ export class ShopController implements RoomController {
     this.tip.setVisible(false);
   }
 
+  /** 悬停的货架卡出词条面板：新牌第一次标价卖给你，得先讲明白词。 */
+  private showCardTip(item: ShelfItem, x: number): void {
+    this.hideCardTip();
+    const panel = cardTipPanel(this.host.scene, resolveCard(item.id, item.upgraded));
+    if (!panel) return;
+    const w = CARD_W * CARD_HOVER;
+    const h = CARD_H * CARD_HOVER;
+    placeCardTipPanel(panel, { x: x - w / 2, y: CARD_ROW_Y - h / 2, w, h }, 'top');
+    this.cardTipLayer.add(panel.root);
+    this.cardTip = panel;
+  }
+
+  private hideCardTip(): void {
+    this.cardTip?.root.destroy(true);
+    this.cardTip = null;
+  }
+
   // ----------------------------------------------------------------- drawing
 
   private redraw(): void {
@@ -127,6 +150,7 @@ export class ShopController implements RoomController {
     this.goods.removeAll(true);
     this.tiles.clear();
     this.hideTip();
+    this.hideCardTip();
 
     const items = shelf(this.host.run, this.host.node.id);
     // The counter says so itself once there is nothing left on it — the seals
@@ -188,8 +212,14 @@ export class ShopController implements RoomController {
     const swell = (scale: number): void => {
       scene.tweens.add({ targets: card, scale, duration: 140, ease: 'Back.easeOut' });
     };
-    card.hitZone.on('pointerover', () => swell(CARD_HOVER));
-    card.hitZone.on('pointerout', () => swell(CARD_SCALE));
+    card.hitZone.on('pointerover', () => {
+      swell(CARD_HOVER);
+      this.showCardTip(item, x);
+    });
+    card.hitZone.on('pointerout', () => {
+      swell(CARD_SCALE);
+      this.hideCardTip();
+    });
     card.hitZone.on(
       'pointerup',
       this.host.action(() => this.attempt(item, x, CARD_ROW_Y)),

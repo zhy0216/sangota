@@ -34,11 +34,12 @@ export interface ActDef {
    * A percentage rather than a flat number because 体力上限 grows across a run
    * (养精 / 歌钵 / 玉玺), and a flat 20 that mattered in 第一幕 is noise by 第三幕.
    *
-   * 第二幕 and 第三幕 pay nothing, exactly as the original does: an act's
-   * 篝火 rooms are the recovery, and a free top-up between acts would make the
-   * last 篝火 of every act a wasted node. 终章 is the exception — three fixed
-   * rooms with one 营帐 between them is not enough runway to bank anything, so
-   * the door pays for itself.
+   * Every door after the first pays 30% (2026-08 幕间回血): a chapter starts
+   * with a breath, not with the last one's wounds. Deliberately *not* a full
+   * heal — an act's 篝火 rooms are still the recovery, and 30% of the bar is
+   * small enough that skipping the last 篝火 of an act to bank the door heal
+   * remains a real gamble rather than free value. 第一幕 pays nothing because
+   * `startRun` already hands the player a full bar.
    */
   interActHealPercent: number;
   /** Map backdrop texture. All four share one plate until the art lands. */
@@ -72,7 +73,7 @@ export const ACTS: Record<ActIndex, ActDef> = {
     // the free relic sooner to survive them.
     layout: { rows: 15, treasureRow: 7, restRow: 14, minAdvancedRow: 4 },
     table: ACT2,
-    interActHealPercent: 0,
+    interActHealPercent: 30,
     bgKey: 'map-bg',
   },
   3: {
@@ -82,7 +83,7 @@ export const ACTS: Record<ActIndex, ActDef> = {
     epigraph: '鸡肋鸡肋，食之无肉，弃之有味。',
     layout: { rows: 15, treasureRow: 6, restRow: 14, minAdvancedRow: 3 },
     table: ACT3,
-    interActHealPercent: 0,
+    interActHealPercent: 30,
     bgKey: 'map-bg',
   },
   4: {

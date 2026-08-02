@@ -7,7 +7,7 @@ import { endRun, getRun, startRun, type RunState } from '../state/run';
 import { clearSave } from '../state/save';
 import type { RunUnlockReport } from '../state/unlocks';
 import { sortForDisplay } from '../ui/cardOrder';
-import { CARD_W, CardView } from '../ui/CardView';
+import { CARD_W, CardView, openCardPreview } from '../ui/CardView';
 import { useDesignSpace } from '../ui/designSpace';
 import { RelicBar } from '../ui/RelicBar';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
@@ -84,7 +84,9 @@ export class SummaryScene extends Phaser.Scene {
   /** Same one-way gate as every other scene exit — see `TitleScene.leaving`. */
   private leaving = false;
   /** 「新识」栏缩样悬停放大出的那张全尺寸牌面，同屏至多一张。 */
-  private unlockPreview: CardView | null = null;
+  private unlockPreview: Phaser.GameObjects.Container | null = null;
+  /** 最终牌组的悬停预览 (k7)。滚轮翻动与收场时都要亲手收。 */
+  private deckPreview: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super('Summary');
@@ -98,6 +100,7 @@ export class SummaryScene extends Phaser.Scene {
     this.leaving = false;
     // 上回合的预览对象已随场景 shutdown 销毁，指针不能跟着活过来。
     this.unlockPreview = null;
+    this.deckPreview = null;
   }
 
   create(): void {
@@ -297,6 +300,7 @@ export class SummaryScene extends Phaser.Scene {
     );
 
     const content = this.add.container(0, viewTop);
+    const views: CardView[] = [];
     for (const [i, entry] of entries.entries()) {
       const view = new CardView(this, entry.uid, entry.defId, entry.upgraded, undefined, 'display');
       view.setPosition(
@@ -304,10 +308,33 @@ export class SummaryScene extends Phaser.Scene {
         14 + CELL_H / 2 + Math.floor(i / DECK_COLS) * CELL_H,
       );
       view.setScale(THUMB);
-      // 结算页只看不选——留着手型光标只会骗一次点击。
-      view.hitZone.disableInteractive();
+      // 结算页只看不选，但看得清 (k7)：缩样读不动 13px 的规则文本，
+      // 悬停放出全尺寸牌面带词条面板——和图鉴、史料详录同一副手感。
+      view.hitZone.on('pointerover', () => {
+        this.hideDeckPreview();
+        this.deckPreview = openCardPreview(this, {
+          defId: entry.defId,
+          upgraded: entry.upgraded,
+          x: view.x,
+          y: content.y + view.y,
+          depth: 60,
+        });
+      });
+      view.hitZone.on('pointerout', () => this.hideDeckPreview());
       content.add(view);
+      views.push(view);
     }
+
+    /** 蒙版只裁画面不裁热区——滚出窗外的缩样得亲手关掉输入（同 CardGrid）。 */
+    const cull = (): void => {
+      for (const view of views) {
+        const input = view.hitZone.input;
+        if (input) {
+          input.enabled = content.y + view.y >= viewTop && content.y + view.y <= viewTop + viewH;
+        }
+      }
+    };
+    cull();
 
     // Geometry masks render through the camera — scroll-locked, same as 07.
     const maskShape = this.make.graphics({}, false).setScrollFactor(0);
@@ -337,6 +364,8 @@ export class SummaryScene extends Phaser.Scene {
     this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       scroll = Phaser.Math.Clamp(scroll + dy * 0.6, 0, maxScroll);
       content.y = viewTop - scroll;
+      this.hideDeckPreview();
+      cull();
       paintScroll();
     });
   }
@@ -497,17 +526,25 @@ export class SummaryScene extends Phaser.Scene {
   /** 悬停放大：新识栏缩样对应的全尺寸牌面,摆在栏左、按钮之上。 */
   private showUnlockPreview(defId: string): void {
     this.hideUnlockPreview();
-    const card = new CardView(this, `unlock-pv-${defId}`, defId, 0, undefined, 'display');
-    this.add.existing(card);
-    card.setPosition(UNLOCK.x - CARD_W / 2 - 24, 520).setDepth(60);
-    // 放大的这张不许截走缩样的指针,同 CardGrid 的 previewFace。
-    card.hitZone.disableInteractive();
-    this.unlockPreview = card;
+    // 词条面板开在左侧——右边就是新识栏自己 (k7)。
+    this.unlockPreview = openCardPreview(this, {
+      defId,
+      upgraded: 0,
+      x: UNLOCK.x - CARD_W / 2 - 24,
+      y: 520,
+      depth: 60,
+      tipSide: 'left',
+    });
   }
 
   private hideUnlockPreview(): void {
     this.unlockPreview?.destroy(true);
     this.unlockPreview = null;
+  }
+
+  private hideDeckPreview(): void {
+    this.deckPreview?.destroy(true);
+    this.deckPreview = null;
   }
 
   // ------------------------------------------------------------------ 种子

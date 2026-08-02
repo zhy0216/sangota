@@ -58,7 +58,7 @@ import {
 import { getSettings, type KeyAction } from '../state/settings';
 import { recordSeenEnemies } from '../state/unlocks';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
-import { CARD_H, CARD_W, CardView } from '../ui/CardView';
+import { CARD_H, CARD_W, CardView, cardTipPanel, placeCardTipPanel, type CardTipPanel } from '../ui/CardView';
 import { cardIndexOf, combatKeyEvents, potionIndexOf, soleLivingEnemy } from '../ui/combatKeys';
 import { PLAY_LINE_Y, dropVerdict, hitIndex, pastPlayLine } from '../ui/dragPlay';
 import { HAND_Y, fanLayout, rowLayout } from '../ui/handLayout';
@@ -3312,17 +3312,37 @@ export class CombatScene extends Phaser.Scene {
     // so 1, 3 and 4 cards are all centred. Tightened once the row would
     // otherwise run past the screen edge.
     const spacing = Math.min(210, (GAME_WIDTH - 120) / Math.max(1, picks.length));
+
+    // 关键词汇总面板 (k7)：奖励卡是玩家第一次见到一张新牌的地方，词条
+    // 解释必须跟着悬停到位。走 `cardTipPanel` 的静态构建而不是 this.tips
+    // ——奖励层活在 DEPTH.overlay 之上，场景级管理器的面板会被盖住。
+    let rewardTip: CardTipPanel | null = null;
+    const hideRewardTip = (): void => {
+      rewardTip?.root.destroy(true);
+      rewardTip = null;
+    };
     picks.forEach((cardId, i) => {
       const x = GAME_WIDTH / 2 + (i - (picks.length - 1) / 2) * spacing;
       const card = new CardView(this, `reward-${i}`, cardId, 0, this.state, 'display');
       card.setPosition(x, 400);
       card.setDepth(DEPTH.overlay + 1);
-      card.hitZone.on('pointerover', () =>
-        this.tweens.add({ targets: card, scale: 1.1, y: 386, duration: dur(140), ease: 'Back.easeOut' }),
-      );
-      card.hitZone.on('pointerout', () =>
-        this.tweens.add({ targets: card, scale: 1, y: 400, duration: dur(140) }),
-      );
+      card.hitZone.on('pointerover', () => {
+        this.tweens.add({ targets: card, scale: 1.1, y: 386, duration: dur(140), ease: 'Back.easeOut' });
+        hideRewardTip();
+        rewardTip = cardTipPanel(this, card.def, this.state);
+        if (rewardTip) {
+          // 面板贴着悬停后的卡框摆（1.1 倍、抬到 386），顶不下时翻去底下。
+          const w = CARD_W * 1.1;
+          const h = CARD_H * 1.1;
+          placeCardTipPanel(rewardTip, { x: x - w / 2, y: 386 - h / 2, w, h }, 'top');
+          rewardTip.root.setDepth(DEPTH.overlay + 2);
+          layer.add(rewardTip.root);
+        }
+      });
+      card.hitZone.on('pointerout', () => {
+        this.tweens.add({ targets: card, scale: 1, y: 400, duration: dur(140) });
+        hideRewardTip();
+      });
       card.hitZone.on('pointerup', () => {
         this.claimReward(() => takeCardReward(this.run, this.nodeId, cardId));
       });

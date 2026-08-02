@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { KEYWORD_LABEL, STATUS_META } from '../src/combat/cards';
-import { KEYWORDS, findKeywords } from '../src/ui/keywords';
+import { CARDS, KEYWORD_LABEL, STATUS_META, getCard } from '../src/combat/cards';
+import { KEYWORDS, cardTipSegments, cardTipTerms, findKeywords } from '../src/ui/keywords';
 
 /**
  * todos/24 · k1 — 关键词注册表。两件事：注册表对上游（STATUS_META /
@@ -91,5 +91,42 @@ describe('findKeywords', () => {
   it('comes back empty on text without keywords', () => {
     expect(findKeywords('抽 2 张牌。')).toEqual([]);
     expect(findKeywords('')).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------- cardTipTerms
+
+describe('cardTipTerms — 一张卡面值得解释的全部词条 (k7)', () => {
+  it('reads the rules text and the bottom keyword row, in that order', () => {
+    // 义勇：文本讲【神力】，卡底那行小字印「消耗」——两处各出一段。
+    expect(cardTipTerms(getCard('yiyong'))).toEqual(['神力', '消耗']);
+  });
+
+  it('leads with X 费 on an X-cost card — the orb is not in the rules text', () => {
+    const terms = cardTipTerms(getCard('hulaoguan'));
+    expect(terms[0]).toBe('X');
+    expect(terms).toContain('气');
+  });
+
+  it('comes back empty on a plain face — 劈砍悬停不该出一块空墨', () => {
+    expect(cardTipTerms(getCard('pikan'))).toEqual([]);
+  });
+
+  it('mentions a term once however often the face repeats it', () => {
+    for (const def of Object.values(CARDS)) {
+      const terms = cardTipTerms(def);
+      expect(new Set(terms).size, def.id).toBe(terms.length);
+    }
+  });
+
+  it('segments carry the registry copy verbatim, colour included', () => {
+    const segs = cardTipSegments(getCard('tuodao'));
+    expect(segs.length).toBeGreaterThan(0);
+    for (const seg of segs) {
+      const kw = Object.values(KEYWORDS).find((k) => k.title === seg.title);
+      expect(kw, seg.title).toBeDefined();
+      expect(seg.body).toBe(kw!.body);
+      expect(seg.color).toBe(kw!.color);
+    }
   });
 });

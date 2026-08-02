@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
+import { resolveCard } from '../combat/cards';
 import { Rng, randomSeed } from '../core/rng';
 import type { CombatState } from '../combat/types';
-import { CARD_H, CARD_W, CardView } from './CardView';
+import { CARD_H, CARD_W, CardView, cardTipPanel, placeCardTipPanel } from './CardView';
 import { shuffleForDisplay, sortForDisplay, type CardGridEntry } from './cardOrder';
 import { pinToCamera, toDesign } from './designSpace';
 import { pushOverlay } from './overlayStack';
@@ -283,6 +284,20 @@ export function openCardGrid(scene: Phaser.Scene, opts: CardGridOptions): void {
       );
     } else {
       layer.add(previewFace(entry, face));
+    }
+
+    // 关键词汇总面板 (k7)：预览放大到可读的同一刻，词条解释一并到位。
+    // 比较视图讲**锻后**那张脸——玩家在决定的是买不买它；面板贴在整组
+    // 脸的旁边，翻转与出屏 clamp 都走 placeTip 的规则，坐标换回层内。
+    const tipDef = resolveCard(entry.defId, compare ? face + 1 : face);
+    const panel = cardTipPanel(scene, tipDef, opts.state);
+    if (panel) {
+      const box = compare
+        ? { x: x - COMPARE_GAP / 2 - CARD_W / 2, y: y - CARD_H / 2, w: COMPARE_GAP + CARD_W, h: CARD_H }
+        : { x: x - CARD_W / 2, y: y - CARD_H / 2, w: CARD_W, h: CARD_H };
+      const at = placeCardTipPanel(panel, box, 'right');
+      panel.root.setPosition(at.x - x, at.y - y);
+      layer.add(panel.root);
     }
 
     if (entry.disabledReason) {

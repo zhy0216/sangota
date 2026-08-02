@@ -7,7 +7,7 @@ import type { CardRarity, CardType, EnemyDef } from '../combat/types';
 import { Rng } from '../core/rng';
 import { HEROES_IN_ORDER } from '../data/heroes';
 import { filterUnlocked, getUnlocks } from '../state/unlocks';
-import { CARD_H, CARD_W, CardView } from '../ui/CardView';
+import { CARD_H, CARD_W, CardView, openCardPreview } from '../ui/CardView';
 import { sortForDisplay } from '../ui/cardOrder';
 import {
   CARD_RARITY_LABEL,
@@ -367,18 +367,10 @@ export class CompendiumScene extends Phaser.Scene {
     return holder;
   }
 
-  /** 悬停放大,`CardGrid.showPreview` 的独卡简版。 */
+  /** 悬停放大——`openCardPreview` 的共享装配：全尺寸牌面带词条面板 (k7)。 */
   private showCardPreview(defId: string, face: number, x: number, y: number): void {
     this.hidePreview();
-    const px = Phaser.Math.Clamp(x, CARD_W / 2 + 12, GAME_WIDTH - CARD_W / 2 - 12);
-    const py = Phaser.Math.Clamp(y, CARD_H / 2 + 12, GAME_HEIGHT - CARD_H / 2 - 16);
-    const layer = this.add.container(px, py).setDepth(40);
-    const card = new CardView(this, `preview-${defId}`, defId, face, undefined, 'display');
-    card.hitZone.disableInteractive();
-    layer.add(card);
-    layer.setScale(THUMB).setAlpha(0.7);
-    this.tweens.add({ targets: layer, scale: 1, alpha: 1, duration: 120, ease: 'Back.easeOut' });
-    this.preview = layer;
+    this.preview = openCardPreview(this, { defId, upgraded: face, x, y, depth: 40 });
   }
 
   private hidePreview(): void {

@@ -128,8 +128,8 @@ export class InterludeScene extends Phaser.Scene {
       this.fadeUp(epigraph, 420);
     }
 
-    // The one line that reports a number: 终章 pays 30% of 体力上限 on the way in
-    // and the player must be able to see it land.
+    // The one line that reports a number: every door after the first pays 30%
+    // of 体力上限 (2026-08 幕间回血) and the player must be able to see it land.
     const healed = act.interActHealPercent > 0;
     const line = this.add
       .text(

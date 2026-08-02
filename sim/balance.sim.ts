@@ -804,7 +804,8 @@ const RUN_N = 500;
 const A10_BAND = { lo: 0.15, hi: 0.25 };
 /**
  * gauntlet 的两瓶再带一瓶续命汤。单幕的 gauntlet 不需要它——满血开幕，
- * 两座篝火够用；连走四幕时幕间回血是 0（`ACTS[2..3].interActHealPercent`），
+ * 两座篝火够用；连走四幕的血线仍是整程最紧的账（幕间回血 2026-08 起
+ * 每道门回三成，`ACTS[*].interActHealPercent`，回不满一场首领战的出血），
  * 血瓶正是真人扛过这道挤压的东西——续命汤连 `usableOutOfCombat` 都是
  * true，按「见底才喝」拿着它不是给模拟开挂，是补上它一直少算的资源。
  */
@@ -841,7 +842,7 @@ function walkRun(
   for (const act of [1, 2, 3, 4] as const satisfies readonly ActIndex[]) {
     if (act > 1) {
       // advanceAct 的固定顺序：先扣开幕失血（六重，扣当前体力的一成），
-      // 再吃新一幕的幕间回血——一至三幕是 0，只有终章回 30%。
+      // 再吃新一幕的幕间回血——每道门都是 30%（2026-08 幕间回血）。
       hp -= Math.floor((hp * mods.actStartHpLossPercent) / 100);
       hp = Math.min(maxHp, hp + Math.floor((maxHp * ACTS[act].interActHealPercent) / 100));
     }

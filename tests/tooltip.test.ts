@@ -359,8 +359,10 @@ describe('the fight wires every hover through the one manager', () => {
 
   it('hands the manager to hand cards only — overlays would cover the panel', () => {
     expect(scene).toContain("'hand', this.tips");
-    // 奖励卡照旧不带 tips:它活在 DEPTH.overlay 之上。
+    // 奖励卡不经管理器:它活在 DEPTH.overlay 之上。词条解释 (k7) 走
+    // cardTipPanel 的静态构建,面板挂进奖励层自己的深度里。
     expect(scene).toMatch(/new CardView\(this, `reward-\$\{i\}`, cardId, 0, this\.state, 'display'\)/);
+    expect(scene).toContain('cardTipPanel(this, card.def, this.state)');
   });
 
   it('keeps the relic bar on its own tip, and says why', () => {

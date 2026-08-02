@@ -87,13 +87,14 @@ describe('幕表', () => {
     expect(ACTS[3].layout.minAdvancedRow).toBeLessThan(ACTS[2].layout.minAdvancedRow);
   });
 
-  it('pays the 幕间 heal only at the 终章 door', () => {
+  it('pays a 30% 幕间 heal at every door after the first (2026-08 幕间回血)', () => {
+    // 第一幕 is `startRun` — the bar is already full, so its door pays nothing.
     expect([
       ACTS[1].interActHealPercent,
       ACTS[2].interActHealPercent,
       ACTS[3].interActHealPercent,
       ACTS[4].interActHealPercent,
-    ]).toEqual([0, 0, 0, 30]);
+    ]).toEqual([0, 30, 30, 30]);
   });
 
   it('labels an act the way the map header prints it', () => {
@@ -471,29 +472,30 @@ describe('advanceAct', () => {
     expect(run.relics).toEqual(relics);
     expect(run.potions[0]).toBe('jiuqi');
     expect(run.gold).toBe(271);
-    // 第二幕 pays no 幕间 heal, exactly like the original.
-    expect(run.hp).toBe(40);
+    // The one thing the seam *does* touch: the 幕间回血. 40 + floor(82 × 30%) = 64.
+    expect(run.hp).toBe(64);
   });
 
   it('天命六重进第二幕掉 10% 当前体力，且每幕都掉 (todos/19 a3)', () => {
     // 验收标准原文：「天命六重进第二幕时掉 10% 当前体力」。当前体力，不是
-    // 上限：47 掉 floor(4.7) = 4，不是 82 的一成。零重比例为 0，上面每一条
-    // advanceAct 测试的体力期望值原样成立，恒等就锁在那里。
+    // 上限；先扣后补（advanceAct 第 4/5 步），所以六重的扣和幕间回血各算
+    // 各的：20 掉 floor(2.0) = 2，再回 floor(82 × 30%) = 24。起手压得够低，
+    // 两道门都不碰上限，两个数字都露在外面。
     const run = startRun(DEFAULT_HERO, 'act-hp-loss', 6);
-    run.hp = 47;
+    run.hp = 20;
     clearBoss(run);
     advanceAct(run);
     expect(run.act).toBe(2);
-    expect(run.hp).toBe(43); // 第二幕无幕间回血，掉的就是净数。
+    expect(run.hp).toBe(42); // 20 - 2 + 24
 
-    // 「每幕开始」不是「第二幕开始」：进第三幕再掉一成，43 - floor(4.3) = 39。
+    // 「每幕开始」不是「第二幕开始」：进第三幕再掉一成，42 - floor(4.2) + 24 = 62。
     clearBoss(run);
     advanceAct(run);
     expect(run.act).toBe(3);
-    expect(run.hp).toBe(39);
+    expect(run.hp).toBe(62);
   });
 
-  it('pays 30% of 体力上限 on the way into 终章, and nothing before it', () => {
+  it('pays 30% of 体力上限 at every door, and never past the cap', () => {
     const run = fresh('heal');
     run.maxHp = 100;
     run.hp = 30;
@@ -505,23 +507,21 @@ describe('advanceAct', () => {
     let before = run.hp;
     advanceAct(run);
     expect(run.act).toBe(2);
-    expect(run.hp).toBe(before);
+    expect(run.hp).toBe(Math.min(run.maxHp, before + Math.floor((run.maxHp * 30) / 100)));
+    expect(run.hp).toBeGreaterThan(before);
 
     clearBoss(run);
     before = run.hp;
     advanceAct(run);
     expect(run.act).toBe(3);
-    expect(run.hp).toBe(before);
+    expect(run.hp).toBe(Math.min(run.maxHp, before + Math.floor((run.maxHp * 30) / 100)));
 
     clearBoss(run);
     before = run.hp;
     advanceAct(run);
     expect(run.act).toBe(4);
-    expect(run.hp).toBe(
-      Math.min(run.maxHp, before + Math.floor((run.maxHp * 30) / 100)),
-    );
-    expect(run.hp).toBeGreaterThan(before);
-    // Never past the cap.
+    expect(run.hp).toBe(Math.min(run.maxHp, before + Math.floor((run.maxHp * 30) / 100)));
+    // Never past the cap — a run walking in nearly full banks only the gap.
     expect(run.hp).toBeLessThanOrEqual(run.maxHp);
   });
 
