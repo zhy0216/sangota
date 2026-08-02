@@ -39,9 +39,10 @@ export function hitIndex(px: number, py: number, rects: readonly DropRect[]): nu
 export type DropCall = { verdict: 'play'; enemyIndex?: number } | { verdict: 'bounce' };
 
 /**
- * 松手裁决：指向牌要落在活敌热区上（调用方只递活敌），无目标牌要过
- * 打出线，其余一律回弹。回弹即「不算打出」——气一分不扣，是拖到一半
- * 反悔的防误触（todo「原版行为」点名的那条）。
+ * 松手裁决：指向牌要落在活敌热区上（调用方只递活敌）——只剩一个活敌时
+ * 放宽成「过打出线即命中」，目标没有第二个答案，不必逼着指针去够热区；
+ * 无目标牌要过打出线；其余一律回弹。回弹即「不算打出」——气一分不扣，
+ * 是拖到一半反悔的防误触（todo「原版行为」点名的那条）。
  */
 export function dropVerdict(
   target: TargetMode,
@@ -52,7 +53,9 @@ export function dropVerdict(
 ): DropCall {
   if (target === 'enemy') {
     const i = hitIndex(px, py, enemyRects);
-    return i >= 0 ? { verdict: 'play', enemyIndex: i } : { verdict: 'bounce' };
+    if (i >= 0) return { verdict: 'play', enemyIndex: i };
+    if (enemyRects.length === 1 && pastPlayLine(py, line)) return { verdict: 'play', enemyIndex: 0 };
+    return { verdict: 'bounce' };
   }
   return pastPlayLine(py, line) ? { verdict: 'play' } : { verdict: 'bounce' };
 }

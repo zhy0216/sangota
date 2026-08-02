@@ -81,13 +81,16 @@ import { toDesign, useDesignSpace } from '../ui/designSpace';
 import { TooltipManager, type TipSegment } from '../ui/Tooltip';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
 import { dur } from '../ui/timing';
+import { groupCombatEvents, groupTotal, type DamageEv } from '../ui/eventGroups';
 import {
   burst,
   dust,
+  healMotes,
   hitStop,
   inkSplash,
   pop,
   popText,
+  riseFlare,
   screenPulse,
   screenShake,
   shieldFlare,
@@ -1148,8 +1151,9 @@ export class CombatScene extends Phaser.Scene {
 
   /**
    * 点击出牌，也是数字键的落点 (todos/24 k4)——`directTargetId` 只有
-   * `onCardKey` 在单敌直打时才传：指向牌的目标没有第二个答案，选敌与
-   * 打出并成一步。点击路径永远不传，选敌模式原样。
+   * `onCardKey` 在单敌直打时才传；点击路径不传，进来后自己按同一把尺
+   * （`soleLivingEnemy`）量：指向牌的目标没有第二个答案时，选敌与打出
+   * 并成一步，多敌照旧进选敌模式。
    */
   private onCardClick(view: CardView, directTargetId?: string): void {
     this.cancelAutoEnd();
@@ -1173,22 +1177,31 @@ export class CombatScene extends Phaser.Scene {
     }
 
     if (view.def.target === 'enemy') {
-      if (directTargetId !== undefined) {
-        // 单敌直打 (k4)。照 onEnemyClick 的收法手工放下选中，不走
-        // clearSelection——那会把牌往手位回收，跟 play 的上挥打架。
-        if (this.selectedUid === view.uid) {
-          this.selectedUid = null;
-          this.arrow.clear();
-          view.setSelected(false);
-        } else {
-          this.clearSelection();
-        }
-        void this.play(view.uid, directTargetId);
+      // 单敌免选：问的是引擎的活敌名单，不是屏幕上谁还站着。
+      const direct = directTargetId ?? soleLivingEnemy(this.state.enemies)?.id;
+      if (direct === undefined) {
+        // Toggle targeting mode; the actual play happens on the enemy click.
+        if (this.selectedUid === view.uid) this.clearSelection();
+        else this.select(view);
         return;
       }
-      // Toggle targeting mode; the actual play happens on the enemy click.
-      if (this.selectedUid === view.uid) this.clearSelection();
-      else this.select(view);
+      // 单敌直打收掉了「点敌人才结算」这道天然确认，confirmPlay 的闸给
+      // 点击路径补回来——首点高亮（瞄准线照画），再点同一张才打出，与
+      // 非指向牌的确认手感一致。数字键（directTargetId 已传）照旧直打。
+      if (directTargetId === undefined && needsPlayConfirm(view.def) && this.selectedUid !== view.uid) {
+        this.select(view);
+        return;
+      }
+      // 单敌直打 (k4)。照 onEnemyClick 的收法手工放下选中，不走
+      // clearSelection——那会把牌往手位回收，跟 play 的上挥打架。
+      if (this.selectedUid === view.uid) {
+        this.selectedUid = null;
+        this.arrow.clear();
+        view.setSelected(false);
+      } else {
+        this.clearSelection();
+      }
+      void this.play(view.uid, direct);
       return;
     }
     // 打牌确认 (todos/21 t3)：非指向牌先高亮不结算，再点同一张才打出——
@@ -1424,7 +1437,10 @@ export class CombatScene extends Phaser.Scene {
     view.y = view.def.target === 'enemy' ? Math.max(py, DRAG_HOLD_Y) : py;
 
     const living = this.roster.living();
-    const idx = view.def.target === 'enemy' ? hitIndex(px, py, living.map((v) => v.hit)) : -1;
+    let idx = view.def.target === 'enemy' ? hitIndex(px, py, living.map((v) => v.hit)) : -1;
+    // 单敌免瞄准与 dropVerdict 同一条线：唯一活敌 + 过线即锁定——高亮和
+    // 伤害预览提前点亮，松手的语义所见即所得。
+    if (idx < 0 && view.def.target === 'enemy' && living.length === 1 && pastPlayLine(py)) idx = 0;
     living.forEach((v, i) => {
       if (i === idx) v.sprite.setTint(0xffcfae);
       else v.sprite.clearTint();
@@ -1670,6 +1686,10 @@ export class CombatScene extends Phaser.Scene {
 
     if (def.type === 'attack') {
       await this.lunge(this.playerView, 1, 76, 110);
+    } else if (def.type === 'power') {
+      // 势的登坛拍 (动画优化)：金焰从脚下升起——一张永久改写战局的牌
+      // 进场，不能只是屏幕中央 12 颗金粒子一闪而过。
+      riseFlare(this, PLAYER_X, BASELINE_Y - 6);
     }
 
     await this.playEvents();
@@ -1986,7 +2006,17 @@ export class CombatScene extends Phaser.Scene {
         drawn += 1;
       }
     }
-    for (const ev of events) {
+    // 合并分组 (todos 动画优化)：连续打在敌人身上的 damage 并成连击/横扫
+    // 一场戏——语义在 `eventGroups.ts`（纯函数），怎么演在 playMultiHit /
+    // playAoe。`finished` 的跳过规矩不变：damage 组里不含 death，整组跳。
+    for (const group of groupCombatEvents(events)) {
+      if (group.kind !== 'one') {
+        if (this.finished) continue;
+        if (group.kind === 'multiHit') await this.playMultiHit(group.events);
+        else await this.playAoe(group.events);
+        continue;
+      }
+      const ev = group.ev;
       if (this.finished && ev.t !== 'death') continue;
       await this.playEvent(ev);
     }
@@ -2023,7 +2053,13 @@ export class CombatScene extends Phaser.Scene {
         const meta = STATUS_META[ev.status];
         if (view) {
           const at = this.torso(view);
-          shieldFlare(this, at.x, at.y, view.height * 0.3);
+          // 状态环用状态自己的颜色，增益上浮、减益下沉——曾与护甲的蓝环
+          // 完全撞脸，配色 + 方向一起把三类分开（vfx.FlareOpts）。
+          const buff = meta.kind === 'buff';
+          shieldFlare(this, at.x, at.y, view.height * 0.3, {
+            colors: [meta.color, buff ? 0xfff2d8 : 0x4a3a52],
+            driftY: buff ? -18 : 18,
+          });
           popText(this, at.x, at.y - 30, `${meta.label} +${ev.amount}`, {
             color: meta.color,
             size: 26,
@@ -2050,6 +2086,10 @@ export class CombatScene extends Phaser.Scene {
       }
 
       case 'exhaust':
+        // 消耗不是弃牌：还在手上的牌当场烧掉（burnCard），不再和弃牌一样
+        // 飞向弃牌堆——「这张牌没了」和「这张牌回收了」必须看得出区别。
+        // 打出的那张（play 已销毁 view）与牌堆里烧的，落角落的灰字。
+        this.burnCard(ev.uid);
         popText(this, EXHAUST_PILE.x, EXHAUST_PILE.y - 26, '消耗', {
           color: C.paperFaint,
           size: 19,
@@ -2118,7 +2158,9 @@ export class CombatScene extends Phaser.Scene {
         const view = this.viewOf(ev.targetId);
         if (view) {
           const at = this.torso(view);
-          popText(this, at.x, at.y - 30, `+${ev.amount}`, { color: C.jade, size: 26 });
+          // 全场最寒酸的正反馈补一口气：玉色光尘上浮，数字抬一号。
+          healMotes(this, at.x, at.y);
+          popText(this, at.x, at.y - 30, `+${ev.amount}`, { color: C.jade, size: 30 });
           // The trailing bar can't lag behind a gain, or the next hit drains
           // from a stale, lower value.
           view.ghost.value = this.hpOf(ev.targetId);
@@ -2458,6 +2500,134 @@ export class CombatScene extends Phaser.Scene {
     await this.wait(heavy ? 205 : 150);
   }
 
+  /**
+   * 连击（`times: N` 的多段攻击）的合并展示。逐段复读 `playDamage` 的老演法
+   * 是同一刀原地重放 N 次，且 heavy 逐段判——力战无将 5×5 永远拿不到重击
+   * 表现。这里改成：斩击左右换边、越砍越长，段间收紧到 120ms，伤害数字
+   * 逐段小字错位；末段按**累计**伤害定档——重顿帧配重闷响的纪律
+   * （combatSfx.ts 的同档约定）在合并后依然成立，只是尺子换成了整套连击
+   * 的分量。收尾一个「共 -N」大字 + 拖影一次排到位。
+   */
+  private async playMultiHit(events: DamageEv[]): Promise<void> {
+    const view = this.viewOf(events[0].targetId);
+    if (!view) return;
+    const at = this.torso(view);
+    const total = groupTotal(events);
+    const heavy = total >= 12;
+
+    for (const [k, ev] of events.entries()) {
+      const last = k === events.length - 1;
+      // 全挡下的段读作招架，不读作创口——与 playDamage 的分支同一语义。
+      if (ev.amount === 0 && ev.blocked > 0) {
+        for (const cue of sfxForEvent(ev)) this.audio.play(cue.id, cue.opts);
+        shieldFlare(this, at.x, at.y, view.height * 0.3);
+        popText(this, at.x, at.y - 20, `挡下 ${ev.blocked}`, { color: 0xdcefff, size: 22 });
+        this.paintHpBars();
+        await this.wait(120);
+        continue;
+      }
+      const side = k % 2 === 0 ? -1 : 1;
+      slash(this, at.x, at.y, {
+        angle: side * (26 + k * 8),
+        length: 165 + k * 18 + (last && heavy ? 56 : 0),
+        thickness: 22 + k * 3 + (last && heavy ? 8 : 0),
+      });
+      burst(this, at.x, at.y, {
+        color: 0xffd8a8,
+        count: last && heavy ? 24 : 10,
+        speed: last && heavy ? 400 : 260,
+      });
+      // 命中音仍与顿帧同帧；末段以累计伤害定档（音画同档，见方法注释）。
+      const cueEv = last ? { ...ev, amount: total } : ev;
+      for (const cue of sfxForEvent(cueEv)) this.audio.play(cue.id, cue.opts);
+      hitStop(this, last && heavy ? 0.16 : 0.5, last && heavy ? 95 : 40);
+      screenShake(this, last && heavy ? 200 : 70, last && heavy ? 0.007 : 0.002);
+      this.recoil(view, -1);
+      this.flashHit(view);
+      popText(this, at.x + side * 38, at.y - 40 - k * 12, `-${ev.amount}`, {
+        color: C.cinnabarBright,
+        size: 24,
+        drift: 40,
+      });
+      if (ev.blocked > 0) {
+        popText(this, at.x + 54, at.y + 12, `挡 ${ev.blocked}`, { color: 0x9fc4e0, size: 18 });
+      }
+      this.paintHpBars();
+      await this.wait(last ? 90 : 120);
+    }
+
+    if (total > 0) {
+      popText(this, at.x, at.y - 84, `共 -${total}`, {
+        color: C.cinnabarBright,
+        size: heavy ? 46 : 36,
+      });
+      this.drainGhost(view, this.hpOf(events[0].targetId));
+    }
+    await this.wait(heavy ? 205 : 150);
+  }
+
+  /**
+   * 横扫（`damageAll`）的合并展示。老演法对每个敌人重放一次单体斩击——
+   * 三个敌人就是三次串行顿帧 + 三次小屏震，读作「依次砍了三个人」。这里
+   * 改成：一记横贯敌阵的大笔触，全体同帧闪白后仰、数字齐弹，一次重顿帧
+   * + 一次大屏震收束整场。同一目标的多段（水淹七军 6×2）先按目标聚账，
+   * 数字直接给累计。
+   */
+  private async playAoe(events: DamageEv[]): Promise<void> {
+    const perTarget = new Map<string, { view: ActorView; amount: number; blocked: number }>();
+    for (const ev of events) {
+      const view = this.viewOf(ev.targetId);
+      if (!view) continue;
+      const acc = perTarget.get(ev.targetId) ?? { view, amount: 0, blocked: 0 };
+      acc.amount += ev.amount;
+      acc.blocked += ev.blocked;
+      perTarget.set(ev.targetId, acc);
+    }
+    if (perTarget.size === 0) return;
+
+    // 笔触跨过最左到最右的躯干，微倾——横扫的读法。
+    const spots = [...perTarget.values()].map((t) => this.torso(t.view));
+    const minX = Math.min(...spots.map((s) => s.x));
+    const maxX = Math.max(...spots.map((s) => s.x));
+    const midY = spots.reduce((sum, s) => sum + s.y, 0) / spots.length;
+    slash(this, (minX + maxX) / 2, midY, {
+      angle: -8,
+      length: maxX - minX + 300,
+      thickness: 44,
+      bow: 54,
+    });
+
+    // 一次顿帧、一次大震收束全场；命中音按全场累计定档。
+    const total = groupTotal(events);
+    const blockedTotal = events.reduce((sum, e) => sum + e.blocked, 0);
+    const cueEv = { ...events[0], amount: total, blocked: blockedTotal };
+    for (const cue of sfxForEvent(cueEv)) this.audio.play(cue.id, cue.opts);
+    hitStop(this, 0.18, 90);
+    screenShake(this, 240, 0.008);
+
+    for (const [id, t] of perTarget) {
+      const at = this.torso(t.view);
+      if (t.amount === 0 && t.blocked > 0) {
+        shieldFlare(this, at.x, at.y, t.view.height * 0.34);
+        popText(this, at.x, at.y - 20, `挡下 ${t.blocked}`, { color: 0xdcefff, size: 24 });
+        continue;
+      }
+      burst(this, at.x, at.y, { color: 0xffd8a8, count: 12, speed: 300 });
+      this.recoil(t.view, -1);
+      this.flashHit(t.view);
+      popText(this, at.x, at.y - 52, `-${t.amount}`, {
+        color: C.cinnabarBright,
+        size: t.amount >= 12 ? 42 : 32,
+      });
+      if (t.blocked > 0) {
+        popText(this, at.x + 54, at.y + 12, `挡 ${t.blocked}`, { color: 0x9fc4e0, size: 20 });
+      }
+      this.drainGhost(t.view, this.hpOf(id));
+    }
+    this.paintHpBars();
+    await this.wait(260);
+  }
+
   private async playDeath(id: string): Promise<void> {
     const view = this.roster.get(id);
     if (!view) return;
@@ -2492,6 +2662,29 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({ targets: view.nameText, alpha: 0, duration: dur(320) });
 
     await this.wait(420);
+  }
+
+  /**
+   * 消耗的当场烧毁：余烬一迸、原地上浮淡出——与 `syncHand` 飞向弃牌堆的
+   * 弃牌读法彻底分开。先从 `cardViews` 摘账，syncHand 不会再抢着把同一张
+   * 飞一遍（与 `play` 销毁打出牌的摘账手法同一条纪律）。不在手上的
+   * （打出的那张、牌堆里烧的）没有 view，静默走过场。
+   */
+  private burnCard(uid: string): void {
+    const view = this.cardViews.get(uid);
+    if (!view) return;
+    this.cardViews.delete(uid);
+    view.hitZone.disableInteractive();
+    this.tweens.killTweensOf(view);
+    burst(this, view.x, view.y - 20, { color: 0xd97a3c, count: 14, speed: 210, scale: 0.14 });
+    this.tweens.add({
+      targets: view,
+      y: view.y - 46,
+      alpha: 0,
+      duration: dur(360),
+      ease: 'Quad.easeOut',
+      onComplete: () => view.destroy(),
+    });
   }
 
   private viewOf(id: string): ActorView | undefined {
@@ -2884,8 +3077,14 @@ export class CombatScene extends Phaser.Scene {
       const view = this.cardViews.get(this.dragUid);
       if (!view) return;
       if (view.def.target === 'enemy') {
+        // 单敌锁定（与 dropVerdict / onCardDrag 同一条线）：箭头钉在唯一
+        // 活敌身上不再跟指针飘——「过线松手即命中」看得见。多敌照旧：
         // 指针越过卡顶才起弧——卡还叼在指针上时，箭头只会是一坨。
-        if (py < view.y - 110) this.drawAimCurve(view.x, view.y - 110, px, py);
+        const living = this.roster.living();
+        const lock = living.length === 1 && pastPlayLine(py) ? living[0] : null;
+        if (lock || py < view.y - 110) {
+          this.drawAimCurve(view.x, view.y - 110, lock ? lock.hit.x : px, lock ? lock.hit.y : py);
+        }
       } else {
         this.drawPlayLine(pastPlayLine(py));
       }

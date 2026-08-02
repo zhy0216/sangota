@@ -154,9 +154,14 @@ describe('键位接进了场景 (源码断言)', () => {
   it('hands the direct target straight to play, clearing any selection', () => {
     const at = scene.indexOf('private onCardClick');
     const body = scene.slice(at, scene.indexOf('\n  }', at));
-    expect(body).toContain('void this.play(view.uid, directTargetId)');
-    // 数字键专用：点击路径永远不传 directTargetId，选敌模式原样。
+    expect(body).toContain('void this.play(view.uid, direct)');
+    // 点击路径不传 directTargetId——单敌免选在 onCardClick 里自己按
+    // 同一把尺（引擎的活敌名单）量，键盘与鼠标共用一条判定。
     expect(scene).toContain("view.hitZone.on('pointerup', () => this.onCardClick(view))");
+    expect(body).toContain('directTargetId ?? soleLivingEnemy(this.state.enemies)?.id');
+    // 单敌直打收掉了「点敌人才结算」这道天然确认，confirmPlay 的闸对
+    // 点击路径必须补回来（数字键照旧直打）。
+    expect(body).toContain('directTargetId === undefined && needsPlayConfirm(view.def)');
   });
 
   it('pours the Qth/Wth/Rth bottle through the belt’s own click path', () => {

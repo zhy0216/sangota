@@ -25,8 +25,10 @@ export function needsEndTurnConfirm(state: CombatState): boolean {
 }
 
 /**
- * 打这张牌要不要先高亮等第二次点击：all 全拦，rare 只拦稀有牌。指向敌人
- * 的牌天然就是「点卡高亮 → 点敌人才打出」的两段式，场景层不再另问。
+ * 打这张牌要不要先高亮等第二次点击：all 全拦，rare 只拦稀有牌。多敌时
+ * 指向牌天然就是「点卡高亮 → 点敌人才打出」的两段式，场景层不再另问；
+ * 单敌直打把两段并成了一步，场景层（onCardClick）会替点击路径把这道闸
+ * 补回来。
  */
 export function needsPlayConfirm(def: Pick<CardDef, 'rarity'>): boolean {
   const mode = getSettings().confirmPlay;

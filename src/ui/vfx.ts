@@ -119,15 +119,27 @@ export function dust(scene: Phaser.Scene, x: number, y: number, dir = 1, depth =
   scene.time.delayedCall(dur(800), () => emitter.destroy());
 }
 
-/** Expanding double ring, for gaining block. */
+export interface FlareOpts {
+  depth?: number;
+  /** 双环配色（粗环、细环）。默认护甲的蓝白——block 的读法保持原样。 */
+  colors?: readonly [number, number];
+  /**
+   * 扩散时的纵向漂移：增益向上浮（负值）、减益向下沉（正值）、护甲原地
+   * ——三类曾共用一个蓝环「完全撞脸」，方向 + 配色一起把它们分开。
+   */
+  driftY?: number;
+}
+
+/** Expanding double ring — block, buffs and debuffs, told apart by `FlareOpts`. */
 export function shieldFlare(
   scene: Phaser.Scene,
   x: number,
   y: number,
   radius: number,
-  depth = 128,
+  opts: FlareOpts = {},
 ): void {
-  for (const [i, color] of [0x9fc4e0, 0xdcefff].entries()) {
+  const { depth = 128, colors = [0x9fc4e0, 0xdcefff], driftY = 0 } = opts;
+  for (const [i, color] of colors.entries()) {
     const g = scene.add.graphics({ x, y }).setDepth(depth);
     g.lineStyle(i === 0 ? 5 : 2, color, 0.9);
     g.strokeCircle(0, 0, radius);
@@ -135,12 +147,56 @@ export function shieldFlare(
     scene.tweens.add({
       targets: g,
       scale: 1.25 + i * 0.12,
+      y: y + driftY,
       alpha: 0,
       duration: dur(420 + i * 90),
       ease: 'Cubic.easeOut',
       onComplete: () => g.destroy(),
     });
   }
+}
+
+/**
+ * 治疗的上升灵光——从躯干缓缓浮起的一撮玉色光尘。纯装饰：治疗反馈的
+ * 本体是 `+N` 数字与血条回涨，instant 挡跳过这撮尘不丢信息。
+ */
+export function healMotes(scene: Phaser.Scene, x: number, y: number, color = 0x8fd0a8): void {
+  if (skipDecor()) return;
+  const emitter = scene.add.particles(x, y + 26, 'glow', {
+    speedY: { min: -110, max: -40 },
+    speedX: { min: -34, max: 34 },
+    scale: { start: 0.15, end: 0 },
+    alpha: { start: 0.8, end: 0 },
+    lifespan: { min: dur(420), max: dur(760) },
+    blendMode: Phaser.BlendModes.ADD,
+    tint: color,
+    emitting: false,
+  });
+  emitter.setDepth(128);
+  emitter.explode(14);
+  scene.time.delayedCall(dur(900), () => emitter.destroy());
+}
+
+/**
+ * 势落地的登坛金焰——从脚下升起的一柱光尘，宣告一张永久生效的牌进了
+ * 战场。纯装饰：势的账面本体是 status 事件的飘字与状态栏图标。
+ */
+export function riseFlare(scene: Phaser.Scene, x: number, baseY: number, color = 0xf0d67a): void {
+  if (skipDecor()) return;
+  const emitter = scene.add.particles(x, baseY, 'glow', {
+    x: { min: -30, max: 30 },
+    speedY: { min: -240, max: -90 },
+    speedX: { min: -16, max: 16 },
+    scale: { start: 0.2, end: 0 },
+    alpha: { start: 0.9, end: 0 },
+    lifespan: { min: dur(420), max: dur(820) },
+    blendMode: Phaser.BlendModes.ADD,
+    tint: color,
+    emitting: false,
+  });
+  emitter.setDepth(129);
+  emitter.explode(24);
+  scene.time.delayedCall(dur(950), () => emitter.destroy());
 }
 
 /**

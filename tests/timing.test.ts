@@ -189,8 +189,8 @@ describe('屏幕震动只经 screenShake 摇', () => {
 
   it('CombatScene 里没有绕过挡位的裸 cameras.main.shake', () => {
     expect(scene).not.toContain('this.cameras.main.shake(');
-    // 三处震源——全挡下的甲响、命中、死亡——都走 screenShake。
-    expect(scene.match(/screenShake\(this, /g)).toHaveLength(3);
+    // 五处震源——全挡下的甲响、命中、连击段、横扫、死亡——都走 screenShake。
+    expect(scene.match(/screenShake\(this, /g)).toHaveLength(5);
   });
 });
 

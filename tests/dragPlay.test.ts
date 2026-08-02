@@ -79,12 +79,25 @@ describe('dropVerdict', () => {
   });
 
   it('bounces a targeted card dropped past the line but on nobody', () => {
-    // 指向牌不能靠打出线糊弄——必须点名一个目标。
+    // 多敌时指向牌不能靠打出线糊弄——必须点名一个目标。
     expect(dropVerdict('enemy', 400, 200, zones)).toEqual({ verdict: 'bounce' });
   });
 
   it('bounces a targeted card released half-way — the anti-misclick', () => {
     expect(dropVerdict('enemy', 872, 560, zones)).toEqual({ verdict: 'bounce' });
+  });
+
+  it('locks a targeted card onto the sole living enemy past the line', () => {
+    // 单敌免瞄准：目标没有第二个答案，过线即命中，不逼指针去够热区。
+    const sole = [zones[0]];
+    expect(dropVerdict('enemy', 400, 200, sole)).toEqual({ verdict: 'play', enemyIndex: 0 });
+    // 落在热区上照旧点名——两条路答案一致。
+    expect(dropVerdict('enemy', 782, 320, sole)).toEqual({ verdict: 'play', enemyIndex: 0 });
+  });
+
+  it('still bounces a single-enemy release below the line — the anti-misclick holds', () => {
+    expect(dropVerdict('enemy', 872, 560, [zones[0]])).toEqual({ verdict: 'bounce' });
+    expect(dropVerdict('enemy', 640, PLAY_LINE_Y, [zones[0]])).toEqual({ verdict: 'bounce' });
   });
 
   it('plays a no-target card once the pointer crossed the line', () => {
