@@ -214,20 +214,6 @@ describe('rollRelic · 掉落分布', () => {
     expect(d.rare).toBeLessThan(20);
   });
 
-  it('lands an 奇遇 on 60 / 30 / 10, within 3 points', () => {
-    // The one row with no distribution test: it was covered only by "sums to
-    // 100" and "never a 坊市 relic", and reversing it to 10/30/60 satisfies
-    // both. An 奇遇 that promises 「一件普通宝物」 handing out 稀有 six times in
-    // ten is a different event.
-    const d = tierSpread('event', 3000, 'event-dist');
-    expect(d.common).toBeGreaterThan(57);
-    expect(d.common).toBeLessThan(63);
-    expect(d.uncommon).toBeGreaterThan(27);
-    expect(d.uncommon).toBeLessThan(33);
-    expect(d.rare).toBeGreaterThan(7);
-    expect(d.rare).toBeLessThan(13);
-  });
-
   it('gives 首领 and 坊市 exactly one tier each', () => {
     expect(tierSpread('boss', 600, 'boss-dist').boss).toBe(100);
     expect(tierSpread('shop', 600, 'shop-dist').shop).toBe(100);
@@ -349,7 +335,7 @@ describe('rollRelic · 去重与兜底', () => {
     // ... and no drop source can ever produce one.
     const r = run('no-shop-drops');
     const rng = new Rng('no-shop-drops');
-    for (const source of ['elite', 'chestLarge', 'event'] as RelicSource[]) {
+    for (const source of ['elite', 'chestLarge'] as RelicSource[]) {
       for (let i = 0; i < 200; i++) {
         const id = rollRelic(rng, r, source);
         expect(tierOf(id!), id!).not.toBe('shop');
@@ -488,7 +474,7 @@ describe('rollChestExtras · 宝藏', () => {
 
   it('pays the size-matched consolation when the pool is dry', () => {
     // The whole table as literals: `toBe(RELIC_MISS_GOLD[...])` moved with it,
-    // and boss 120 → 12 and event 40 → 400 both went unnoticed.
+    // and boss 120 → 12 went unnoticed.
     expect(RELIC_MISS_GOLD).toEqual({
       elite: 60,
       chestSmall: 40,
@@ -496,7 +482,6 @@ describe('rollChestExtras · 宝藏', () => {
       chestLarge: 90,
       boss: 120,
       shop: 60,
-      event: 40,
     });
     const OWED: Record<ChestSize, number> = { small: 40, medium: 60, large: 90 };
 

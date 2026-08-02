@@ -3205,7 +3205,7 @@ export class CombatScene extends Phaser.Scene {
     const answer = (relicId: string | null): void => {
       if (answered) return;
       answered = true;
-      // 拿了宝物才有铃声——「不取 · 换取宝钥」的账在房间层，不在这儿响。
+      // 拿了宝物才有铃声——「不取」的账（第三幕换宝钥）在房间层，不在这儿响。
       if (relicId) this.audio.play('relic-gain');
       takeBossRelic(this.run, this.nodeId, relicId);
       this.relicBar.setRelics(this.run.relics);
@@ -3251,12 +3251,18 @@ export class CombatScene extends Phaser.Scene {
       layer.add(card);
     });
 
-    const decline = inkButton(this, GAME_WIDTH / 2, 578, '不取 · 换取宝钥', {
-      width: 300,
-      height: 54,
-      fontSize: 22,
-      onClick: () => answer(null),
-    });
+    const decline = inkButton(
+      this,
+      GAME_WIDTH / 2,
+      578,
+      this.run.act === 3 ? '不取 · 换取宝钥' : '不取 · 尽弃',
+      {
+        width: 300,
+        height: 54,
+        fontSize: 22,
+        onClick: () => answer(null),
+      },
+    );
     decline.setDepth(DEPTH.overlay + 1);
     layer.add(decline);
 
@@ -3563,4 +3569,3 @@ export class CombatScene extends Phaser.Scene {
     );
   }
 }
-

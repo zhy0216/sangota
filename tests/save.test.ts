@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ACT1, getEncounter } from '../src/combat/enemies';
-import { endPlayerTurn, playCard, runEnemyTurn, startCombat } from '../src/combat/engine';
+import { endPlayerTurn, playCard, resolveDamage, runEnemyTurn, startCombat } from '../src/combat/engine';
 import type { CombatState } from '../src/combat/types';
 import { DEFAULT_HERO, HEROES } from '../src/data/heroes';
 import { advanceAct } from '../src/data/acts';
@@ -325,6 +325,37 @@ describe('a fight in progress', () => {
       // reads fields straight off the object it is handed.
       expect(enemy.intent).toBe(state.enemies[i].intent);
     }
+  });
+
+  it('round-trips a boss after its half-HP phase has replaced the telegraph', () => {
+    const run = startRun(DEFAULT_HERO, 'phase-intent');
+    const state = startCombat({
+      encounter: getEncounter('b2'),
+      deck: run.deck,
+      heroName: run.hero.name,
+      hp: run.hp,
+      maxHp: run.maxHp,
+      relics: run.relics,
+      seed: 'phase-fight',
+    });
+    const enemy = state.enemies[0];
+    resolveDamage(state, {
+      attacker: state.player,
+      defender: enemy,
+      base: Math.ceil(enemy.maxHp / 2),
+      isAttack: true,
+      pierceBlock: false,
+    });
+    expect(enemy.phase).toBe('huangtian');
+    expect(enemy.intent?.id).toBe('fushen');
+
+    const back = restoreCombat(
+      JSON.parse(JSON.stringify(snapshotCombat(state, { ...CTX, tier: 'boss' }))),
+    );
+    expect(back.enemies[0].phase).toBe('huangtian');
+    expect(back.enemies[0].crossed).toEqual([0]);
+    expect(back.enemies[0].actedTurns).toBe(0);
+    expect(back.enemies[0].intent).toBe(enemy.intent);
   });
 
   it('refuses a save whose telegraphed move no longer exists', () => {

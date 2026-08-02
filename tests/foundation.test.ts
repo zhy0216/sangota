@@ -72,6 +72,10 @@ const GUANYU_POOLS = {
     'yanyuezhan',
     'qianlizoudanqi',
     'yibaoyuntian',
+    'shenzaicaoying',
+    'guchenghui',
+    'wanjunqushou',
+    'baimajiewei',
   ],
 } as const;
 

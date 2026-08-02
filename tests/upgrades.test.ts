@@ -149,6 +149,43 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   },
   yibaoyuntian: { effects: [{ kind: 'status', status: 'artifact', amount: 3, to: 'self' }] },
 
+  // --- 2026-08 关羽稀有补层 -------------------------------------------------
+  shenzaicaoying: { cost: 1 },
+  guchenghui: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'handEmpty' },
+        then: [
+          { kind: 'damage', amount: 30 },
+          { kind: 'draw', amount: 2 },
+        ],
+        otherwise: [{ kind: 'damage', amount: 18 }],
+      },
+    ],
+  },
+  wanjunqushou: {
+    effects: [
+      { kind: 'status', status: 'slayer', amount: 1, to: 'self' },
+      { kind: 'damageAll', amount: 12, times: 2 },
+    ],
+  },
+  baimajiewei: {
+    effects: [
+      { kind: 'damage', amount: 20 },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'vulnerable' },
+        then: [{ kind: 'draw', amount: 2 }],
+      },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [{ kind: 'energy', amount: 2 }],
+      },
+    ],
+  },
+
   // --- todos/05 无色 stock, sold only over a 商旅's counter -----------------
   qingnangshu: { effects: [{ kind: 'heal', amount: 9 }] },
   lujiao: { effects: [{ kind: 'status', status: 'thorns', amount: 4, to: 'self' }] },

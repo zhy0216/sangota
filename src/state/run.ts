@@ -109,8 +109,8 @@ export interface RunState {
   rooms: Record<string, RoomRecord>;
   /**
    * Event ids resolved this run. Drives both `once` events and same-run
-   * de-duplication — 3.14 event rooms against a 12-event pool means repeats are
-   * the norm, not the exception, without this.
+   * de-duplication — ~9–10 event rooms a run against a 20-event pool means
+   * repeats are the norm, not the exception, without this.
    */
   seenEvents: string[];
   /** Card-removal price escalation. Run-long: it survives leaving the shop. */
@@ -123,7 +123,8 @@ export interface RunState {
   bossRelicOffer: string[] | null;
   /**
    * Locked doors this run has the key to. One key, deliberately: 宝钥 opens the
-   * 终章 and its only source is declining a 首领 relic (`takeBossRelic(..., null)`).
+   * 终章 and its only source is declining the 第三幕 首领 relic
+   * (`takeBossRelic(..., null)` with `run.act === 3`).
    * A second colour needs a door and a source, and neither exists.
    */
   keys: { sapphire: boolean };

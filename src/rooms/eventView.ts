@@ -181,9 +181,9 @@ export class EventController implements RoomController {
 
   private openPickGrid(pick: PendingPick, done: () => void): void {
     const forge = pick.kind === 'upgrade';
-    // Three kinds, three sets of words. 易牌 is unreachable from the 奇遇 table
-    // today — 开局祝福 (todos/18) is what asks for it — but a pick that says
-    // 「弃去」 and then hands a card back would be a lie the moment it is.
+    // Three kinds, three sets of words. 易牌 is reachable two ways — 月旦评
+    // from the 奇遇 table and 开局祝福 (todos/18) from the blessing screen —
+    // and a pick that says 「弃去」 and then hands a card back would lie to both.
     const COPY = {
       remove: { title: '弃 牌', subtitle: '割爱一张。', verb: '弃去' },
       upgrade: { title: '精 进', subtitle: '择牌改之。', verb: '精进' },

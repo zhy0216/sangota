@@ -41,6 +41,8 @@ const CARD_KEYS = [
   // 2026-08 关羽池扩
   'zhuwenchou', 'lemahengdao', 'daotiaojinpao', 'fengjinguayin',
   'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
+  // 2026-08 关羽稀有补层
+  'shenzaicaoying', 'guchenghui', 'wanjunqushou', 'baimajiewei',
   // 赵云
   'tuzhen', 'luema', 'longdan', 'tingqiang', 'qitanpanshe',
   'kongyingji', 'sanjinsanchu', 'jiejiang', 'xueranzhengpao', 'yishenshidan',

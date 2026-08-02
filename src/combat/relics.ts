@@ -909,8 +909,7 @@ export type RelicSource =
   | 'chestMedium'
   | 'chestLarge'
   | 'boss'
-  | 'shop'
-  | 'event';
+  | 'shop';
 
 /**
  * Rarity odds per source. Percentages, and each row sums to 100 — that is
@@ -919,6 +918,12 @@ export type RelicSource =
  *
  * `starter` appears in no row: 关羽's 青龙偃月刀 is dealt with the hero, never
  * dropped. `boss` and `shop` are closed pools of one tier each.
+ *
+ * There is no `event` row on purpose: an 奇遇 names the tier it promises in
+ * its own definition and draws through `rollRelicOfTier`, never through this
+ * table — a promised 「一件普通宝物」 that could come out 稀有 would make the
+ * event text a lie. Its dry-pool consolation lives in `RELIC_CONSOLATION`
+ * (`src/rooms/events.ts`), keyed by the promised tier for the same reason.
  */
 export const RELIC_DROP_WEIGHTS: Record<RelicSource, Partial<Record<RelicTier, number>>> = {
   elite: { common: 50, uncommon: 33, rare: 17 },
@@ -927,7 +932,6 @@ export const RELIC_DROP_WEIGHTS: Record<RelicSource, Partial<Record<RelicTier, n
   chestLarge: { common: 40, uncommon: 45, rare: 15 },
   boss: { boss: 100 },
   shop: { shop: 100 },
-  event: { common: 60, uncommon: 30, rare: 10 },
 };
 
 /**
@@ -947,7 +951,6 @@ export const RELIC_MISS_GOLD: Record<RelicSource, number> = {
   chestLarge: 90,
   boss: 120,
   shop: 60,
-  event: 40,
 };
 
 /**

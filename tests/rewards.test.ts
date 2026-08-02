@@ -203,12 +203,12 @@ describe('rollCardReward · 验收标准', () => {
 });
 
 describe('the pool itself', () => {
-  it('hits the 2026-08 expanded shape — 12 common, 10 uncommon, 6 rare', () => {
+  it('hits the 2026-08 expanded shape — 12 common, 10 uncommon, 10 rare', () => {
     // todos/11 shipped 10/8/3; the 2026-08 expansion appends 诛文丑/勒马横刀
-    // (common), 刀挑锦袍/封金挂印 (uncommon), 偃月斩/千里走单骑/义薄云天 (rare).
+    // (common), 刀挑锦袍/封金挂印 (uncommon), then seven rare cards in two waves.
     expect(CARD_POOL_BY_RARITY.common.length).toBe(12);
     expect(CARD_POOL_BY_RARITY.uncommon.length).toBe(10);
-    expect(CARD_POOL_BY_RARITY.rare.length).toBe(6);
+    expect(CARD_POOL_BY_RARITY.rare.length).toBe(10);
   });
 
   it('lists every card exactly once, and each under its own declared rarity', () => {

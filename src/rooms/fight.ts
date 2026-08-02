@@ -186,13 +186,17 @@ export const bossOfferPending = (run: RunState, nodeId: string): boolean =>
   !roomCommit(run, nodeId).isDone('bossRelic');
 
 /**
- * Take one of the three, or decline for the 宝钥. `null` means the chest was
- * already answered — a second click pays nothing, and cannot turn a relic that
- * was taken into a key.
+ * Take one of the three, or decline. `null` means the chest was already
+ * answered — a second click pays nothing, and cannot turn a relic that was
+ * taken into a key.
  *
- * Declining is a real choice rather than a forfeit: the 宝钥 is the only key to
- * the 终章 door (`actExit`, `src/data/acts.ts`), so 「不取」 trades this act's
- * relic for a whole extra act.
+ * Declining in 第三幕 mints the 宝钥 — the only key to the 终章 door
+ * (`actExit`, `src/data/acts.ts`) — so the final 「不取」 trades that act's
+ * relic for a whole extra act. In 第一幕/第二幕 declining is a pure pass:
+ * every 首领 relic carries a downside, and walking away empty-handed is a
+ * legal read of the table, but it pays nothing and promises nothing. The act
+ * gate lives here rather than in `actExit` so the key can never sit latent
+ * on a run that "earned" it two acts early.
  */
 export function takeBossRelic(run: RunState, nodeId: string, relicId: string | null): boolean {
   const offer = ensureBossOffer(run, nodeId);
@@ -201,7 +205,7 @@ export function takeBossRelic(run: RunState, nodeId: string, relicId: string | n
   return (
     roomCommit(run, nodeId).once('bossRelic', (): boolean => {
       if (relicId === null) {
-        run.keys.sapphire = true;
+        if (run.act === 3) run.keys.sapphire = true;
         return true;
       }
       addRelic(run, relicId);

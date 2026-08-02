@@ -50,6 +50,7 @@ const GUANYU_COMMON = [
 const GUANYU_RARE = [
   'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei',
   'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
+  'shenzaicaoying', 'guchenghui', 'wanjunqushou', 'baimajiewei',
 ];
 const ZHAOYUN_RARE = ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang', 'changbanpo'];
 

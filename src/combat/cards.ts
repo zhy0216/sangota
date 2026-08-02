@@ -781,6 +781,150 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
       effects: [{ kind: 'status', status: 'artifact', amount: 3, to: 'self' }],
     },
   },
+
+  // ------------------------------------------------- 2026-08 稀有补层（追加区）
+  //
+  // 首领奖励抬到 0/50/50 之后，6 张 rare 两幕就复读。+4 按原型缺口补层：
+  // 龟壳（身在曹营）、空手（古城会）、群战斩将（万军取首）、追击（白马解围）。
+  // 只追加不插队（R3），机制全走既有效果词汇，数值对 §「强度带」的费率基准。
+
+  /**
+   * 全游戏第一张【金蝉脱壳】。2 层不是 2 回合：玩家自己的回合结束先衰 1 层
+   * （endOfTurn 衰减在敌方行动之前），剩下那层才是真正买到的东西——一个
+   * 敌方回合内一切伤害降为 1，鸩觞、中毒、反刺一并按住。1 层版本是空转，
+   * 所以基础就印 2。消耗：每场只有一次“身在曹营”，再多就成了常驻减伤。
+   */
+  shenzaicaoying: {
+    id: 'shenzaicaoying',
+    name: '身在曹营',
+    type: 'skill',
+    rarity: 'rare',
+    cost: 2,
+    target: 'self',
+    art: 'card-shenzaicaoying',
+    text: '获得 2 层【金蝉脱壳】。',
+    effects: [{ kind: 'status', status: 'intangible', amount: 2, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: { cost: 1 },
+  },
+
+  /**
+   * 单刀赴会的稀有位。一通鼓未尽，蔡阳头已落地——手上什么都不剩的那一刀，
+   * 才是真的。payoff 费率与单刀赴会同一条线（12伤/气），rare 的溢价全在
+   * 抽 2：空手斩完，下一手已经回来。空振时 8伤/气，低于偃月斩附带破绽
+   * 的稀有位，条件牌的税落在两费整块与手序要求上。`then`/`otherwise`
+   * 单实例结算，神力只吃一次，
+   * {D} 印实话。
+   */
+  guchenghui: {
+    id: 'guchenghui',
+    name: '古城会',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-guchenghui',
+    text: '造成 {D} 点伤害。\n若手牌已空，改为 24 点并抽 2 张牌。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'handEmpty' },
+        then: [
+          { kind: 'damage', amount: 24 },
+          { kind: 'draw', amount: 2 },
+        ],
+        otherwise: [{ kind: 'damage', amount: 16 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若手牌已空，改为 30 点并抽 2 张牌。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'handEmpty' },
+          then: [
+            { kind: 'damage', amount: 30 },
+            { kind: 'draw', amount: 2 },
+          ],
+          otherwise: [{ kind: 'damage', amount: 18 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 于万军之中取上将首级。【斩将】先挂后挥：这一刀自己造成的击杀立刻折成
+   * 神力，第二轮扫击接着吃——effects 顺序是这张卡的全部技术含量。
+   * 9×2/敌 @3费 = 6/气/敌，与水淹七军同一费率，付的是整整一个回合；
+   * 对独目标 18@3 恰在劈砍费率上，不是陷阱签，只是无趣——rare 的分散
+   * 与五关六将同构：牌组要么要宽房，要么不要。
+   */
+  wanjunqushou: {
+    id: 'wanjunqushou',
+    name: '万军取首',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 3,
+    target: 'all',
+    art: 'card-wanjunqushou',
+    text: '获得 1 层【斩将】。\n对所有敌人造成 {D} 点伤害 {T} 次。',
+    effects: [
+      { kind: 'status', status: 'slayer', amount: 1, to: 'self' },
+      { kind: 'damageAll', amount: 9, times: 2 },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'status', status: 'slayer', amount: 1, to: 'self' },
+        { kind: 'damageAll', amount: 12, times: 2 },
+      ],
+    },
+  },
+
+  /**
+   * 斩颜良、诛文丑之后，白马围解。两张 uncommon 各读一种减益、各付一小口；
+   * 这张两种都读、双倍付账：破绽换 2 牌，怯战换 2 气，全中时 16 伤近乎白送。
+   * 裸卡仍低于同费稀有的纯爆发线，价差由追击链来补。上游是拖刀计（起手组自带）、
+   * 温酒斩、虚招、勒马横刀、偃月斩；rare 的分散在“追击链没立起来时，
+   * 它只是一张标价刚好的重劈”。
+   */
+  baimajiewei: {
+    id: 'baimajiewei',
+    name: '白马解围',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-baimajiewei',
+    text: '造成 {D} 点伤害。\n若目标有【破绽】，抽 2 张牌。\n若目标有【怯战】，获得 2 点气。',
+    effects: [
+      { kind: 'damage', amount: 16 },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'vulnerable' },
+        then: [{ kind: 'draw', amount: 2 }],
+      },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [{ kind: 'energy', amount: 2 }],
+      },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 20 },
+        {
+          kind: 'conditional',
+          when: { c: 'targetHasStatus', status: 'vulnerable' },
+          then: [{ kind: 'draw', amount: 2 }],
+        },
+        {
+          kind: 'conditional',
+          when: { c: 'targetHasStatus', status: 'weak' },
+          then: [{ kind: 'energy', amount: 2 }],
+        },
+      ],
+    },
+  },
 });
 
 /**

@@ -383,10 +383,10 @@ describe('随机池解锁过滤 (u2)', () => {
     const run = startRun(DEFAULT_HERO, 'u2-event');
     const before = run.deck.length;
     // 解锁轨上的三张稀有(威震华夏/五关六将/深沟高垒)在门后一张不漏；
-    // 2026-08 扩池的三张不上轨,新账本也照发——发出来的只能是这三张。
+    // 2026-08 扩池的七张不上轨，新账本也照发——固定种子仍只烧三次 pick。
     const rng = new Rng('u2-event');
     const report = applyOutcome(run, { text: '', gainCards: { count: 3, rarity: 'rare' } }, rng);
-    expect([...report.cardIds].sort()).toEqual(['qianlizoudanqi', 'yanyuezhan', 'yibaoyuntian']);
+    expect([...report.cardIds].sort()).toEqual(['baimajiewei', 'qianlizoudanqi', 'yibaoyuntian']);
     expect(run.deck).toHaveLength(before + 3);
     expect(rng.rolls).toBe(3);
 

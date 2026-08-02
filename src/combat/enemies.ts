@@ -259,6 +259,39 @@ export const ENEMIES: Record<string, EnemyDef> = {
       },
       { id: 'surge', label: '地涌', damage: 22 },
     ],
+    thresholds: [{ percent: 50, phase: 'huangtian', shout: '「苍天已死，黄天当立！」' }],
+    phases: {
+      /**
+       * 黄天 — 妖术全开的后半场。地涌的 22 尖刺让位给缚神咒：每循环一个
+       * 回合玩家打不出攻牌，只能作守势。钟（蓄势 1/循环）由降世接管，
+       * 降世同时结 8 点护甲，防御卡组依旧熬不过他；咒火接着
+       * 擂鼓往牌堆里下眩晕。
+       */
+      huangtian: {
+        script: { order: ['fushen', 'yaofeng', 'zhouhuo', 'jiangshi'], loopFrom: 0 },
+        moves: [
+          {
+            id: 'fushen',
+            label: '缚神咒',
+            status: { status: 'entangled', amount: 1, to: 'player' },
+          },
+          { id: 'yaofeng', label: '妖风', damage: 7, hits: 3 },
+          {
+            id: 'zhouhuo',
+            label: '咒火',
+            damage: 8,
+            addCards: { defId: 'xuanyun', count: 1, to: 'draw' },
+          },
+          {
+            id: 'jiangshi',
+            label: '黄天降世',
+            damage: 16,
+            block: 8,
+            status: { status: 'ritual', amount: 1, to: 'self' },
+          },
+        ],
+      },
+    },
   },
 
   // ------------------------------------ 一 · 讨黄巾（会动的身体：夺 / 遁 / 召 / 裂）
@@ -599,6 +632,38 @@ export const ENEMIES: Record<string, EnemyDef> = {
       },
       { id: 'fenjing', label: '焚京', damage: 26 },
     ],
+    thresholds: [{ percent: 50, phase: 'duji', shout: '「一杯鸩酒，与君同尽！」' }],
+    phases: {
+      /**
+       * 毒计 — 焚京的 26 让位给一条护甲挡不住的血线：鸩毒（中毒 4，
+       * 每循环恰好耗尽不叠层）加绝毒（直取 12），可挡部分仍低于前半。
+       * 龟壳在这半场一文不值，题目是抢在毒累积成山之前送他上路。
+       * 阴谋保住他 1/循环的蓄势钟。
+       */
+      duji: {
+        script: { order: ['zhendu', 'quchi', 'yinmou', 'juedu'], loopFrom: 0 },
+        moves: [
+          {
+            id: 'zhendu',
+            label: '鸩毒',
+            status: { status: 'poison', amount: 4, to: 'player' },
+          },
+          { id: 'quchi', label: '驱驰', damage: 13, hits: 2 },
+          {
+            id: 'yinmou',
+            label: '阴谋',
+            block: 12,
+            status: { status: 'ritual', amount: 1, to: 'self' },
+          },
+          {
+            id: 'juedu',
+            label: '绝毒',
+            loseHp: 12,
+            addCards: { defId: 'nining', count: 1, to: 'discard' },
+          },
+        ],
+      },
+    },
   },
 
   /**
@@ -888,6 +953,33 @@ export const ENEMIES: Record<string, EnemyDef> = {
         addCards: { defId: 'chuangshang', count: 1, to: 'draw' },
       },
     ],
+    thresholds: [{ percent: 50, phase: 'shensu', shout: '「三日五百，六日一千！」' }],
+    phases: {
+      /**
+       * 神速 — 轻兵急进的后半场：立寨与白地俱废，他不再设防，你也别想
+       * 按时抽牌。断粮道废掉的那个玩家回合面对的是最轻的焚粮（6 + 塞牌），
+       * 惩罚是节奏不是斩杀。阶段二零新增成长，阶段一攒下的神力与蓄势
+       * 继续走表——hits 因此压在 2（继承神力上多段的教训见吕布注释）。
+       */
+      shensu: {
+        script: { order: ['duanliang', 'fenliang', 'qingqi', 'changqu'], loopFrom: 0 },
+        moves: [
+          {
+            id: 'duanliang',
+            label: '断粮道',
+            status: { status: 'noDraw', amount: 1, to: 'player' },
+          },
+          {
+            id: 'fenliang',
+            label: '焚粮',
+            damage: 6,
+            addCards: { defId: 'xuanyun', count: 1, to: 'draw' },
+          },
+          { id: 'qingqi', label: '轻骑', damage: 9, hits: 2 },
+          { id: 'changqu', label: '长驱', damage: 18 },
+        ],
+      },
+    },
   },
 
   /**
@@ -1012,6 +1104,33 @@ export const ENEMIES: Record<string, EnemyDef> = {
         addCards: { defId: 'chuangshang', count: 2, to: 'draw' },
       },
     ],
+    thresholds: [{ percent: 50, phase: 'tianshu', shout: '「星落五丈，天数当倾！」' }],
+    phases: {
+      /**
+       * 天数 — 半血后的倒计时形态。三拍一循环：缴械（力竭）、蓄力（聚星）、
+       * 落刀（天倾 26）。塞牌与穿甲全部让位给一条每循环 +3 神力的死线，
+       * 聚星的 65 点护甲迫玩家抢在死线前破阵。题目从「均匀抗压」换成
+       * 「限时拆解」。天倾恒为单段——继承的神力
+       * 只吃一次，这是 hits 上限规则（吕布注释）在终幕的写法。
+       */
+      tianshu: {
+        script: { order: ['xingchen', 'juxing', 'tianqing'], loopFrom: 0 },
+        moves: [
+          {
+            id: 'xingchen',
+            label: '星沉',
+            status: { status: 'frail', amount: 2, to: 'player' },
+          },
+          {
+            id: 'juxing',
+            label: '聚星',
+            block: 65,
+            status: { status: 'ritual', amount: 3, to: 'self' },
+          },
+          { id: 'tianqing', label: '天倾', damage: 26 },
+        ],
+      },
+    },
   },
 };
 
@@ -1074,12 +1193,16 @@ export const ACT1: EncounterTable = {
  * 第二幕 · 战虎牢.
  *
  * The gradient over 第一幕 is deliberate and measured in `tests/acts.test.ts`
- * rather than left to taste: mean 体力 per normal room roughly +40%, mean peak
- * incoming per normal room roughly +50%, and every 精英 body strictly heavier
+ * rather than left to taste: mean 体力 per normal room roughly +24%, mean peak
+ * incoming per normal room roughly +30%, and every 精英 body strictly heavier
  * than every 第一幕 精英 body.
  *
  * `weakCount` drops to 2. An act two floors shorter in its opening ramp is what
  * makes 第二幕 feel like it starts mid-sentence, which is the intent.
+ *
+ * 2026-08 扩池 6→9：贪打路线中位 10 场杂兵，strong 只有 3 行时一幕复读近
+ * 三遍。m24 进 weak（开局组合 3 选 2 → 4 选 2），m25/m26 进 strong——
+ * 二幕自此有三间 3 敌房（m15/m25/m26）。
  */
 export const ACT2: EncounterTable = {
   weakCount: 2,
@@ -1087,6 +1210,8 @@ export const ACT2: EncounterTable = {
     { id: 'm10', name: '西凉哨骑', enemies: ['tieqi'], goldReward: [16, 24] },
     { id: 'm11', name: '相府亲兵', enemies: ['dongzhuoqinbing', 'dongzhuoqinbing'], goldReward: [18, 26] },
     { id: 'm12', name: '羌胡游骑', enemies: ['qiangbing', 'dongzhuoqinbing'], goldReward: [17, 25] },
+    // 2026-08 扩池：开局第 3 种读法——督战买不买账，在最便宜的房里先问一遍。
+    { id: 'm24', name: '鸣镝驱羌', enemies: ['xiliangduwei', 'qiangbing'], goldReward: [16, 24] },
   ],
   strong: [
     { id: 'm13', name: '铁骑冲阵', enemies: ['tieqi', 'tieqi'], goldReward: [20, 27] },
@@ -1097,6 +1222,15 @@ export const ACT2: EncounterTable = {
       enemies: ['xiliangduwei', 'qiangbing', 'qiangbing'],
       goldReward: [20, 27],
     },
+    // 2026-08 扩池：strong 3 行铺不满 15 层（贪打路线中位 10 场杂兵，头 2 场走 weak），
+    // 复读近三遍。两间 3 敌房各出一道新题：合势问先杀谁，蚁附给 damageAll 靶场。
+    {
+      id: 'm25',
+      name: '西凉合势',
+      enemies: ['xiliangduwei', 'qiangbing', 'dongzhuoqinbing'],
+      goldReward: [21, 27],
+    },
+    { id: 'm26', name: '羌部蚁附', enemies: ['qiangbing', 'qiangbing', 'qiangbing'], goldReward: [20, 27] },
   ],
   elite: [
     { id: 'e4', name: '飞熊中郎将 · 李傕', enemies: ['licui'], goldReward: [40, 56] },
@@ -1111,9 +1245,9 @@ export const ACT2: EncounterTable = {
 /**
  * 第三幕 · 征汉中.
  *
- * `weakCount` is 2 again but the weak rows are already heavier than 第二幕's
- * strong ones — by this act the ramp exists to place the room, not to protect
- * the player.
+ * `weakCount` is 2 again and the weak rows step straight off 第二幕's strong
+ * band — by this act the ramp exists to place the room, not to protect the
+ * player. 2026-08 扩池 8→9：m27 进 strong，是 m22 的镜像题（见行内注释）。
  */
 export const ACT3: EncounterTable = {
   weakCount: 2,
@@ -1141,6 +1275,14 @@ export const ACT3: EncounterTable = {
       id: 'm23',
       name: '发丘筹饷',
       enemies: ['mojinxiaowei', 'tuntianbing', 'tuntianbing'],
+      goldReward: [22, 27],
+    },
+    // 2026-08 扩池：m22 的镜像陷阱——同样的三小兵剪影，暴怒 1 ×3 把横扫的
+    // 每一段见血都喂成神力。读被动，不读剪影。
+    {
+      id: 'm27',
+      name: '青州蜂聚',
+      enemies: ['qingzhoubing', 'qingzhoubing', 'qingzhoubing'],
       goldReward: [22, 27],
     },
   ],

@@ -234,9 +234,23 @@ describe('战利品 — the 首领 chest', () => {
     const run = fresh('decline');
     const id = nodeOf(run, 'boss');
     ensureBossOffer(run, id);
+    run.act = 3;
     expect(takeBossRelic(run, id, null)).toBe(true);
     expect(run.keys.sapphire).toBe(true);
     expect(run.relics).toEqual([DEFAULT_HERO.starterRelic]);
+  });
+
+  it('pays nothing for a 第一幕 decline — the pass is real, the key is not', () => {
+    const run = fresh('decline-early');
+    const id = nodeOf(run, 'boss');
+    ensureBossOffer(run, id);
+    expect(run.act).toBe(1);
+    expect(takeBossRelic(run, id, null)).toBe(true);
+    expect(run.keys.sapphire).toBe(false);
+    expect(run.relics).toEqual([DEFAULT_HERO.starterRelic]);
+    // Still an answer: the chest cannot be reopened for a relic afterwards.
+    expect(bossOfferPending(run, id)).toBe(false);
+    expect(takeBossRelic(run, id, ensureBossOffer(run, id)[0])).toBe(false);
   });
 
   it('answers once — a second click cannot turn a taken relic into a key', () => {

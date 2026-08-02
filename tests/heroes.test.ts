@@ -491,6 +491,7 @@ const GUANYU = {
   rare: [
     'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei',
     'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
+    'shenzaicaoying', 'guchenghui', 'wanjunqushou', 'baimajiewei',
   ],
 };
 

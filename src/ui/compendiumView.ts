@@ -305,10 +305,12 @@ export function enemyTraitLines(def: EnemyDef): string[] {
     lines.push(`开场：${passives.map(([s, n]) => `【${label(s)}】${n}`).join('　')}`);
   }
   for (const th of def.thresholds ?? []) {
+    // Named phase changes stay off the 典籍: the alternate move table is a
+    // mid-fight reveal, not a row the player can solve before meeting it.
+    if (th.phase) continue;
     const what: string[] = [];
     for (const [s, n] of Object.entries(th.gain ?? {})) what.push(`得【${label(s)}】${n}`);
     if (th.split) what.push(`分裂为 ${th.split.count} 具【${getEnemy(th.split.defId).name}】`);
-    if (th.phase) what.push('变阵');
     lines.push(`体力落至 ${th.percent}%：${what.join('，')}`);
   }
   if (def.script) {

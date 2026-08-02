@@ -129,13 +129,13 @@ describe('每幕的遭遇表', () => {
     expect(ids(ACT1.elite)).toEqual(['e1', 'e2', 'e3']);
     expect(ids(ACT1.boss)).toEqual(['b1', 'b2', 'b3']);
 
-    expect(ids(ACT2.weak)).toEqual(['m10', 'm11', 'm12']);
-    expect(ids(ACT2.strong)).toEqual(['m13', 'm14', 'm15']);
+    expect(ids(ACT2.weak)).toEqual(['m10', 'm11', 'm12', 'm24']);
+    expect(ids(ACT2.strong)).toEqual(['m13', 'm14', 'm15', 'm25', 'm26']);
     expect(ids(ACT2.elite)).toEqual(['e4', 'e5']);
     expect(ids(ACT2.boss)).toEqual(['b4', 'b5']);
 
     expect(ids(ACT3.weak)).toEqual(['m16', 'm17', 'm22']);
-    expect(ids(ACT3.strong)).toEqual(['m18', 'm19', 'm20', 'm21', 'm23']);
+    expect(ids(ACT3.strong)).toEqual(['m18', 'm19', 'm20', 'm21', 'm23', 'm27']);
     expect(ids(ACT3.elite)).toEqual(['e6', 'e7']);
     expect(ids(ACT3.boss)).toEqual(['b6', 'b7']);
 
@@ -210,8 +210,8 @@ describe('每幕的遭遇表', () => {
   });
 
   it('covers every shipped fight with an act or the pending table', () => {
-    // 9 + 6 + 8 normals, 3 + 2 + 2 + 1 elites, 3 + 2 + 2 + 1 bosses, 0 pending
-    expect(allEncounters()).toHaveLength(9 + 6 + 8 + 8 + 8);
+    // 9 + 9 + 9 normals, 3 + 2 + 2 + 1 elites, 3 + 2 + 2 + 1 bosses, 0 pending
+    expect(allEncounters()).toHaveLength(9 + 9 + 9 + 8 + 8);
     expect(new Set(allEncounters().map((e) => e.id)).size).toBe(allEncounters().length);
   });
 });
@@ -228,16 +228,15 @@ describe('每幕的遭遇表', () => {
  */
 describe('三幕的数值梯度', () => {
   it('counts the normal rooms each act fields', () => {
-    expect([normals(ACT1).length, normals(ACT2).length, normals(ACT3).length]).toEqual([9, 6, 8]);
+    expect([normals(ACT1).length, normals(ACT2).length, normals(ACT3).length]).toEqual([9, 9, 9]);
   });
 
   it('raises the 体力 a normal room fields, act by act', () => {
     expect(sum(normals(ACT1).map(roomHp))).toBe(594);
-    expect(sum(normals(ACT2).map(roomHp))).toBe(481);
-    expect(sum(normals(ACT3).map(roomHp))).toBe(827);
-    // Mean per room: 66 → 80.2 → 103.4. 第二幕 fields fewer, heavier rooms, which
-    // is why the *sum* dips and only the mean is a gradient. 第三幕 的 827 含
-    // 军屯列垒(96)与发丘筹饷(108)——两间新房都压在幕均值附近，梯度不塌。
+    expect(sum(normals(ACT2).map(roomHp))).toBe(736);
+    expect(sum(normals(ACT3).map(roomHp))).toBe(935);
+    // Mean per room: 66 → 81.8 → 103.9. 第二幕 2026-08 扩到 9 间（m24/m25/m26），
+    // 第三幕的 935 含 青州蜂聚(108)——梯度比 1.24 / 1.27，两道 1.2 闸都有余量。
     const mean = (t: EncounterTable): number => sum(normals(t).map(roomHp)) / normals(t).length;
     expect(mean(ACT2) / mean(ACT1)).toBeGreaterThan(1.2);
     expect(mean(ACT3) / mean(ACT2)).toBeGreaterThan(1.2);
@@ -259,9 +258,9 @@ describe('三幕的数值梯度', () => {
    */
   it('does not let the worst turn a normal room can produce fall, act by act', () => {
     expect(sum(normals(ACT1).map(roomPeak))).toBe(155);
-    expect(sum(normals(ACT2).map(roomPeak))).toBe(128);
-    expect(sum(normals(ACT3).map(roomPeak))).toBe(185);
-    // Mean per room: 17.2 → 21.3 → 23.1（军屯列垒 24 · 发丘筹饷 27 计入后）.
+    expect(sum(normals(ACT2).map(roomPeak))).toBe(202);
+    expect(sum(normals(ACT3).map(roomPeak))).toBe(212);
+    // Mean per room: 17.2 → 22.4 → 23.6（新 3 敌房峰伤天然 ~27/30/27，仍严格递增）.
     const mean = (t: EncounterTable): number => sum(normals(t).map(roomPeak)) / normals(t).length;
     expect(mean(ACT2)).toBeGreaterThan(mean(ACT1));
     expect(mean(ACT3)).toBeGreaterThan(mean(ACT2));
@@ -449,7 +448,7 @@ describe('advanceAct', () => {
     const again = [...run.map.nodes.values()].find((n) => n.type === 'monster')!.id;
     const second = ensureEncounter(run, again, 'monster');
     expect(['m1', 'm3', 'm5', 'm2', 'm4', 'm6', 'm7', 'm8', 'm9']).toContain(first.id);
-    expect(['m10', 'm11', 'm12', 'm13', 'm14', 'm15']).toContain(second.id);
+    expect(['m10', 'm11', 'm12', 'm24', 'm13', 'm14', 'm15', 'm25', 'm26']).toContain(second.id);
   });
 
   it('carries 牌组 / 宝物 / 丹药 / 资财 across the seam untouched', () => {
@@ -503,7 +502,7 @@ describe('advanceAct', () => {
     // 每一段都在 clearBoss 之后取样再断言：clearBoss 收下的首领宝物可以
     // 合法地移动 hp/上限（独断的 +12 走 addRelic 的同步抬升），被测的只是
     // advanceAct 的幕间回血本身。
-    clearBoss(run, true); // decline for the 宝钥
+    clearBoss(run, true); // decline in 第一幕 — a pure pass, no key; heal is what's under test
     let before = run.hp;
     advanceAct(run);
     expect(run.act).toBe(2);
@@ -528,7 +527,7 @@ describe('advanceAct', () => {
   it('lands 终章 on the hand-built three-room map', () => {
     const run = fresh('finale');
     for (let i = 0; i < 3; i++) {
-      clearBoss(run, i === 0);
+      clearBoss(run, i === 2);
       advanceAct(run);
     }
     expect(run.act).toBe(4);
@@ -547,7 +546,7 @@ describe('advanceAct', () => {
     const toFinale = (seed: string): RunState => {
       const run = fresh(seed);
       for (let i = 0; i < 3; i++) {
-        clearBoss(run, i === 0);
+        clearBoss(run, i === 2);
         advanceAct(run);
       }
       return run;
@@ -572,7 +571,7 @@ describe('advanceAct', () => {
   it('runs out of acts rather than looping', () => {
     const run = fresh('overrun');
     for (let i = 0; i < 3; i++) {
-      clearBoss(run, i === 0);
+      clearBoss(run, i === 2);
       advanceAct(run);
     }
     clearBoss(run);
@@ -617,12 +616,18 @@ describe('终章的门', () => {
     expect(actExit(run)).toBe('victory');
   });
 
-  it('mints the 宝钥 from declining a 首领 chest, and from nothing else', () => {
+  it('mints the 宝钥 only from declining the 第三幕 chest', () => {
     const taken = fresh('taken');
     clearBoss(taken, false);
     expect(taken.keys.sapphire).toBe(false);
 
+    const early = fresh('early-decline');
+    clearBoss(early, true); // 第一幕拒收：纯放弃，不铸钥匙。
+    expect(early.keys.sapphire).toBe(false);
+    expect(early.relics).toEqual([DEFAULT_HERO.starterRelic]);
+
     const declined = fresh('declined');
+    declined.act = 3; // takeBossRelic 只看 run.act；不必真走三幕。
     clearBoss(declined, true);
     expect(declined.keys.sapphire).toBe(true);
     expect(declined.relics).toEqual([DEFAULT_HERO.starterRelic]);
@@ -633,7 +638,7 @@ describe('终章的门', () => {
 
 describe('ensureEncounter 按幕取表', () => {
   it('draws 第二幕 fights on a 第二幕 map, over many seeds', () => {
-    const ACT2_MONSTERS = ['m10', 'm11', 'm12', 'm13', 'm14', 'm15'];
+    const ACT2_MONSTERS = ['m10', 'm11', 'm12', 'm24', 'm13', 'm14', 'm15', 'm25', 'm26'];
     for (let s = 0; s < 40; s++) {
       const run = fresh(`table-${s}`);
       clearBoss(run);
@@ -659,8 +664,8 @@ describe('ensureEncounter 按幕取表', () => {
         .map((n) => n.id)
         .slice(0, 4);
       const drawn = nodes.map((id) => ensureEncounter(run, id, 'monster').id);
-      expect(drawn.slice(0, 2).every((id) => ['m10', 'm11', 'm12'].includes(id))).toBe(true);
-      expect(drawn.slice(2).every((id) => ['m13', 'm14', 'm15'].includes(id))).toBe(true);
+      expect(drawn.slice(0, 2).every((id) => ['m10', 'm11', 'm12', 'm24'].includes(id))).toBe(true);
+      expect(drawn.slice(2).every((id) => ['m13', 'm14', 'm15', 'm25', 'm26'].includes(id))).toBe(true);
     }
   });
 

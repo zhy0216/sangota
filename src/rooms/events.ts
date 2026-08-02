@@ -119,8 +119,9 @@ export function isResolved(run: RunState, nodeId: string): boolean {
  * that adding an event to the table cannot change how many numbers a node
  * pulls (R3).
  *
- * De-duplication is against the whole pool and not just `once` events: 3.14
- * event rooms against twelve events means a repeat is the *norm* without it.
+ * De-duplication is against the whole pool and not just `once` events: a run
+ * enters ~9–10 event rooms (per *run* — the old 3.14 was one act's worth),
+ * and nine draws against twenty ids collide far more often than not.
  * When the pool runs dry the repeats are let back in, minus anything flagged
  * `once` — that flag outlives the exhaustion, which is the whole of what it
  * means.
@@ -501,9 +502,11 @@ function describe(report: OutcomeReport): string[] {
   if (report.maxHp !== 0) {
     lines.push(`体力上限 ${report.maxHp > 0 ? '+' : ''}${report.maxHp}。`);
   }
-  // The max-HP heal is already inside `hp`; calling it out twice would read as
-  // two separate gains.
-  const woundOrCure = report.hp - report.maxHp;
+  // Only a *positive* ceiling change carries an implicit heal (a gain heals
+  // for what it grants); a loss must not be re-billed as extra cure — 于吉符水
+  // pairs `healToFull` with `maxHp: -4`, and the old line read a 48-点 heal
+  // as 「回复体力 52」.
+  const woundOrCure = report.hp - Math.max(0, report.maxHp);
   if (woundOrCure > 0) lines.push(`回复体力 ${woundOrCure}。`);
   else if (woundOrCure < 0) lines.push(`失去体力 ${-woundOrCure}。`);
   if (report.lethal) lines.push('伤重不治，命陨于此。');

@@ -66,8 +66,8 @@ function allOutcomes(): { event: string; option: string; outcome: EventOutcome }
 // --------------------------------------------------------------- the content
 
 describe('the event table', () => {
-  it('ships twelve playable events plus a floor', () => {
-    expect(EVENTS.length).toBeGreaterThanOrEqual(10);
+  it('ships twenty playable events plus a floor', () => {
+    expect(EVENTS.length).toBeGreaterThanOrEqual(20);
     expect(EVENTS.some((d) => d.id === FALLBACK_EVENT.id)).toBe(false);
   });
 
@@ -139,6 +139,8 @@ describe('the event table', () => {
       'yuxichenjiang:沉之于江',
       'zuijiuzhangfei:夺坛劝止',
       'huangjingwuren:拾而藏之',
+      'baimenlou:明正典刑',
+      'hanshuibaoyi:掩堤缓进',
     ]);
 
     // A branched option is judged whole: 开颅去疾's price is its own 30% side,
@@ -369,6 +371,7 @@ describe('ensureEvent', () => {
     for (const [id, floor] of [
       ['wuzhangyuan', 8],
       ['wolonggang', 4],
+      ['baizouhuarong', 6],
     ] as const) {
       expect(getEvent(id).minRow).toBe(floor);
       for (let s = 0; s < 40; s++) {
@@ -1145,6 +1148,18 @@ describe('the narration a player actually reads', () => {
     expect(grow.lines.join()).not.toContain('回复体力');
   });
 
+  it('does not bill a lost ceiling as extra cure', () => {
+    // 于吉符水 is the first outcome to pair `healToFull` with a *negative*
+    // `maxHp`. The old `report.hp - report.maxHp` re-billed the loss as cure:
+    // a 48-点 heal read as 「回复体力 52」. Only a positive ceiling change
+    // carries an implicit heal.
+    const run = fresh('narrate-ceiling');
+    run.hp = 30;
+    const report = applyOutcome(run, { text: '', maxHp: -4, healToFull: true }, new Rng('n'));
+    expect(report.lines).toContain('体力上限 -4。');
+    expect(report.lines).toContain(`回复体力 ${run.hp - 30}。`);
+  });
+
   it('says so when the shelf was bare and coin stood in', () => {
     const run = fresh('narrate-refused');
     for (const def of relicsOfTier('common')) addRelic(run, def.id);
@@ -1295,5 +1310,157 @@ describe('a fight an 奇遇 started gets its own ledger', () => {
       combatScene.indexOf('\n  }', combatScene.indexOf('  init(data:')),
     );
     expect(init).toContain('this.ledgerId = data?.nodeId ?? null');
+  });
+});
+
+// ------------------------------------------------------------- 二十池的新八事
+
+/**
+ * 每个新事件一组数字断言，延续「三个没人点名的事件」的教训：没有被点名的
+ * 数字就是可以随意漂移的数字。分支事件按 华佗 的办法扫种子，比率给宽带
+ * （65% ±3σ@200 在 0.55–0.75，35%/45% 同理，带宽再放半档）。
+ */
+describe('the eight events of the wider pool', () => {
+  const take = (eventId: string, index: number, seed: string): { run: RunState; id: string; report: ReturnType<typeof chooseOption> } => {
+    const run = fresh(seed);
+    const id = eventNode(run);
+    pin(run, id, eventId);
+    return { run, id, report: chooseOption(run, id, index) };
+  };
+
+  it('月旦评 · 依评黜陟 swaps exactly two cards and keeps the deck the same size', () => {
+    const { run, id, report } = take('yuedanping', 0, 'ydp-0');
+    expect(report!.pending).toEqual({ kind: 'transform', count: 2 });
+    const size = run.deck.length;
+    const uids = run.deck.slice(0, 2).map((c) => c.uid);
+    expect(resolvePending(run, id, uids)).toBe(true);
+    expect(run.deck.length).toBe(size);
+    for (const uid of uids) expect(run.deck.map((c) => c.uid)).not.toContain(uid);
+  });
+
+  it('呼卢喝雉 bars the table below 50 資財 and settles ±50 at house odds', () => {
+    const broke = fresh('hlz-broke');
+    const bid = eventNode(broke);
+    pin(broke, bid, 'huluhezhi');
+    broke.gold = 49;
+    expect(eventOptions(broke, bid)[0].disabled).toBe(true);
+    expect(eventOptions(broke, bid)[0].disabledReason).toBe('需 50 资财');
+    expect(chooseOption(broke, bid, 0)).toBeNull();
+
+    let wins = 0;
+    for (let i = 0; i < 400; i++) {
+      const { report } = take('huluhezhi', 0, `hlz-${i}`);
+      expect(Math.abs(report!.gold)).toBe(50);
+      if (report!.gold > 0) wins += 1;
+    }
+    // 45% 的胜面，55% 的庄家——EV −5，抽头明码。
+    expect(wins / 400).toBeGreaterThan(0.35);
+    expect(wins / 400).toBeLessThan(0.55);
+  });
+
+  it('青梅煮酒 pours two bottles or plants 疑心, at roughly 65/35', () => {
+    let bottles = 0;
+    let doubts = 0;
+    for (let i = 0; i < 200; i++) {
+      const { run, report } = take('qingmeizhujiu', 0, `qmz-${i}`);
+      if (report!.curseIds.length > 0) {
+        expect(report!.curseIds).toEqual(['yixin']);
+        expect(run.deck.at(-1)!.defId).toBe('yixin');
+        expect(report!.potionIds).toHaveLength(0);
+        doubts += 1;
+      } else {
+        expect(report!.potionIds.length + report!.potionRefused).toBe(2);
+        bottles += 1;
+      }
+    }
+    expect(bottles + doubts).toBe(200);
+    expect(bottles / 200).toBeGreaterThan(0.5);
+    expect(bottles / 200).toBeLessThan(0.8);
+  });
+
+  it('白门楼 · 松绑而纳 hands two distinct 罕见 cards with 反噬 chained on', () => {
+    const { run, report } = take('baimenlou', 0, 'bml-0');
+    expect(report!.cardIds).toHaveLength(2);
+    expect(new Set(report!.cardIds).size).toBe(2);
+    for (const cardId of report!.cardIds) {
+      expect(CARD_POOL_BY_RARITY.uncommon).toContain(cardId);
+    }
+    expect(report!.curseIds).toEqual(['fanshi']);
+    expect(run.deck.at(-1)!.defId).toBe('fanshi');
+  });
+
+  it('白门楼 · 明正典刑 pays 55 and leaves the deck alone', () => {
+    const { run, report } = take('baimenlou', 1, 'bml-1');
+    expect(report!.gold).toBe(55);
+    expect(run.deck.some((c) => c.defId === 'fanshi')).toBe(false);
+  });
+
+  it('文姬归汉 wants the full hundred before it opens, then charges it whole', () => {
+    const run = fresh('wjg-gate');
+    const id = eventNode(run);
+    pin(run, id, 'wenjiguihan');
+    // 开局 99 資財——差一金，门就不开。
+    const views = eventOptions(run, id);
+    expect(views[0].disabled).toBe(true);
+    expect(views[0].disabledReason).toBe('需 100 资财');
+
+    run.gold = 150;
+    const report = chooseOption(run, id, 0)!;
+    expect(report.gold).toBe(-100);
+    expect(run.gold).toBe(50);
+    expect(report.pending).toEqual({ kind: 'remove', count: 2 });
+    const size = run.deck.length;
+    expect(resolvePending(run, id, run.deck.slice(0, 2).map((c) => c.uid))).toBe(true);
+    expect(run.deck.length).toBe(size - 2);
+  });
+
+  it('于吉符水 heals to a ceiling four lower, and says both numbers straight', () => {
+    const run = fresh('yjf-0');
+    const id = eventNode(run);
+    pin(run, id, 'yujifushui');
+    run.hp = 30;
+    const report = chooseOption(run, id, 0)!;
+    expect(run.maxHp).toBe(DEFAULT_HERO.maxHp - 4);
+    expect(run.hp).toBe(run.maxHp);
+    expect(report.maxHp).toBe(-4);
+    expect(report.lines).toContain('体力上限 -4。');
+    expect(report.lines).toContain(`回复体力 ${DEFAULT_HERO.maxHp - 4 - 30}。`);
+  });
+
+  it('败走华容 · 依令擒之 pays a 罕见 up front and closes into a monster fight', () => {
+    const { run, id, report } = take('baizouhuarong', 0, 'bzh-0');
+    expect(RELICS[report!.relicId!].tier).toBe('uncommon');
+    expect(run.relics).toContain(report!.relicId!);
+    expect(report!.fight).toEqual({ tier: 'monster' });
+    expect(isResolved(run, id)).toBe(true);
+  });
+
+  it('败走华容 keeps the chase behind the risk floor', () => {
+    const run = fresh('bzh-floor');
+    const id = eventNode(run);
+    pin(run, id, 'baizouhuarong');
+    run.hp = Math.floor(run.maxHp * 0.25);
+    expect(eventOptions(run, id)[0].disabled).toBe(true);
+    expect(chooseOption(run, id, 0)).toBeNull();
+  });
+
+  it('败走华容 · 念旧放行 heals to full and hangs 宿命 over the deck', () => {
+    const run = fresh('bzh-1');
+    const id = eventNode(run);
+    pin(run, id, 'baizouhuarong');
+    run.hp = 25;
+    const report = chooseOption(run, id, 1)!;
+    expect(run.hp).toBe(run.maxHp);
+    expect(report.curseIds).toEqual(['suming']);
+  });
+
+  it('汉水暴溢 charges 12 体力 for a 罕见, or pays 35 for mercy', () => {
+    const a = take('hanshuibaoyi', 0, 'hsb-0');
+    expect(a.report!.hp).toBe(-12);
+    expect(RELICS[a.report!.relicId!].tier).toBe('uncommon');
+
+    const b = take('hanshuibaoyi', 1, 'hsb-1');
+    expect(b.report!.gold).toBe(35);
+    expect(b.report!.hp).toBe(0);
   });
 });

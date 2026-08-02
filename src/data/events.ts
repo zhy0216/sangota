@@ -77,8 +77,8 @@ export interface EventOutcome {
   /**
    * 易牌: the picked copies are shed and replaced with random cards of the same
    * rarity band (`transformRarity` maps 起手牌's `basic` onto `common`, which is
-   * the only rarity a pool can actually deal). No 奇遇 uses it today — 开局祝福
-   * (todos/18) is what it exists for.
+   * the only rarity a pool can actually deal). 月旦评 asks for it from the table;
+   * 开局祝福 (todos/18) parks the same shape on run.blessing.
    */
   transformCards?: number;
   /** Hands the player to `CombatScene`. The room is over either way. */
@@ -139,8 +139,11 @@ export const RISK_FLOOR_TEXT = '伤重难行，此事做不得。';
 // -------------------------------------------------------------------- the table
 
 /**
- * Twelve, against ~3.14 event rooms a run: the pool is wide enough that two
- * runs rarely rhyme, and `seenEvents` de-duplicates within a run regardless.
+ * Twenty, against ~9–10 event rooms a run — 0.22 pool weight over the ~36
+ * rollable floors of three acts (the old 「~3.14」 was one act's expectation
+ * wearing a per-run label). With `seenEvents` de-duplicating inside a run, a
+ * run sees about half the table, and two runs share ~4–5 entries (9.5²⁄20);
+ * at twelve they shared ~7–8 of ~9.5, and every second run was a rerun.
  */
 export const EVENTS: EventDef[] = [
   {
@@ -498,12 +501,270 @@ export const EVENTS: EventDef[] = [
       },
     ],
   },
+
+  {
+    id: 'yuedanping',
+    name: '月旦评',
+    sub: '汝南 · 月旦之期',
+    minRow: 2,
+    body: '汝南许氏月旦设评，一句褒贬，足定终身。\n你把麾下诸人名帖尽数递了上去。\n评语张出那日，营门外有人连夜卷了行装。',
+    options: [
+      {
+        // 全表第一处 transformCards——同稀有度换血，非弃非精进。`eventView`
+        // 的易牌栅格与 `resolvePending` 的 `blessingTransform` 流早已就位。
+        label: '依评黜陟',
+        hint: '择两张牌易之，各得同稀有度随机一张',
+        outcome: {
+          text: '朱批既下，旧人自去，新人自来。名帖收回时，营中气象已是一新。',
+          transformCards: 2,
+        },
+      },
+      {
+        label: '付之一笑',
+        hint: '毫无所得',
+        outcome: { text: '虚名月旦，臧否由人。名帖收回袖中，该带的兵还是这些。' },
+      },
+    ],
+  },
+
+  {
+    id: 'huluhezhi',
+    name: '呼卢喝雉',
+    sub: '军市 · 上灯时分',
+    minRow: 2,
+    body: '军市尽头围得水泄不通，五木掷得山响，呼卢喝雉之声不绝。\n庄家抬眼，把一把五铢推到你面前：\n「客官印堂发亮，是要发财的面相。来一把？」',
+    options: [
+      {
+        // 全表唯一的纯赌局，点缀而非主菜：赔率印在 hint 上（EV −5，庄家
+        // 抽头明摆着），一注即散——绝不 repeatable，赢面分支无血价，repeat
+        // 即水龙头。负 gold 依约定以 requires 把守，钱袋见底赌不了。
+        label: '押五十金',
+        hint: '四成半 资财 +50；五成半 资财 -50',
+        tone: 'gold',
+        requires: (run) => run.gold >= 50,
+        requiresText: '需 50 资财',
+        outcome: {
+          text: '',
+          branches: [
+            {
+              weight: 45,
+              outcome: { text: '五木齐黑，一掷成卢，满场哄然。庄家脸色发青，如数赔付。', gold: 50 },
+            },
+            {
+              weight: 55,
+              outcome: { text: '差一子成卢。钱进了庄家袖中，围观的人替你叹了一声。', gold: -50 },
+            },
+          ],
+        },
+      },
+      {
+        label: '袖手旁观',
+        hint: '毫无所得',
+        outcome: { text: '你看了三把，庄家赢了三把。钱袋按得更紧，转身出了灯影。' },
+      },
+    ],
+  },
+
+  {
+    id: 'qingmeizhujiu',
+    name: '青梅煮酒',
+    sub: '许都 · 梅子青时',
+    minRow: 3,
+    body: '曹公相邀，小亭对坐，青梅煮酒正沸。\n他忽然放箸，遥指天边龙挂：「君观天下，谁堪称英雄？」\n亭外雷云低垂。这一问，答错了是要掉头的。',
+    options: [
+      {
+        label: '从容对答',
+        hint: '六成半 得两瓶丹药；三成半 牌组混入诅咒【疑心】',
+        tone: 'danger',
+        outcome: {
+          text: '',
+          branches: [
+            {
+              weight: 65,
+              outcome: {
+                text: '雷声恰过头顶，你俯身拾箸，惊惧掩作了从容。曹公抚掌大笑，临别以青梅酒两瓶相赠。',
+                gainPotion: 2,
+              },
+            },
+            {
+              // 被疑者自此多疑——【疑心】长在被盯上的人身上。
+              weight: 35,
+              outcome: {
+                text: '「天下英雄——」他盯着你，后半句终究没有说完。自此你总觉得背后悬着一道目光。',
+                gainCurse: 'yixin',
+              },
+            },
+          ],
+        },
+      },
+      {
+        label: '托病辞席',
+        hint: '毫无所得',
+        outcome: { text: '回帖称病。青梅自青，酒自沸，有些席面，不入座才是全身之道。' },
+      },
+    ],
+  },
+
+  {
+    id: 'baimenlou',
+    name: '白门楼',
+    sub: '下邳 · 建安三年',
+    minRow: 4,
+    body: '城破之日，白门楼下缚着一员虓将，三姓的旧主都没能拴住他。\n他抬眼看你：「缚太急，可少宽乎？」\n此人骁勇冠绝当世，只是刀太快的，从来不问主人是谁。',
+    options: [
+      {
+        // 两张罕见换一张【反噬】：养虎的利与养虎的价。牌是即时的锋，
+        // 咒是留在手里的牙——弑其两父者，价目表上早写好了。
+        label: '松绑而纳',
+        hint: '牌组加入两张随机罕见牌，混入诅咒【反噬】',
+        tone: 'danger',
+        outcome: {
+          text: '狼骑编入前营，锋锐无两。当夜起，你把佩刀挪到了枕边。',
+          gainCards: { count: 2, rarity: 'uncommon' },
+          gainCurse: 'fanshi',
+        },
+      },
+      {
+        // 桃园式二选一的另一半：价即是放弃上一项。FREE_BY_DESIGN 登记。
+        label: '明正典刑',
+        hint: '资财 +55',
+        tone: 'gold',
+        outcome: {
+          text: '楼下一声令下，绳套收紧。并州军的辎重造册入库，营中睡了个安稳觉。',
+          gold: 55,
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'wenjiguihan',
+    name: '文姬归汉',
+    sub: '南匈奴 · 十二年后',
+    minRow: 5,
+    body: '胡帐深处传出汉家琴音，弹琴人鬓边已见霜色。\n通译低声说：左贤王开价百金，赎与不赎，只在一句话。\n她囊中无金无帛，只有默写下来的亡书残卷。',
+    options: [
+      {
+        // 全表第一处拿弃牌当商品卖的事件（坊市外唯一的弃牌门）。负 gold
+        // 依约定必须挂 requires——`addGold` 在零处钳位，不设门就是暗降价。
+        label: '以百金赎之',
+        hint: '费 100 资财，择两张牌弃之',
+        requires: (run) => run.gold >= 100,
+        requiresText: '需 100 资财',
+        outcome: {
+          text: '百金付讫，琴随车行。归途中她为你校订兵册，朱笔勾去芜杂两篇。',
+          gold: -100,
+          removeCards: 2,
+        },
+      },
+      {
+        label: '叹而去之',
+        hint: '毫无所得',
+        outcome: { text: '琴音又起，已换作胡笳的调子。你在帐外立了片刻，终究拨马而去。' },
+      },
+    ],
+  },
+
+  {
+    id: 'yujifushui',
+    name: '于吉符水',
+    sub: '吴会 · 城门之下',
+    minRow: 5,
+    body: '城门下设着香案，一名道人以符水施药，饮者皆言沉疴立去。\n将佐劝你也求一盏。\n也有人低声提醒：孙讨逆，就是为这道人送的命。',
+    options: [
+      {
+        // 全表第一处负 maxHp 作价：满血急救按天花板计息。次序无虞——
+        // `applyOutcome` 先动上限后 `healToFull`，回满回的是降过的顶。
+        label: '求符水一盏',
+        hint: '体力回满，体力上限 -4',
+        tone: 'danger',
+        outcome: {
+          text: '符灰入水，一饮而尽。宿疾霍然而愈，只是自此总觉中气短了一口。',
+          healToFull: true,
+          maxHp: -4,
+        },
+      },
+      {
+        label: '拂袖不受',
+        hint: '毫无所得',
+        outcome: { text: '道人也不恼，只朝你稽首一礼。身后的人群又跪下去一片。' },
+      },
+    ],
+  },
+
+  {
+    id: 'baizouhuarong',
+    name: '败走华容',
+    sub: '华容小道 · 大雨初歇',
+    once: true,
+    minRow: 6,
+    body: '败军自赤壁来，烧残的旌旗拖在泥里，人马塞满了半条窄道。\n为首者于马上欠身，笑得从容：「将军别来无恙？」\n旧年的恩，今日的功，两样只能全一样。',
+    options: [
+      {
+        // 江东赴宴的低阶镜像：罕见宝物先落袋、随之的是残军（monster 而非
+        // 精英）。fight 依约定押 RISK_FLOOR。人还是走脱了——史归史。
+        label: '依令擒之',
+        hint: '先得一件罕见宝物，随即与残军死斗',
+        tone: 'danger',
+        requires: RISK_FLOOR,
+        requiresText: RISK_FLOOR_TEXT,
+        outcome: {
+          text: '残军困兽犹斗，虎卫拼死护主，终究还是让他走脱了。乱阵中缴得他遗下的行装。',
+          gainRelic: { tier: 'uncommon' },
+          fight: { tier: 'monster' },
+        },
+      },
+      {
+        // 军令状悬颈——恩义两清换一纸【宿命】。无退项是本意：立于华容道口，
+        // 没有「绕着走」这个选项。
+        label: '念旧放行',
+        hint: '体力回满，牌组混入诅咒【宿命】',
+        tone: 'danger',
+        outcome: {
+          text: '你勒马让开半条道。败军过尽，泥水里只余蹄印——军令状上的墨迹，忽然重了千斤。',
+          healToFull: true,
+          gainCurse: 'suming',
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'hanshuibaoyi',
+    name: '汉水暴溢',
+    sub: '襄樊 · 秋霖不止',
+    minRow: 7,
+    body: '秋雨连绵十日，汉水在堤内翻涌如沸。\n低处扎着敌军七营，旗号泡得发白，鼓声都是潮的。\n只需掘开一道口子，水会替你打完这一仗。',
+    options: [
+      {
+        // 官渡焚粮的第二级阶梯：10 血买普通在第 3 行，12 血买罕见在第 7 行。
+        label: '决堤灌之',
+        hint: '失 12 体力，得一件罕见宝物',
+        tone: 'danger',
+        outcome: {
+          text: '你亲执锹钁立于堤上，寒雨彻骨。水声过处，七营俱没，浮获满江。',
+          hp: -12,
+          gainRelic: { tier: 'uncommon' },
+        },
+      },
+      {
+        // 仁者的那一半，价是放弃满江浮获。FREE_BY_DESIGN 登记。
+        label: '掩堤缓进',
+        hint: '资财 +35',
+        tone: 'gold',
+        outcome: {
+          text: '你使人卷埽固堤，引军绕行。低处的百姓箪食壶浆，粮官收了几车谢礼。',
+          gold: 35,
+        },
+      },
+    ],
+  },
 ];
 
 /**
  * The floor under the pool. Never in `EVENTS`, so it is never rolled and never
  * de-duplicated — it only appears when every real event has been spent, which
- * takes thirteen event rooms in one run.
+ * takes twenty-one event rooms in one run.
  */
 export const FALLBACK_EVENT: EventDef = {
   id: 'huangjingwuren',

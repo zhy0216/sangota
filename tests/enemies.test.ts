@@ -9,9 +9,10 @@ import {
   allEncounters,
   getEncounter,
   getEnemy,
+  phaseOf,
   pickEncounter,
 } from '../src/combat/enemies';
-import { intentLabel } from '../src/combat/intent';
+import { intentKindOf, intentLabel } from '../src/combat/intent';
 import {
   addStatus,
   endPlayerTurn,
@@ -430,6 +431,25 @@ describe('脚本化意图', () => {
       'autumnwind,lifespan,wuzhang,defy,starfall,dust,autumnwind,lifespan,wuzhang,defy,starfall,dust,autumnwind',
   };
 
+  const PHASE_LOOPS: Record<string, { phase: string; beats: string }> = {
+    zhangliang: {
+      phase: 'huangtian',
+      beats: 'fushen,yaofeng,zhouhuo,jiangshi,fushen,yaofeng,zhouhuo,jiangshi,fushen',
+    },
+    liru: {
+      phase: 'duji',
+      beats: 'zhendu,quchi,yinmou,juedu,zhendu,quchi,yinmou,juedu,zhendu',
+    },
+    xiahouyuan: {
+      phase: 'shensu',
+      beats: 'duanliang,fenliang,qingqi,changqu,duanliang,fenliang,qingqi,changqu,duanliang',
+    },
+    tianming: {
+      phase: 'tianshu',
+      beats: 'xingchen,juxing,tianqing,xingchen,juxing,tianqing,xingchen',
+    },
+  };
+
   it('covers every scripted enemy in the game', () => {
     const scripted = Object.values(ENEMIES)
       .filter((def) => def.script)
@@ -453,6 +473,73 @@ describe('脚本化意图', () => {
       expect(seen.join(',')).toBe(expected);
     });
   }
+
+  it('covers every alternate phase in the game', () => {
+    const phased = Object.values(ENEMIES)
+      .filter((def) => def.phases)
+      .map((def) => def.id)
+      .sort();
+    expect(phased).toEqual(Object.keys(PHASE_LOOPS).sort());
+    for (const [id, row] of Object.entries(PHASE_LOOPS)) {
+      expect(Object.keys(ENEMIES[id].phases ?? {}).sort(), id).toEqual([row.phase]);
+    }
+  });
+
+  for (const [id, row] of Object.entries(PHASE_LOOPS)) {
+    it(`${ENEMIES[id].name} runs its second-phase rotation from the first beat`, () => {
+      const state = probe([id], `phase-loop-${id}`);
+      const enemy = state.enemies[0];
+      enemy.phase = row.phase;
+      const beats = row.beats.split(',');
+      const seen = beats.map((_, i) => {
+        enemy.actedTurns = i;
+        pickIntent(state, enemy);
+        return enemy.intent!.id;
+      });
+      expect(seen.join(',')).toBe(row.beats);
+    });
+  }
+
+  it('crosses each half-HP line once, resets the script and telegraphs its shout', () => {
+    for (const [id, row] of Object.entries(PHASE_LOOPS)) {
+      const state = probe([id], `phase-threshold-${id}`);
+      const enemy = state.enemies[0];
+      drain(state);
+
+      hit(state, enemy, Math.ceil(enemy.maxHp / 2));
+      expect(enemy.phase, id).toBe(row.phase);
+      expect(enemy.actedTurns, id).toBe(0);
+      expect(enemy.intent?.id, id).toBe(row.beats.split(',')[0]);
+      expect(enemy.crossed, id).toEqual([0]);
+      expect(drain(state).some((event) => event.t === 'shout'), id).toBe(true);
+
+      hit(state, enemy, 1);
+      expect(enemy.crossed, id).toEqual([0]);
+      expect(drain(state).some((event) => event.t === 'shout'), id).toBe(false);
+    }
+  });
+
+  it('classifies the four safe opening beats as pure debuffs', () => {
+    for (const [id, row] of Object.entries(PHASE_LOOPS)) {
+      const state = probe([id], `phase-kind-${id}`);
+      const enemy = state.enemies[0];
+      enemy.phase = row.phase;
+      enemy.actedTurns = 1;
+      const move = phaseOf(getEnemy(id), row.phase).moves[0];
+      expect(intentKindOf(state, enemy, move), id).toBe('debuff');
+    }
+  });
+
+  it('rolls no dice when an alternate scripted phase is telegraphed', () => {
+    for (const [id, row] of Object.entries(PHASE_LOOPS)) {
+      const state = probe([id], `phase-rolls-${id}`);
+      const enemy = state.enemies[0];
+      enemy.phase = row.phase;
+      const before = state.rng.rolls;
+      pickIntent(state, enemy);
+      expect(state.rng.rolls, id).toBe(before);
+    }
+  });
 
   it('indexes off the enemy, not the turn counter', () => {
     // A summon that joins on turn 4 starts its own script at the beginning; the
@@ -830,6 +917,14 @@ describe('the enemy table holds together', () => {
     }
   });
 
+  it('resolves every named phase instead of silently falling back to the default table', () => {
+    for (const def of Object.values(ENEMIES)) {
+      for (const name of Object.keys(def.phases ?? {})) {
+        expect(phaseOf(def, name), `${def.id}.${name}`).not.toBe(def);
+      }
+    }
+  });
+
   it('gives every enemy a move it can always reach', () => {
     for (const def of Object.values(ENEMIES)) {
       const ungated = def.moves.filter((m) => !m.when);
@@ -873,6 +968,9 @@ describe('goldReward', () => {
     m13: [20, 27],
     m14: [21, 27],
     m15: [20, 27],
+    m24: [16, 24],
+    m25: [21, 27],
+    m26: [20, 27],
     // 第三幕 · 征汉中
     m16: [20, 27],
     m17: [19, 26],
@@ -882,6 +980,7 @@ describe('goldReward', () => {
     m21: [23, 27],
     m22: [19, 26],
     m23: [22, 27],
+    m27: [22, 27],
     e1: [28, 42],
     e2: [28, 42],
     e3: [28, 42],

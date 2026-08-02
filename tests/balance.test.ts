@@ -65,13 +65,18 @@ function bodiesOf(encounterId: string): string[] {
 /** The one number per move that a balance pass would reach for. */
 const swing = (m: EnemyMove): number => (m.damage ?? 0) * (m.hits ?? 1) + (m.loseHp ?? 0);
 
+const thresholdLine = (t: NonNullable<EnemyDef['thresholds']>[number]): string => {
+  if (t.phase) return `@${t.percent} phase ${t.phase}`;
+  return `@${t.percent} ${JSON.stringify(t.gain ?? t.split)}`;
+};
+
 /** A body's whole tunable surface, flattened to something readable in a diff. */
 const statLine = (def: EnemyDef): string =>
   [
     `hp ${def.hp[0]}-${def.hp[1]}`,
     ...def.moves.map((m) => `${m.id} ${swing(m)}×${m.weight ?? 0}`),
     ...(def.passives ? [`passive ${JSON.stringify(def.passives)}`] : []),
-    ...(def.thresholds ?? []).map((t) => `@${t.percent} ${JSON.stringify(t.gain ?? t.split)}`),
+    ...(def.thresholds ?? []).map(thresholdLine),
   ].join(' · ');
 
 /**
@@ -93,7 +98,8 @@ const FROZEN: Record<string, string> = {
     'hp 76-84 · axe 13×3 · bellow 0×1 · deathfight 12×3 · passive {"angry":1} · @50 {"strength":2}',
   zhangmancheng: 'hp 38-46 · hack 8×3 · muster 0×3 · banner 0×2',
   lubu: 'hp 150-150 · ji 16×3 · storm 18×2 · sunder 9×2 · peerless 0×1',
-  zhangliang: 'hp 155-155 · curse 8×0 · gale 18×0 · sigil 0×0 · drums 5×0 · surge 22×0',
+  zhangliang:
+    'hp 155-155 · curse 8×0 · gale 18×0 · sigil 0×0 · drums 5×0 · surge 22×0 · @50 phase huangtian',
   zhangbao:
     'hp 150-150 · heaven 18×3 · mire 9×2 · ward 0×1 · @50 {"defId":"zhangbaofenshen","count":2}',
   zhangbaofenshen: 'hp 1-1 · phantom 12×3 · gather 0×1',
@@ -130,8 +136,55 @@ const damageLine = (def: EnemyDef): string =>
       (m) => `${m.id} ${m.damage ?? 0}x${m.hits ?? 1}+${m.loseHp ?? 0}@${m.weight ?? 0}`,
     ),
     ...(def.passives ? [`passive ${JSON.stringify(def.passives)}`] : []),
-    ...(def.thresholds ?? []).map((t) => `@${t.percent} ${JSON.stringify(t.gain ?? t.split)}`),
+    ...(def.thresholds ?? []).map(thresholdLine),
   ].join(' · ');
+
+/**
+ * Alternate phases are outside `def.moves`, so neither frozen surface above
+ * sees their numbers. Keep the phase's whole combat payload compactly visible:
+ * damage/hits/direct loss, block, one status rider and one card rider are every
+ * field the four shipped phase tables use.
+ */
+const phaseSurface = (def: EnemyDef): string =>
+  Object.entries(def.phases ?? {})
+    .map(([name, phase]) => {
+      const script = phase.script
+        ? `${phase.script.order.join('>')}@${phase.script.loopFrom}`
+        : 'rolled';
+      const moves = phase.moves.map((m) => {
+        const status = m.status
+          ? `${m.status.status}${m.status.amount}->${m.status.to}`
+          : '-';
+        const cards = m.addCards
+          ? `${m.addCards.defId}${m.addCards.count}->${m.addCards.to}`
+          : '-';
+        return (
+          `${m.id}:${m.damage ?? 0}x${m.hits ?? 1}+${m.loseHp ?? 0}` +
+          `/b${m.block ?? 0}/${status}/${cards}`
+        );
+      });
+      return `${name}[${script}] ${moves.join(' · ')}`;
+    })
+    .join(' || ');
+
+const PHASE_SURFACES: Record<string, string> = {
+  zhangliang:
+    'huangtian[fushen>yaofeng>zhouhuo>jiangshi@0] ' +
+    'fushen:0x1+0/b0/entangled1->player/- · yaofeng:7x3+0/b0/-/- · ' +
+    'zhouhuo:8x1+0/b0/-/xuanyun1->draw · jiangshi:16x1+0/b8/ritual1->self/-',
+  liru:
+    'duji[zhendu>quchi>yinmou>juedu@0] ' +
+    'zhendu:0x1+0/b0/poison4->player/- · quchi:13x2+0/b0/-/- · ' +
+    'yinmou:0x1+0/b12/ritual1->self/- · juedu:0x1+12/b0/-/nining1->discard',
+  xiahouyuan:
+    'shensu[duanliang>fenliang>qingqi>changqu@0] ' +
+    'duanliang:0x1+0/b0/noDraw1->player/- · fenliang:6x1+0/b0/-/xuanyun1->draw · ' +
+    'qingqi:9x2+0/b0/-/- · changqu:18x1+0/b0/-/-',
+  tianming:
+    'tianshu[xingchen>juxing>tianqing@0] ' +
+    'xingchen:0x1+0/b0/frail2->player/- · juxing:0x1+0/b65/ritual3->self/- · ' +
+    'tianqing:26x1+0/b0/-/-',
+};
 
 /**
  * Every 精英 and 首领 body that the 37 snapshots do **not** own.
@@ -157,17 +210,17 @@ const TUNABLE_DAMAGE: Record<string, string> = {
   dongzhuo:
     'might 19x1+0@3 · trample 6x3+0@2 · burn 10x1+0@2 · fortress 0x1+0@1 · passive {"metallicize":3}',
   liru:
-    'jiaozhao 10x1+0@0 · luanzheng 7x2+0@0 · chenmou 0x1+0@0 · zhenjiu 0x1+8@0 · fenjing 26x1+0@0',
+    'jiaozhao 10x1+0@0 · luanzheng 7x2+0@0 · chenmou 0x1+0@0 · zhenjiu 0x1+8@0 · fenjing 26x1+0@0 · @50 phase duji',
   // 第三幕 · 定中原
   xuchu: 'tiger 14x1+0@3 · bare 6x2+0@2 · passive {"angry":1} · @50 {"strength":1}',
   pangde: 'coffin 21x1+0@3 · arrow 7x2+0@2 · laststand 0x1+0@1',
   xiahouyuan:
-    'gallop 8x2+0@0 · raid 26x1+0@0 · banner 0x1+0@0 · strike 13x1+0@0 · deluge 8x1+0@0',
+    'gallop 8x2+0@0 · raid 26x1+0@0 · banner 0x1+0@0 · strike 13x1+0@0 · deluge 8x1+0@0 · @50 phase shensu',
   zhangliao: 'raid 20x1+0@3 · eighthundred 7x4+0@2 · awe 10x1+0@2 · regroup 0x1+0@1',
   // 终 · 五丈原
   simayi: 'hawk 23x1+0@3 · endure 0x1+0@2 · bite 8x2+0@2 · @50 {"strength":4}',
   tianming:
-    'autumnwind 5x3+0@0 · lifespan 0x1+6@0 · wuzhang 0x1+0@0 · defy 12x1+0@0 · starfall 22x1+0@0 · dust 9x1+0@0 · passive {"metallicize":3}',
+    'autumnwind 5x3+0@0 · lifespan 0x1+6@0 · wuzhang 0x1+0@0 · defy 12x1+0@0 · starfall 22x1+0@0 · dust 9x1+0@0 · passive {"metallicize":3} · @50 phase tianshu',
 };
 
 describe('幕二之后的精英与首领，伤害是被盯着的', () => {
@@ -197,6 +250,22 @@ describe('幕二之后的精英与首领，伤害是被盯着的', () => {
   for (const id of Object.keys(TUNABLE_DAMAGE).sort()) {
     it(`${ENEMIES[id].name} hits for what it is meant to`, () => {
       expect(damageLine(ENEMIES[id])).toBe(TUNABLE_DAMAGE[id]);
+    });
+  }
+});
+
+describe('首领二阶段的数值面', () => {
+  it('accounts for every alternate phase', () => {
+    const phased = Object.values(ENEMIES)
+      .filter((def) => def.phases)
+      .map((def) => def.id)
+      .sort();
+    expect(phased).toEqual(Object.keys(PHASE_SURFACES).sort());
+  });
+
+  for (const id of Object.keys(PHASE_SURFACES).sort()) {
+    it(`${ENEMIES[id].name} keeps its chosen phase payload`, () => {
+      expect(phaseSurface(ENEMIES[id])).toBe(PHASE_SURFACES[id]);
     });
   }
 });

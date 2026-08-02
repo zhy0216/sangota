@@ -114,7 +114,7 @@ export const actLabel = (act: ActDef): string =>
  * - `finale` — 第三幕 with the 宝钥 in hand: 五丈原 opens.
  * - `victory` — 第三幕 without the 宝钥, or 终章 cleared. The run ends here.
  *
- * The 宝钥's only source is declining a 首领's 战利品 chest
+ * The 宝钥's only source is declining the 第三幕 首领's 战利品 chest
  * (`takeBossRelic(run, nodeId, null)`), so reaching 终章 costs the player one
  * act's worth of 首领 relic. That trade *is* the door — there is no second
  * currency and no super-elite to farm.
