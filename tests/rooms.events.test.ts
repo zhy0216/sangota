@@ -301,7 +301,9 @@ describe('ensureEvent', () => {
   });
 
   it('never assigns the same event twice while the pool holds out', () => {
-    const run = fresh('dedup');
+    // 'dedup2'：paths 6→4 后原 'dedup' 的图上有 14 间事件房，超出了 12 个
+    // 事件的池子——「池未耗尽」的前提先破了。这颗种子给 9 间，前提站得住。
+    const run = fresh('dedup2');
     const ids = nodesOfType(run, 'event');
     expect(ids.length).toBeGreaterThan(1);
     // Push every node to the top floor so `minRow` never narrows the pool.

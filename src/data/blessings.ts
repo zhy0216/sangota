@@ -240,7 +240,7 @@ export const REFUSE_BLESSINGS: readonly BlessingDef[] = [
     id: 'r_bushou',
     category: 'refuse',
     label: '不受',
-    desc: '得宝物「布衣」：所得资财 +25%，但此行不购宝物。',
+    desc: '得宝物「布衣」：体力上限 +10，但此行不购宝物。',
     outcome: {
       text: '「无所求者，反得其全。」道人递来一件粗麻布衣。',
       gainRelic: { id: 'buyi' },

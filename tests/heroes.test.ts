@@ -481,12 +481,17 @@ const GUANYU = {
   common: [
     'wenjiu', 'quedi', 'baima', 'jieying', 'guanzhen', 'xuzhao',
     'dandaofuhui', 'huarongdao', 'bingzhudadan', 'yeduchunqiu',
+    'zhuwenchou', 'lemahengdao',
   ],
   uncommon: [
     'wanren', 'yiyong', 'shuiyanqijun', 'zhanyanliang', 'hulaoguan',
     'tushanyuesanshi', 'wubaijiaodaoshou', 'guaguliaodu',
+    'daotiaojinpao', 'fengjinguayin',
   ],
-  rare: ['weizhenhuaxia', 'wuguanliujiang', 'shengougaolei'],
+  rare: [
+    'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei',
+    'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
+  ],
 };
 
 const ZHAOYUN = {

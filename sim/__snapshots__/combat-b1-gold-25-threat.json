@@ -490,16 +490,6 @@
     {
       "t": "death",
       "targetId": "lubu-0"
-    },
-    {
-      "t": "relic",
-      "relicId": "xiaoshouling"
-    },
-    {
-      "t": "status",
-      "targetId": "player",
-      "status": "strength",
-      "amount": 1
     }
   ]
 }

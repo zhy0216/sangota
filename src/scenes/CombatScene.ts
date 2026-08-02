@@ -2807,7 +2807,17 @@ export class CombatScene extends Phaser.Scene {
 
     // Announce a telegraph that actually changed — see `EnemyViewParts.intentKey`.
     const key = `${intentKey(display)}|${lethal}`;
-    if (key === view.intentKey) return;
+    if (key === view.intentKey) {
+      // 收招时 `enemyMove` 把徽章弹出到 alpha 0（2082 行的 wind-up）。相同的
+      // 电报不重播入场动画，但徽章必须接回来——少了这一手，任何连出同一招
+      // 的敌人（maxRepeat: 2 比比皆是）整个回合都顶着一块隐形徽章。只在没有
+      // 补间在跑时收手：入场/脉冲进行中就别去踩它们的属性。
+      if (this.tweens.getTweensOf(view.intent).length === 0) {
+        view.intent.setAlpha(1).setScale(1);
+        if (lethal) this.armLethalPulse(view);
+      }
+      return;
+    }
     view.intentKey = key;
 
     this.tweens.killTweensOf(view.intent);
@@ -2822,16 +2832,20 @@ export class CombatScene extends Phaser.Scene {
         if (!lethal) return;
         // Only after the reveal has landed, or the two tweens would fight over
         // `scale` and the badge would settle at whatever size lost the race.
-        // （致死脉冲是环境循环，故意不过 dur()——见 timing.ts 文件头。）
-        this.tweens.add({
-          targets: view.intent,
-          scale: 1.1,
-          duration: 520,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
+        this.armLethalPulse(view);
       },
+    });
+  }
+
+  /** 致死脉冲——环境循环，故意不过 dur()；见 timing.ts 文件头。 */
+  private armLethalPulse(view: EnemyView): void {
+    this.tweens.add({
+      targets: view.intent,
+      scale: 1.1,
+      duration: 520,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
     });
   }
 

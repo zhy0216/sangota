@@ -47,7 +47,10 @@ const GUANYU_COMMON = [
   'wenjiu', 'quedi', 'baima', 'jieying', 'guanzhen',
   'xuzhao', 'dandaofuhui', 'huarongdao', 'bingzhudadan', 'yeduchunqiu',
 ];
-const GUANYU_RARE = ['weizhenhuaxia', 'wuguanliujiang', 'shengougaolei'];
+const GUANYU_RARE = [
+  'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei',
+  'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
+];
 const ZHAOYUN_RARE = ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang', 'changbanpo'];
 
 const COMMON_RELICS = [
@@ -397,17 +400,17 @@ describe('不受 · 布衣', () => {
     expect(run.gold).toBe(99);
   });
 
-  it('lifts every 资财 gain by a quarter, and rounds down', () => {
+  it('trades possessions for a sturdier body: 体力上限 +10, 资财不抽成', () => {
+    // 旧布衣发钱又禁掉钱最好的去处（+25% 资财 × 坊市禁购宝物），自相矛盾；
+    // 现在苦修换体魄，addRelic 把当前体力同步抬满额。
     const run = fresh();
+    const { hp, maxHp, gold } = run;
     take(run, 'r_bushou');
-    expect(relicModifiers(run.relics).goldMultiplier).toBe(1.25);
+    expect(run.maxHp).toBe(maxHp + 10);
+    expect(run.hp).toBe(hp + 10);
+    expect(relicModifiers(run.relics).goldMultiplier).toBe(1);
     addGold(run, 100);
-    expect(run.gold).toBe(224);
-    addGold(run, 7);
-    expect(run.gold).toBe(232);
-    // Spending is charged at face value — the multiplier lifts income only.
-    addGold(run, -32);
-    expect(run.gold).toBe(200);
+    expect(run.gold).toBe(gold + 100);
   });
 
   it('shuts the 坊市 relic counter, with the reason on the tag', () => {
@@ -438,7 +441,7 @@ describe('不受 · 布衣', () => {
       expect(relicPool(run, tier), tier).not.toContain('buyi');
     }
     expect(RELICS.buyi.tier).toBe('starter');
-    expect(RELICS.buyi.modifiers).toEqual({ goldMultiplier: 1.25, noRelicPurchase: true });
+    expect(RELICS.buyi.modifiers).toEqual({ maxHp: 10, noRelicPurchase: true });
   });
 });
 

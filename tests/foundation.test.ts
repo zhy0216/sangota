@@ -50,6 +50,8 @@ const GUANYU_POOLS = {
     'huarongdao',
     'bingzhudadan',
     'yeduchunqiu',
+    'zhuwenchou',
+    'lemahengdao',
   ],
   uncommon: [
     'wanren',
@@ -60,8 +62,17 @@ const GUANYU_POOLS = {
     'tushanyuesanshi',
     'wubaijiaodaoshou',
     'guaguliaodu',
+    'daotiaojinpao',
+    'fengjinguayin',
   ],
-  rare: ['weizhenhuaxia', 'wuguanliujiang', 'shengougaolei'],
+  rare: [
+    'weizhenhuaxia',
+    'wuguanliujiang',
+    'shengougaolei',
+    'yanyuezhan',
+    'qianlizoudanqi',
+    'yibaoyuntian',
+  ],
 } as const;
 
 describe('卡池按武将分流', () => {

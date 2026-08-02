@@ -116,7 +116,13 @@ export const FONT_BRUSH = '"Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif';
  */
 export const MAP = {
   cols: 7,
-  paths: 6,
+  /**
+   * 随机行走的条数，也就是节点密度的总闸。原版尖塔跑 6 条，但它的行走
+   * 大量重叠，整幕落在 ~45 间上下；我们的 6 条实测平均 60.1 间（500 seed），
+   * 每层挤到 4-5 个。收到 4 条落在 46.9 间、每层 2-4 个，才是原版的剪影。
+   * 动这个数等于重排每一张既有地图——SAVE_VERSION 必须跟着走。
+   */
+  paths: 4,
   colSpacing: 148,
   rowSpacing: 118,
   jitterX: 26,

@@ -204,32 +204,40 @@ export const RELICS: Record<string, RelicDef> = {
    * offered or stocked — it is handed out by exactly one option on exactly one
    * screen, and refusing every gift is the only way to own it.
    *
-   * The text says 「所得资财」 rather than 「战斗资财」 because `goldMultiplier`
-   * lives inside `addGold` and lifts *every* positive income: fights, chests,
-   * events, the 祝福 that granted it. Bending the words to the mechanism is
-   * cheaper than growing a second way of paying the player.
+   * 曾是「资财 +25% 且坊市不售宝物」——发钱又禁掉钱最好的去处，自相矛盾；
+   * 且 +25% 恰与坊市里买得到的聚宝盆同额，一件苦修者的信物沦为它的劣化。
+   * 现在的账直白：不置外物，一身轻健。体力走 modifiers.maxHp，`addRelic`
+   * 会同步把当前体力抬同样多，开局拿到即是满的。
    */
   buyi: {
     id: 'buyi',
     name: '布衣',
     tier: 'starter',
     art: 'relic-buyi',
-    text: '所得资财 +{N}%。坊市不售宝物于你。',
-    value: 25,
-    modifiers: { goldMultiplier: 1.25, noRelicPurchase: true },
+    text: '体力上限 +{N}。坊市不售宝物于你。',
+    value: 10,
+    modifiers: { maxHp: 10, noRelicPurchase: true },
   },
 
+  /**
+   * 曾是「战斗开始时获得 3 点护甲」——与先登盾的 `startingBlock: 4` 走同一个
+   * `gainBlock(..., 'relic')` 入口，同一回合、同一免疫、同一触发，两件普通
+   * 宝物在统计上是一件。改成开战多抽两张：束发整冠，先机在我——占下没有
+   * 第二件宝物占的 combatStart 抽牌位，也和先登盾的开场垫刀彻底分开。
+   * （曾试过发【身法】：per-hero 模拟里它把守势对局拖过回合上限——常驻
+   * 减伤只会把僵局拉长，先机则催战斗收束。）
+   */
   shufajinguan: {
     id: 'shufajinguan',
     name: '束发金冠',
     tier: 'common',
     art: 'relic-shufajinguan',
-    text: '战斗开始时，获得 {N} 点护甲。',
-    value: 3,
+    text: '战斗开始时，抽 {N} 张牌。',
+    value: 2,
     hooks: {
       combatStart: ({ state, value, trigger }) => {
         trigger();
-        gainBlock(state, state.player, value, 'relic');
+        drawCards(state, value);
       },
     },
   },
@@ -322,20 +330,20 @@ export const RELICS: Record<string, RelicDef> = {
     },
   },
 
+  /**
+   * 曾是「第 3 回合起每回合多抽一张」——评估台上最弱的稀有（+2），输给四件
+   * 普通，而它顶着全设定里分量最重的名字。改成 handSize +1：纶巾/赤兔马
+   * 拿 -1 手牌换一点气、评估 +53，这里就是那笔账的另一面，玺在手，每一手
+   * 都多一张牌，从第 1 回合起。
+   */
   chuanguoyuxi: {
     id: 'chuanguoyuxi',
     name: '传国玉玺',
     tier: 'rare',
     art: 'relic-chuanguoyuxi',
-    text: '第 3 回合起，每回合开始时多抽 {N} 张牌。',
+    text: '每回合多抽 {N} 张牌。',
     value: 1,
-    hooks: {
-      turnStart: ({ state, value, trigger }) => {
-        if (state.turn < 3) return;
-        trigger();
-        drawCards(state, value);
-      },
-    },
+    modifiers: { handSize: 1 },
   },
 
   xingjuntu: {
@@ -353,17 +361,26 @@ export const RELICS: Record<string, RelicDef> = {
     },
   },
 
+  /**
+   * 击杀报酬曾是 +1 神力——但精英与首领全是单人局（enemies.ts 的 e1–e8 /
+   * b1–b8），最后一刀落下战斗即终，神力永远加在一个已经赢了的棋盘上。改成
+   * 当场的气与牌：多人房里每颗人头都立刻转成本回合的行动力，趁胜追击才像
+   * 一道「枭首令」。
+   */
   xiaoshouling: {
     id: 'xiaoshouling',
     name: '枭首令',
     tier: 'uncommon',
     art: 'relic-xiaoshouling',
-    text: '每击杀一名敌人，获得 {N} 点【神力】。',
+    text: '每击杀一名敌人，获得 {N} 点气并抽 {N} 张牌。',
     value: 1,
     hooks: {
       enemyKilled: ({ state, value, trigger }) => {
+        // 最后一刀也会走到这里，但 checkEnd 随即收场，白给不白错。
+        if (aliveEnemies(state).length === 0) return;
         trigger();
-        addStatus(state, state.player, 'strength', value);
+        state.energy += value;
+        drawCards(state, value);
       },
     },
   },
@@ -452,7 +469,8 @@ export const RELICS: Record<string, RelicDef> = {
   },
 
   /**
-   * The 魁首 trade: a narrower draft in exchange for the boss relic itself.
+   * The 魁首 trade — narrower drafts, sturdier body. 曾经只有 -2 没有任何
+   * 报偿：首领奖励是三选一，白扣的一件永远选不过旁边任何一件（评估 +0/+0）。
    * -2 rather than "always 1" so it composes with 求贤令 instead of overriding
    * it — two relics that both rewrite the count would need a precedence rule.
    */
@@ -461,9 +479,9 @@ export const RELICS: Record<string, RelicDef> = {
     name: '独断',
     tier: 'boss',
     art: 'relic-duduan',
-    text: '战后可选的卡牌 -{N} 张。',
+    text: '体力上限 +12，但战后可选的卡牌 -{N} 张。',
     value: 2,
-    modifiers: { cardRewardCount: -2 },
+    modifiers: { maxHp: 12, cardRewardCount: -2 },
   },
 
   /**
@@ -539,10 +557,14 @@ export const RELICS: Record<string, RelicDef> = {
    * 行军图's sibling on the same trigger, paying HP instead of block. A reshuffle
    * is the one clock a fight keeps that neither side controls, so it is worth
    * having two relics read from it.
+   *
+   * 改名「辎重车」：诸葛亮的罕见牌就叫木牛流马（heroCards.ts），同名同幕
+   * 出现在同一张奖励清单上，玩家分不清抽到的是哪个。id/art 不动——id 是
+   * 池序与存档里的字，art 画的本就是一辆粮车。
    */
   mumaliu: {
     id: 'mumaliu',
-    name: '木牛流马',
+    name: '辎重车',
     tier: 'uncommon',
     art: 'relic-mumaliu',
     text: '每次重洗抽牌堆时，回复 {N} 点体力。',
@@ -693,13 +715,19 @@ export const RELICS: Record<string, RelicDef> = {
     },
   },
 
+  /**
+   * 曾附带 -1 手牌——评估台上唯一双负的宝物（-8 胜率 / +2 精英代价）：赤兔马
+   * 用同一个 -1 换一点气还值 +53，这里却拿它换金子。代价换成 -1 战后选卡：
+   * 铜雀台敛财而怠贤，钱多了、募到的良才少了，反正钱正好拿去坊市补——
+   * 首领宝物必须是交易（relicRewards.test 钉着），但不能倒贴胜率。
+   */
   tongquetai: {
     id: 'tongquetai',
     name: '铜雀台',
     tier: 'boss',
     art: 'relic-tongquetai',
-    text: '所得资财增加一半，但每回合少抽 1 张牌。',
-    modifiers: { goldMultiplier: 1.5, handSize: -1 },
+    text: '所得资财增加一半，但战后可选的卡牌 -1 张。',
+    modifiers: { goldMultiplier: 1.5, cardRewardCount: -1 },
   },
 
   jiuxi: {

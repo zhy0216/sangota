@@ -49,7 +49,12 @@ import { adoptRun, syncPotionSlots, syncRewardCount, uidCursor, type RunState } 
  * 2: `RunState.stats` 与 `SavedCombat.fightDamageTaken` (todos/22 s1)。
  * 3: `RunState.ascension` (todos/19 a1) — 旧档没有它，恢复出来的天命只能靠猜。
  */
-export const SAVE_VERSION = 3;
+/**
+ * v4：MAP.paths 6→4（地图节点密度对齐原版尖塔）。地图是从 seed 重长的
+ * （S1），行走条数一变，旧档 `path` 里的节点 id 在新图上未必存在——恢复
+ * 时会在 327 行的核对上炸。版本一提，旧档走 'stale' 的作废路径，不炸。
+ */
+export const SAVE_VERSION = 4;
 
 const SAVE_KEY = 'sangota.save.v1';
 

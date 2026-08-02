@@ -532,12 +532,11 @@ test(`per-act balance: ${ACT_N} fights per row`, () => {
  * and 诸葛亮 ~31, in opposite directions — 诸葛亮 clears 终章 首领 at roughly
  * +40 points on 关羽 and 赵云 at roughly −40.
  *
- * **Deliberately not asserted into the band.** The cause is upstream of tuning:
- * `poolFor` gives 关羽 21 cards and the other two 9 each (todos/17 asked for
- * 20+), so their drafts are near-deterministic and a number moved here would be
- * fitting to a pool that is about to change size. The assertion is that the
- * rows *exist and run*; closing the gap belongs to todos/17 with the rest of
- * the card pools.
+ * **Deliberately not asserted into the band.** The gap predates tuning:
+ * `poolFor` now gives 关羽 28 draftable cards (2026-08 expansion), 赵云/诸葛亮
+ * 20 each — a number pinned here would be fitting to pools that still move.
+ * The assertion is that the rows *exist and run*; banding the three columns
+ * belongs to the era when all three pools have settled.
  */
 const HERO_N = 250;
 
@@ -578,7 +577,7 @@ test(`per-hero balance: ${HERO_N} fights per row, every 武将`, () => {
   console.log(`\n### 三将逐场 — ${HERO_N} fights per row, greedy, act-appropriate kit\n`);
   console.log(
     '每格是该 tier 的 band 指标（首领看胜率，精英看体力消耗）。⚠ = 落在带外。\n' +
-      '赵云 / 诸葛亮 的牌池目前各只有 9 张（关羽 21 张），todos/17 未完；\n' +
+      '赵云 / 诸葛亮 的可选池各 20 张，关羽 2026-08 扩到 28 张；\n' +
       '在补齐之前不对这两列调参 —— 池子一变，调出来的数就作废。\n',
   );
   console.log(out.join('\n') + '\n');
@@ -795,7 +794,13 @@ test(`gauntlet: ${GAUNTLET_N} acts walked end to end per row`, () => {
  */
 const ASCENSION_LEVELS = [0, 3, 5, 10];
 const RUN_N = 500;
-/** 验收带（todos/19 验收最后一条）：十重 threat 通关率 15-25%。 */
+/**
+ * 验收带（todos/19 验收最后一条）：十重 threat 通关率 15-25%。
+ * 2026-08 两笔结构改动先后从两头拉它：MAP.paths 6→4 让精英房随节点数
+ * 等比变少（松，量到 28%），关羽扩池七张又整体抬了选秀质量（更松，65%
+ * 时零重都到了 66%）；随后的逐卡削减（封金挂印 摘掉诅咒互动是最大一刀）
+ * 把整程压回 零重 55% / 十重 18%——带子原样放回。
+ */
 const A10_BAND = { lo: 0.15, hi: 0.25 };
 /**
  * gauntlet 的两瓶再带一瓶续命汤。单幕的 gauntlet 不需要它——满血开幕，

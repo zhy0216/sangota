@@ -260,12 +260,20 @@ describe('relic block ignores 身法 / 力竭', () => {
     }
   }
 
-  // The two that land before the player can be holding a status at all. They
-  // still have to go in unshaped, which is a property of the call and not of
-  // the fight, so the assertion is that the printed number arrives whole.
-  it('束发金冠 and 先登盾 open the fight with exactly their printed number', () => {
-    expect(bench(['shufajinguan']).player.block).toBe(RELICS.shufajinguan.value);
+  // 先登盾 lands before the player can be holding a status at all. It still
+  // has to go in unshaped, which is a property of the call and not of the
+  // fight, so the assertion is that the printed number arrives whole.
+  it('先登盾 opens the fight with exactly its printed number', () => {
     expect(bench(['xiandengdun']).player.block).toBe(RELICS.xiandengdun.value);
+  });
+
+  // 束发金冠 used to be a second copy of 先登盾 through the same
+  // `gainBlock(..., 'relic')` door; it now opens the fight with two extra
+  // cards instead, so the two commons stop being one relic.
+  it('束发金冠 opens the fight with extra cards, not block', () => {
+    const state = bench(['shufajinguan']);
+    expect(state.hand).toHaveLength(HAND_SIZE + (RELICS.shufajinguan.value ?? 0));
+    expect(state.player.block).toBe(0);
   });
 });
 

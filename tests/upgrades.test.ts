@@ -111,6 +111,44 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   wuguanliujiang: { effects: [{ kind: 'status', status: 'slayer', amount: 3, to: 'self' }] },
   shengougaolei: { cost: 1 },
 
+  // --- 2026-08 关羽池扩 -------------------------------------------------------
+  zhuwenchou: {
+    effects: [
+      { kind: 'damage', amount: 11 },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [{ kind: 'draw', amount: 1 }],
+      },
+    ],
+  },
+  lemahengdao: {
+    effects: [
+      { kind: 'block', amount: 8 },
+      { kind: 'status', status: 'weak', amount: 1, to: 'allEnemies' },
+    ],
+  },
+  daotiaojinpao: {
+    effects: [
+      { kind: 'damage', amount: 7 },
+      { kind: 'status', status: 'strength', amount: 1, to: 'self' },
+    ],
+  },
+  fengjinguayin: { effects: [{ kind: 'energy', amount: 3 }] },
+  yanyuezhan: {
+    effects: [
+      { kind: 'damage', amount: 24 },
+      { kind: 'status', status: 'vulnerable', amount: 3, to: 'target' },
+    ],
+  },
+  qianlizoudanqi: {
+    effects: [
+      { kind: 'energy', amount: 2 },
+      { kind: 'draw', amount: 3 },
+    ],
+  },
+  yibaoyuntian: { effects: [{ kind: 'status', status: 'artifact', amount: 3, to: 'self' }] },
+
   // --- todos/05 无色 stock, sold only over a 商旅's counter -----------------
   qingnangshu: { effects: [{ kind: 'heal', amount: 9 }] },
   lujiao: { effects: [{ kind: 'status', status: 'thorns', amount: 4, to: 'self' }] },

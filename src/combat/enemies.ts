@@ -6,9 +6,10 @@ import type { EnemyDef, EnemyMove, EnemyPhase, Encounter } from './types';
  * row. The engine reads the table and branches on no enemy id anywhere: a new
  * enemy is a new row here and nothing else.
  *
- * Art keys are shared where a portrait has not been painted yet — a missing
- * texture is a green box on screen, which is worse than a reused general. Each
- * such row says so; todos/15 step 7 is the export pass that gives them their own.
+ * Every enemy now carries its own portrait (todos/15 step 7 landed): `art` is
+ * `enemy-<id>`，图在 `public/assets/enemies/<id>.png`，钥匙登记在 BootScene 的
+ * `ENEMY_KEYS`。三者要一起动——键无图是加载错误的 `?` 占位，图无键是 Phaser
+ * 的绿色缺纹理框。
  */
 
 export const ENEMIES: Record<string, EnemyDef> = {
@@ -112,7 +113,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   luanmin: {
     id: 'luanmin',
     name: '乱民',
-    art: 'enemy-yellowturban', // TODO(art): 破衣持锄的流民，比力士矮一头
+    art: 'enemy-luanmin',
     hp: [10, 14],
     height: 190,
     moves: [
@@ -129,7 +130,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   jijiu: {
     id: 'jijiu',
     name: '黄巾祭酒',
-    art: 'enemy-yellowturban', // TODO(art): 持幡、黄巾裹额的道人
+    art: 'enemy-jijiu',
     hp: [38, 44],
     height: 248,
     moves: [
@@ -163,9 +164,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
   qishou: {
     id: 'qishou',
     name: '黄巾骑手',
-    art: 'enemy-bandit', // TODO(art): 骑手立绘，含马身，height 要跟着放大
+    art: 'enemy-qishou',
     hp: [32, 38],
-    height: 236,
+    // 连人带马的立绘，比步卒的图高一截；height 跟着放大，脚（马蹄）仍落地。
+    height: 270,
     hiddenFirstIntent: true,
     moves: [
       { id: 'charge', label: '驰突', damage: 4, hits: 3, weight: 3, maxRepeat: 2 },
@@ -189,7 +191,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   guanhai: {
     id: 'guanhai',
     name: '管亥',
-    art: 'enemy-huaxiong', // TODO(art): 黄巾渠帅，双手大刀
+    art: 'enemy-guanhai',
     hp: [76, 84],
     height: 300,
     passives: { angry: 1 },
@@ -228,7 +230,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   zhangliang: {
     id: 'zhangliang',
     name: '张梁',
-    art: 'enemy-lubu', // TODO(art): 黄巾三兄弟之一，道袍执剑
+    art: 'enemy-zhangliang',
     hp: [155, 155],
     height: 316,
     script: {
@@ -270,7 +272,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   liukou: {
     id: 'liukou',
     name: '流寇',
-    art: 'enemy-bandit', // TODO(art): 背着鼓囊包袱的溃兵
+    art: 'enemy-liukou',
     hp: [26, 30],
     height: 212,
     script: { order: ['rob', 'rob', 'bolt'], loopFrom: 2 },
@@ -284,7 +286,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   zhangmancheng: {
     id: 'zhangmancheng',
     name: '张曼成',
-    art: 'enemy-huaxiong', // TODO(art): 神上使，执节杖
+    art: 'enemy-zhangmancheng',
     hp: [38, 46],
     height: 292,
     moves: [
@@ -312,7 +314,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   zhangbao: {
     id: 'zhangbao',
     name: '张宝',
-    art: 'enemy-lubu', // TODO(art): 黄巾三兄弟之一，捧钵作法
+    art: 'enemy-zhangbao',
     hp: [150, 150],
     height: 312,
     thresholds: [
@@ -343,7 +345,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   zhangbaofenshen: {
     id: 'zhangbaofenshen',
     name: '张宝分身',
-    art: 'enemy-yellowturban', // TODO(art): 半透明的张宝，比本体矮
+    art: 'enemy-zhangbaofenshen',
     hp: [1, 1],
     height: 220,
     moves: [
@@ -358,9 +360,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
   tieqi: {
     id: 'tieqi',
     name: '西凉铁骑',
-    art: 'enemy-bandit', // TODO(art): 重甲骑兵
+    art: 'enemy-tieqi',
     hp: [46, 54],
-    height: 244,
+    // 连人带马的立绘（见 qishou）。
+    height: 280,
     passives: { metallicize: 3 },
     moves: [
       { id: 'lance', label: '冲阵', damage: 13, weight: 3, maxRepeat: 2 },
@@ -382,7 +385,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   dongzhuoqinbing: {
     id: 'dongzhuoqinbing',
     name: '董卓亲兵',
-    art: 'enemy-yellowturban', // TODO(art): 相府甲士，塔盾
+    art: 'enemy-dongzhuoqinbing',
     hp: [36, 42],
     height: 232,
     passives: { curlUp: 8 },
@@ -407,7 +410,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   qiangbing: {
     id: 'qiangbing',
     name: '羌兵',
-    art: 'enemy-bandit', // TODO(art): 皮裘辫发，短弯刀与投矛
+    art: 'enemy-qiangbing',
     hp: [30, 34],
     height: 226,
     moves: [
@@ -439,7 +442,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   feixiongjun: {
     id: 'feixiongjun',
     name: '飞熊军',
-    art: 'enemy-huaxiong', // TODO(art): 熊头兜鍪，玄甲重戟
+    art: 'enemy-feixiongjun',
     hp: [48, 54],
     height: 256,
     passives: { metallicize: 3 },
@@ -465,7 +468,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   xiliangduwei: {
     id: 'xiliangduwei',
     name: '西凉督尉',
-    art: 'enemy-huaxiong', // TODO(art): 执旗督战的西凉军官
+    art: 'enemy-xiliangduwei',
     hp: [26, 30],
     height: 248,
     moves: [
@@ -497,7 +500,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   licui: {
     id: 'licui',
     name: '李傕',
-    art: 'enemy-huaxiong', // TODO(art): 西凉猛将，赤帻长刀
+    art: 'enemy-licui',
     hp: [100, 110],
     height: 302,
     thresholds: [{ percent: 50, gain: { strength: 2 }, shout: '「大军在此，谁敢当锋！」' }],
@@ -531,7 +534,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   guosi: {
     id: 'guosi',
     name: '郭汜',
-    art: 'enemy-lubu', // TODO(art): 西凉马贼出身的将领，短须重铠
+    art: 'enemy-guosi',
     hp: [100, 110],
     height: 298,
     moves: [
@@ -564,7 +567,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   liru: {
     id: 'liru',
     name: '李儒',
-    art: 'enemy-lubu', // TODO(art): 文士深衣，捧鸩觞
+    art: 'enemy-liru',
     hp: [194, 194],
     height: 314,
     script: { order: ['jiaozhao', 'luanzheng', 'chenmou', 'zhenjiu', 'fenjing'], loopFrom: 0 },
@@ -606,7 +609,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   dongzhuo: {
     id: 'dongzhuo',
     name: '董卓',
-    art: 'enemy-lubu', // TODO(art): 相国朝服外罩明光铠，肥硕
+    art: 'enemy-dongzhuo',
     hp: [196, 196],
     height: 332,
     passives: { metallicize: 3 },
@@ -642,9 +645,10 @@ export const ENEMIES: Record<string, EnemyDef> = {
   hubaoqi: {
     id: 'hubaoqi',
     name: '虎豹骑',
-    art: 'enemy-bandit', // TODO(art): 曹军精锐骑兵，黑马玄甲
+    art: 'enemy-hubaoqi',
     hp: [72, 78],
-    height: 252,
+    // 连人带马的立绘（见 qishou）。
+    height: 290,
     passives: { metallicize: 3 },
     moves: [
       { id: 'hoof', label: '铁蹄', damage: 10, weight: 3, maxRepeat: 2 },
@@ -668,7 +672,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   lianubing: {
     id: 'lianubing',
     name: '连弩兵',
-    art: 'enemy-yellowturban', // TODO(art): 蜀制连弩，皮甲轻装
+    art: 'enemy-lianubing',
     hp: [40, 44],
     height: 234,
     moves: [
@@ -691,7 +695,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   junshi: {
     id: 'junshi',
     name: '军师祭酒',
-    art: 'enemy-yellowturban', // TODO(art): 羽扇纶巾的曹营谋士
+    art: 'enemy-junshi',
     hp: [50, 56],
     height: 250,
     moves: [
@@ -723,13 +727,63 @@ export const ENEMIES: Record<string, EnemyDef> = {
   qingzhoubing: {
     id: 'qingzhoubing',
     name: '青州兵',
-    art: 'enemy-yellowturban', // TODO(art): 收编的黄巾旧部，杂色号衣
+    art: 'enemy-qingzhoubing',
     hp: [34, 38],
     height: 228,
     passives: { angry: 1 },
     moves: [
       { id: 'loot', label: '抄掠', damage: 9, weight: 3, maxRepeat: 2 },
       { id: 'swarm', label: '蜂拥', damage: 4, hits: 2, weight: 2, maxRepeat: 1 },
+    ],
+  },
+
+  /**
+   * 曹操征汉中的后勤主力，三人一寨。单体不如青州兵重，但 筑垒/秋收 两手
+   * 护甲让整寨比看上去耐拆——给 `damageAll` 卡第三幕的用武之地（第一幕的
+   * 乱民房是它的回声），也把「先拆谁」变成一道真题。
+   */
+  tuntianbing: {
+    id: 'tuntianbing',
+    name: '屯田兵',
+    art: 'enemy-tuntianbing',
+    hp: [30, 34],
+    height: 218,
+    moves: [
+      { id: 'lei', label: '耒击', damage: 8, weight: 3, maxRepeat: 2 },
+      { id: 'rampart', label: '筑垒', block: 9, weight: 2, maxRepeat: 1 },
+      { id: 'harvest', label: '秋收', damage: 5, block: 5, weight: 2, maxRepeat: 1 },
+    ],
+  },
+
+  /**
+   * 发丘筹饷的军官，带着屯田兵下地。撒土的【破绽】喂给同房的耒击，盗掘
+   * 自垒自涨——第三幕普通房里唯一会给自己人做局的头目位，杀他先于杀兵
+   * 是这间房的正解。
+   */
+  mojinxiaowei: {
+    id: 'mojinxiaowei',
+    name: '摸金校尉',
+    art: 'enemy-mojinxiaowei',
+    hp: [42, 46],
+    height: 240,
+    moves: [
+      { id: 'shovel', label: '洛阳铲', damage: 11, weight: 3, maxRepeat: 2 },
+      {
+        id: 'dust',
+        label: '撒土',
+        damage: 6,
+        status: { status: 'vulnerable', amount: 1, to: 'player' },
+        weight: 2,
+        maxRepeat: 1,
+      },
+      {
+        id: 'grave',
+        label: '盗掘',
+        block: 8,
+        status: { status: 'strength', amount: 1, to: 'self' },
+        weight: 2,
+        maxRepeat: 1,
+      },
     ],
   },
 
@@ -741,7 +795,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   xuchu: {
     id: 'xuchu',
     name: '许褚',
-    art: 'enemy-huaxiong', // TODO(art): 赤膊虎背，双手长刀
+    art: 'enemy-xuchu',
     hp: [108, 116],
     height: 308,
     passives: { angry: 1 },
@@ -768,7 +822,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   pangde: {
     id: 'pangde',
     name: '庞德',
-    art: 'enemy-lubu', // TODO(art): 抬棺赴战，白袍已染
+    art: 'enemy-pangde',
     hp: [130, 140],
     height: 302,
     moves: [
@@ -802,7 +856,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   xiahouyuan: {
     id: 'xiahouyuan',
     name: '夏侯渊',
-    art: 'enemy-lubu', // TODO(art): 征西将军，疾行轻甲
+    art: 'enemy-xiahouyuan',
     hp: [228, 228],
     height: 328,
     script: { order: ['gallop', 'raid', 'banner', 'strike', 'deluge'], loopFrom: 0 },
@@ -844,7 +898,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   zhangliao: {
     id: 'zhangliao',
     name: '张辽',
-    art: 'enemy-lubu', // TODO(art): 逍遥津，长枪与断旗
+    art: 'enemy-zhangliao',
     hp: [206, 206],
     height: 326,
     moves: [
@@ -881,7 +935,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   simayi: {
     id: 'simayi',
     name: '司马懿',
-    art: 'enemy-lubu', // TODO(art): 冢虎，鹰视狼顾
+    art: 'enemy-simayi',
     hp: [152, 162],
     height: 308,
     thresholds: [{ percent: 50, gain: { strength: 4 }, shout: '「天下英雄，唯忍者存。」' }],
@@ -916,7 +970,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   tianming: {
     id: 'tianming',
     name: '天命',
-    art: 'enemy-lubu', // TODO(art): 无面，星图与残灯，不作人形
+    art: 'enemy-tianming',
     hp: [252, 252],
     height: 344,
     passives: { metallicize: 3 },
@@ -1066,6 +1120,12 @@ export const ACT3: EncounterTable = {
   weak: [
     { id: 'm16', name: '虎豹游骑', enemies: ['hubaoqi'], goldReward: [20, 27] },
     { id: 'm17', name: '青州抄掠', enemies: ['qingzhoubing', 'qingzhoubing'], goldReward: [19, 26] },
+    {
+      id: 'm22',
+      name: '军屯列垒',
+      enemies: ['tuntianbing', 'tuntianbing', 'tuntianbing'],
+      goldReward: [19, 26],
+    },
   ],
   strong: [
     { id: 'm18', name: '连弩伏击', enemies: ['lianubing', 'lianubing'], goldReward: [21, 27] },
@@ -1077,6 +1137,12 @@ export const ACT3: EncounterTable = {
       goldReward: [22, 27],
     },
     { id: 'm21', name: '阳平关哨', enemies: ['hubaoqi', 'lianubing'], goldReward: [23, 27] },
+    {
+      id: 'm23',
+      name: '发丘筹饷',
+      enemies: ['mojinxiaowei', 'tuntianbing', 'tuntianbing'],
+      goldReward: [22, 27],
+    },
   ],
   elite: [
     { id: 'e6', name: '虎痴 · 许褚', enemies: ['xuchu'], goldReward: [50, 68] },

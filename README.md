@@ -23,8 +23,9 @@ npm run build       # typecheck + production bundle
 
 ## What's in
 
-**Act map** — a faithful reimplementation of the Slay the Spire generator: 6 random
-walks carved bottom-to-top over a 7×15 lattice, edges rejected when they would cross,
+**Act map** — a faithful reimplementation of the Slay the Spire generator: 4 random
+walks carved bottom-to-top over a 7×15 lattice (~47 rooms a map, the original's
+density), edges rejected when they would cross,
 then room types assigned under the design rules (floor 1 always combat, floor 9 always
 treasure, floor 15 always a camp; elite/camp/shop locked out below floor 6; no repeat
 of those types along an edge or between siblings). Maps are seeded — the seed prints
@@ -53,7 +54,8 @@ turn. Cards come in 攻 / 谋 / 势. Click a card to play it; attack cards ask f
 target, so click the enemy (`Esc` cancels). `E` ends the turn. Winning pays gold and
 offers a card reward.
 
-24 cards, 4 enemies (黄巾力士, 山贼, elite 华雄, boss 吕布) and 6 encounter tables.
+三位武将 78 张卡（关羽 31 · 赵云 23 · 诸葛亮 24，另有 5 张无色），34 种敌人——
+每一种都有自己的立绘——分属四幕 39 场遭遇。
 
 **宝物 (relics)** — permanent passives on a data-driven hook system. A relic is a row in
 `combat/relics.ts`: static `modifiers` (max HP, 气 ceiling, hand size, starting block,
@@ -414,7 +416,7 @@ Generated with the `genmedia` CLI (fal.ai): `nano-banana-pro` for the plates,
 with cinnabar and antique gold accents. Source plates are kept in `out/gen/`;
 `public/assets/` holds the downscaled versions the game actually loads.
 
-Everything on screen is generated — all 65 card faces, three heroes in portrait and
+Everything on screen is generated — all 95 card faces, three heroes in portrait and
 full body, the four room plates, the enemies, the map and the 拜别 screen. Nothing
 falls through to a procedural stand-in any more, though every stand-in is still in
 the code and still takes over for a texture that fails to load.

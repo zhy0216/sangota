@@ -133,8 +133,8 @@ describe('每幕的遭遇表', () => {
     expect(ids(ACT2.elite)).toEqual(['e4', 'e5']);
     expect(ids(ACT2.boss)).toEqual(['b4', 'b5']);
 
-    expect(ids(ACT3.weak)).toEqual(['m16', 'm17']);
-    expect(ids(ACT3.strong)).toEqual(['m18', 'm19', 'm20', 'm21']);
+    expect(ids(ACT3.weak)).toEqual(['m16', 'm17', 'm22']);
+    expect(ids(ACT3.strong)).toEqual(['m18', 'm19', 'm20', 'm21', 'm23']);
     expect(ids(ACT3.elite)).toEqual(['e6', 'e7']);
     expect(ids(ACT3.boss)).toEqual(['b6', 'b7']);
 
@@ -209,8 +209,8 @@ describe('每幕的遭遇表', () => {
   });
 
   it('covers every shipped fight with an act or the pending table', () => {
-    // 9 + 6 + 6 normals, 3 + 2 + 2 + 1 elites, 3 + 2 + 2 + 1 bosses, 0 pending
-    expect(allEncounters()).toHaveLength(9 + 6 + 6 + 8 + 8);
+    // 9 + 6 + 8 normals, 3 + 2 + 2 + 1 elites, 3 + 2 + 2 + 1 bosses, 0 pending
+    expect(allEncounters()).toHaveLength(9 + 6 + 8 + 8 + 8);
     expect(new Set(allEncounters().map((e) => e.id)).size).toBe(allEncounters().length);
   });
 });
@@ -227,15 +227,16 @@ describe('每幕的遭遇表', () => {
  */
 describe('三幕的数值梯度', () => {
   it('counts the normal rooms each act fields', () => {
-    expect([normals(ACT1).length, normals(ACT2).length, normals(ACT3).length]).toEqual([9, 6, 6]);
+    expect([normals(ACT1).length, normals(ACT2).length, normals(ACT3).length]).toEqual([9, 6, 8]);
   });
 
   it('raises the 体力 a normal room fields, act by act', () => {
     expect(sum(normals(ACT1).map(roomHp))).toBe(594);
     expect(sum(normals(ACT2).map(roomHp))).toBe(481);
-    expect(sum(normals(ACT3).map(roomHp))).toBe(623);
-    // Mean per room: 66 → 80.2 → 103.8. 第二幕 fields fewer, heavier rooms, which
-    // is why the *sum* dips and only the mean is a gradient.
+    expect(sum(normals(ACT3).map(roomHp))).toBe(827);
+    // Mean per room: 66 → 80.2 → 103.4. 第二幕 fields fewer, heavier rooms, which
+    // is why the *sum* dips and only the mean is a gradient. 第三幕 的 827 含
+    // 军屯列垒(96)与发丘筹饷(108)——两间新房都压在幕均值附近，梯度不塌。
     const mean = (t: EncounterTable): number => sum(normals(t).map(roomHp)) / normals(t).length;
     expect(mean(ACT2) / mean(ACT1)).toBeGreaterThan(1.2);
     expect(mean(ACT3) / mean(ACT2)).toBeGreaterThan(1.2);
@@ -258,8 +259,8 @@ describe('三幕的数值梯度', () => {
   it('does not let the worst turn a normal room can produce fall, act by act', () => {
     expect(sum(normals(ACT1).map(roomPeak))).toBe(155);
     expect(sum(normals(ACT2).map(roomPeak))).toBe(128);
-    expect(sum(normals(ACT3).map(roomPeak))).toBe(134);
-    // Mean per room: 17.2 → 21.3 → 22.3.
+    expect(sum(normals(ACT3).map(roomPeak))).toBe(185);
+    // Mean per room: 17.2 → 21.3 → 23.1（军屯列垒 24 · 发丘筹饷 27 计入后）.
     const mean = (t: EncounterTable): number => sum(normals(t).map(roomPeak)) / normals(t).length;
     expect(mean(ACT2)).toBeGreaterThan(mean(ACT1));
     expect(mean(ACT3)).toBeGreaterThan(mean(ACT2));
@@ -497,20 +498,29 @@ describe('advanceAct', () => {
     run.maxHp = 100;
     run.hp = 30;
 
+    // 每一段都在 clearBoss 之后取样再断言：clearBoss 收下的首领宝物可以
+    // 合法地移动 hp/上限（独断的 +12 走 addRelic 的同步抬升），被测的只是
+    // advanceAct 的幕间回血本身。
     clearBoss(run, true); // decline for the 宝钥
+    let before = run.hp;
     advanceAct(run);
     expect(run.act).toBe(2);
-    expect(run.hp).toBe(30);
+    expect(run.hp).toBe(before);
 
     clearBoss(run);
+    before = run.hp;
     advanceAct(run);
     expect(run.act).toBe(3);
-    expect(run.hp).toBe(30);
+    expect(run.hp).toBe(before);
 
     clearBoss(run);
+    before = run.hp;
     advanceAct(run);
     expect(run.act).toBe(4);
-    expect(run.hp).toBe(60);
+    expect(run.hp).toBe(
+      Math.min(run.maxHp, before + Math.floor((run.maxHp * 30) / 100)),
+    );
+    expect(run.hp).toBeGreaterThan(before);
     // Never past the cap.
     expect(run.hp).toBeLessThanOrEqual(run.maxHp);
   });

@@ -777,12 +777,15 @@ describe('新增遗物 · 首领', () => {
     expect(stacks(state.player, 'strength')).toBe(RELICS.hufu.value);
   });
 
-  it('铜雀台 buys half again as much coin with a card off every hand', () => {
-    expect(bench(['tongquetai']).hand).toHaveLength(HAND_SIZE - 1);
+  it('铜雀台 buys half again as much coin with a narrower draft, hand untouched', () => {
+    // 旧代价是 -1 手牌——评估台上唯一双负的首领宝物；现在的代价走选卡数。
+    expect(bench(['tongquetai']).hand).toHaveLength(HAND_SIZE);
 
     const r = run('tower');
     r.gold = 0;
+    expect(r.cardRewardCount).toBe(3);
     addRelic(r, 'tongquetai');
+    expect(r.cardRewardCount).toBe(2);
     addGold(r, 40);
     expect(r.gold).toBe(60);
   });

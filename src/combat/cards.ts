@@ -586,6 +586,201 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     keywords: ['exhaust'],
     upgrade: { cost: 1 },
   },
+
+  // ------------------------------------------------- 2026-08 池扩（追加区）
+  //
+  // 关羽的可选池曾是 10/8/3——比另两位各少一张稀有，整池也最浅。以下七张
+  // 只追加不插队（池序是种子化的下标，R3 铁律），机制全部走既有效果词汇，
+  // 数值以 `npm run eval` 的 300 场边际扫描为准。
+
+  /**
+   * 斩颜良's twin, reading the other debuff: 斩颜良 cashes 破绽 into 气，这张
+   * cashes 怯战 into牌。虚招/勒马横刀 是它的上游——关羽自己的怯战来源
+   * 以前只有虚招一张，追击链立不起来。
+   */
+  zhuwenchou: {
+    id: 'zhuwenchou',
+    name: '诛文丑',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-zhuwenchou',
+    text: '造成 {D} 点伤害。\n若目标有【怯战】，抽 1 张牌。',
+    effects: [
+      { kind: 'damage', amount: 8 },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [{ kind: 'draw', amount: 1 }],
+      },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 11 },
+        {
+          kind: 'conditional',
+          when: { c: 'targetHasStatus', status: 'weak' },
+          then: [{ kind: 'draw', amount: 1 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 全场怯战的普通位。与虚招分工：虚招单点两层换四点甲是保命读招，这张
+   * 一层铺全场是给 诛文丑/万人敌 的多人房做局。挂 消耗——一喝只此一声：
+   * 不带消耗时它是每轮转都能再铺的全场减伤引擎，天命连场量出整程
+   * 零重被它和 千里走单骑 合力抬破 60%。
+   */
+  lemahengdao: {
+    id: 'lemahengdao',
+    name: '勒马横刀',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'self',
+    art: 'card-lemahengdao',
+    text: '获得 {B} 点护甲。\n所有敌人添 1 层【怯战】。',
+    effects: [
+      { kind: 'block', amount: 5 },
+      { kind: 'status', status: 'weak', amount: 1, to: 'allEnemies' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      effects: [
+        { kind: 'block', amount: 8 },
+        { kind: 'status', status: 'weak', amount: 1, to: 'allEnemies' },
+      ],
+    },
+  },
+
+  /**
+   * 义勇 walks in a power and pays 消耗；这张把一层【神力】焊在一张真打的
+   * 攻牌上，付的是伤害刻度（同费的温酒斩打 7 还带破绽）。灞桥挑袍——
+   * 刀尖挑的是袍，攒下的是势。
+   */
+  daotiaojinpao: {
+    id: 'daotiaojinpao',
+    name: '刀挑锦袍',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-daotiaojinpao',
+    text: '造成 {D} 点伤害。\n获得 1 层【神力】。',
+    effects: [
+      { kind: 'damage', amount: 5 },
+      { kind: 'status', status: 'strength', amount: 1, to: 'self' },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 7 },
+        { kind: 'status', status: 'strength', amount: 1, to: 'self' },
+      ],
+    },
+  },
+
+  /**
+   * 挂印而去，一身轻——每场一记纯节奏：土山约三事拿体力换气，这张拿的
+   * 是自己（消耗）。首版是「消耗手中 1 张牌换 2 气」：台架 Δ 只有 +1，
+   * 天命连场却量出整程零重被它一张抬了 ~9 个百分点——真跑起来它每场白拆
+   * 一张 祭酒/军师/张梁 塞进来的诅咒，把整条塞牌施压轴掀了。诅咒解药
+   * 不该以 0 费顺手的形态住在池子里。
+   */
+  fengjinguayin: {
+    id: 'fengjinguayin',
+    name: '封金挂印',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-fengjinguayin',
+    text: '获得 2 点气。',
+    effects: [{ kind: 'energy', amount: 2 }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 3 点气。',
+      effects: [{ kind: 'energy', amount: 3 }],
+    },
+  },
+
+  /**
+   * 全池最大的一刀。三费在 汉寿亭侯印（费≥2 加伤）和 虎牢关 的 X 费之间
+   * 立一根定桩：一击 24 再挂两层【破绽】，把下一回合也预支进来。稀有付的
+   * 是整个回合——挥空了什么都不剩。
+   */
+  yanyuezhan: {
+    id: 'yanyuezhan',
+    name: '偃月斩',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 3,
+    target: 'enemy',
+    art: 'card-yanyuezhan',
+    text: '造成 {D} 点伤害。\n目标添 2 层【破绽】。',
+    effects: [
+      { kind: 'damage', amount: 18 },
+      { kind: 'status', status: 'vulnerable', amount: 2, to: 'target' },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n目标添 3 层【破绽】。',
+      effects: [
+        { kind: 'damage', amount: 24 },
+        { kind: 'status', status: 'vulnerable', amount: 3, to: 'target' },
+      ],
+    },
+  },
+
+  /**
+   * 一次性的整回合再造：气与牌各补一口，挂在 消耗 上不构成循环。升级
+   * 免费——千里路上，马不停蹄。（首版还带 3 层【调息】；每场一记免费
+   * 回合外加续航，天命连场把整程零重抬破 60%，续航割给 刮骨疗毒 专营。）
+   */
+  qianlizoudanqi: {
+    id: 'qianlizoudanqi',
+    name: '千里走单骑',
+    type: 'skill',
+    rarity: 'rare',
+    cost: 1,
+    target: 'self',
+    art: 'card-qianlizoudanqi',
+    text: '获得 2 点气。\n抽 2 张牌。',
+    effects: [
+      { kind: 'energy', amount: 2 },
+      { kind: 'draw', amount: 2 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 2 点气。\n抽 3 张牌。',
+      effects: [
+        { kind: 'energy', amount: 2 },
+        { kind: 'draw', amount: 3 },
+      ],
+    },
+  },
+
+  /**
+   * 全部三个卡池里第一张【护身符】：李儒的鸩觞、张梁的咒水、天命的整套
+   * 减益都被它挡在门外。挡什么、什么时候打，是这张势牌的全部技术含量；
+   * 产出为零，所以敢给两层。
+   */
+  yibaoyuntian: {
+    id: 'yibaoyuntian',
+    name: '义薄云天',
+    type: 'power',
+    rarity: 'rare',
+    cost: 2,
+    target: 'self',
+    art: 'card-yibaoyuntian',
+    text: '获得 2 层【护身符】。',
+    effects: [{ kind: 'status', status: 'artifact', amount: 2, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 3 层【护身符】。',
+      effects: [{ kind: 'status', status: 'artifact', amount: 3, to: 'self' }],
+    },
+  },
 });
 
 /**

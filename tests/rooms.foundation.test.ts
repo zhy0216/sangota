@@ -22,7 +22,9 @@ const nodeOf = (run: RunState, type: string): string => {
   throw new Error(`no ${type} node on this map`);
 };
 
-const fresh = (seed = 'foundation'): RunState => startRun(DEFAULT_HERO, seed);
+// 'bedrock'：paths 6→4 之后 'foundation' 的图上恰好没有商铺；这颗种子在新
+// 生成器下五种房型齐备（shop×2 在内），夹具靠它才够 nodeOf 取用。
+const fresh = (seed = 'bedrock'): RunState => startRun(DEFAULT_HERO, seed);
 
 describe('RunState room fields', () => {
   it('starts every one of them empty', () => {

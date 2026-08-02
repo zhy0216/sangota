@@ -9,7 +9,18 @@ import { bodyStyle, brushStyle } from '../ui/theme';
 const ICON_KEYS = ['monster', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'] as const;
 /** Keys match `HeroDef.portraitKey` / `fullKey` minus their prefix. */
 const HERO_KEYS = ['guanyu', 'zhaoyun', 'zhugeliang'] as const;
-const ENEMY_KEYS = ['yellowturban', 'bandit', 'huaxiong', 'lubu'] as const;
+const ENEMY_KEYS = [
+  // 第一幕
+  'yellowturban', 'bandit', 'huaxiong', 'lubu',
+  'luanmin', 'jijiu', 'qishou', 'guanhai', 'zhangliang',
+  'liukou', 'zhangmancheng', 'zhangbao', 'zhangbaofenshen',
+  // 第二幕
+  'tieqi', 'dongzhuoqinbing', 'qiangbing', 'feixiongjun', 'xiliangduwei',
+  'licui', 'guosi', 'liru', 'dongzhuo',
+  // 第三幕 + 终章
+  'hubaoqi', 'lianubing', 'junshi', 'qingzhoubing', 'tuntianbing', 'mojinxiaowei',
+  'xuchu', 'pangde', 'xiahouyuan', 'zhangliao', 'simayi', 'tianming',
+] as const;
 /** Backdrops for the four non-combat rooms — keys match `RoomMeta.plate`. */
 const ROOM_KEYS = ['rest', 'shop', 'event', 'treasure'] as const;
 /**
@@ -27,6 +38,9 @@ const CARD_KEYS = [
   'shuiyanqijun', 'zhanyanliang', 'hulaoguan', 'tushanyuesanshi', 'wubaijiaodaoshou',
   'guaguliaodu', 'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei', 'qingnangshu',
   'lujiao', 'lijianji', 'dushi', 'bazhentu',
+  // 2026-08 关羽池扩
+  'zhuwenchou', 'lemahengdao', 'daotiaojinpao', 'fengjinguayin',
+  'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
   // 赵云
   'tuzhen', 'luema', 'longdan', 'tingqiang', 'qitanpanshe',
   'kongyingji', 'sanjinsanchu', 'jiejiang', 'xueranzhengpao', 'yishenshidan',
