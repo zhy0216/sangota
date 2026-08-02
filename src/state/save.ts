@@ -55,8 +55,10 @@ import { adoptRun, syncPotionSlots, syncRewardCount, uidCursor, type RunState } 
  * 时会在 327 行的核对上炸。版本一提，旧档走 'stale' 的作废路径，不炸。
  * v5：保持节点与房型不动，为既有相邻节点补战略连接。S1 不存图的边，旧档
  * 若继续会在同一节点看见另一组可走出口，因此拓扑变化同样作废旧档。
+ * v6：所有路线最多两间连续战斗房。房型分配、天命精英提格和战略补边都会
+ * 因此改变；S1 会从同一 seed 重长出不同房型/出口，旧档必须作废。
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 const SAVE_KEY = 'sangota.save.v1';
 

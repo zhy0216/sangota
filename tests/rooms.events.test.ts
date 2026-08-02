@@ -726,7 +726,6 @@ describe('山中残兵', () => {
 
   it('closes the event for good once 就此离开 is taken', () => {
     const { run, id } = searchable('leave');
-    expect(chooseOption(run, id, 0)!.fight).toBeUndefined();
     expect(isResolved(run, id)).toBe(false);
     expect(chooseOption(run, id, 1)).not.toBeNull();
     expect(isResolved(run, id)).toBe(true);

@@ -48,9 +48,9 @@ export interface ActDef {
 
 /**
  * 第一幕's layout object is `ACT1_LAYOUT` *by reference*, not a copy of its
- * numbers. `startRun` passes the same object, so 第一幕 of every existing seed
- * generates exactly the map it always did; a copy here would be one careless
- * edit away from silently regenerating every saved run.
+ * numbers. `startRun` passes the same object, so the two entry points cannot
+ * drift; a copied layout would be one careless edit away from silently
+ * regenerating every saved run.
  */
 export const ACTS: Record<ActIndex, ActDef> = {
   1: {

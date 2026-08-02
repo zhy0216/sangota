@@ -10,10 +10,19 @@ import { nodeKey, type GameMap, type MapNode, type RoomType } from './types';
  *     visited cell becomes a node; every step becomes an edge. Walks may share
  *     cells, which is what produces the branching-then-merging silhouette.
  *  2. Assign a room type to each node under the design rules (fixed floors,
- *     lockouts below floor 6, no repeats along an edge or between siblings).
+ *     lockouts below floor 6, restricted repeats, at most two fights in a row).
  */
 
 const WALK_STEPS = [-1, 0, 1] as const;
+
+/** Every visible route must break after at most two combat rooms. */
+export const MAX_CONSECUTIVE_COMBATS = 2;
+
+const COMBAT_ROOMS: ReadonlySet<RoomType> = new Set<RoomType>([
+  'monster',
+  'elite',
+  'boss',
+]);
 
 /** Weighted pool for the "free" floors. Mirrors StS's room distribution. */
 const POOL: { type: RoomType; weight: number }[] = [
@@ -28,6 +37,84 @@ const POOL: { type: RoomType; weight: number }[] = [
 const RESTRICTED: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'elite']);
 
 const edgeKey = (row: number, from: number, to: number) => `${row}:${from}>${to}`;
+
+const isCombatRoom = (type: RoomType): boolean => COMBAT_ROOMS.has(type);
+
+/** Longest combat-only suffix of any route ending at `node`. */
+function combatStreakEndingAt(
+  node: MapNode,
+  nodes: Map<string, MapNode>,
+  memo = new Map<string, number>(),
+): number {
+  const cached = memo.get(node.id);
+  if (cached !== undefined) return cached;
+  if (!isCombatRoom(node.type)) {
+    memo.set(node.id, 0);
+    return 0;
+  }
+
+  let before = 0;
+  for (const parentId of node.parents) {
+    const parent = nodes.get(parentId);
+    if (parent) before = Math.max(before, combatStreakEndingAt(parent, nodes, memo));
+  }
+  const streak = before + 1;
+  memo.set(node.id, streak);
+  return streak;
+}
+
+/** Longest combat-only prefix of any route starting at `node`. */
+function combatStreakStartingAt(
+  node: MapNode,
+  nodes: Map<string, MapNode>,
+  memo = new Map<string, number>(),
+): number {
+  const cached = memo.get(node.id);
+  if (cached !== undefined) return cached;
+  if (!isCombatRoom(node.type)) {
+    memo.set(node.id, 0);
+    return 0;
+  }
+
+  let after = 0;
+  for (const childId of node.children) {
+    const child = nodes.get(childId);
+    if (child) after = Math.max(after, combatStreakStartingAt(child, nodes, memo));
+  }
+  const streak = after + 1;
+  memo.set(node.id, streak);
+  return streak;
+}
+
+/** The node is still untyped here, so only its already-assigned parents count. */
+function combatCanFollowParents(node: MapNode, nodes: Map<string, MapNode>): boolean {
+  const memo = new Map<string, number>();
+  let before = 0;
+  for (const parentId of node.parents) {
+    const parent = nodes.get(parentId);
+    if (parent) before = Math.max(before, combatStreakEndingAt(parent, nodes, memo));
+  }
+  return before + 1 <= MAX_CONSECUTIVE_COMBATS;
+}
+
+/** Whether turning an already-connected node into a combat keeps every route legal. */
+function combatFitsBetweenNeighbours(node: MapNode, nodes: Map<string, MapNode>): boolean {
+  const endingMemo = new Map<string, number>();
+  const startingMemo = new Map<string, number>();
+  let before = 0;
+  let after = 0;
+
+  for (const parentId of node.parents) {
+    const parent = nodes.get(parentId);
+    if (parent) before = Math.max(before, combatStreakEndingAt(parent, nodes, endingMemo));
+  }
+  for (const childId of node.children) {
+    const child = nodes.get(childId);
+    if (child) after = Math.max(after, combatStreakStartingAt(child, nodes, startingMemo));
+  }
+
+  return before + 1 + after <= MAX_CONSECUTIVE_COMBATS;
+}
 
 /**
  * The shape of one act's map: how tall it is and which floors are fixed.
@@ -50,9 +137,9 @@ export interface ActLayout {
 
 /**
  * 第一幕's shape — the numbers that lived in `MAP` before acts existed, moved
- * verbatim. `startRun` passes this, so **every existing seed generates exactly
- * the map it always did**; `ACTS[1].layout` is this very object by reference,
- * and must stay that way or every 第一幕 in every saved seed changes.
+ * verbatim. `startRun` and `ACTS[1]` share this object by reference so the two
+ * entry points cannot drift. Changing these numbers (or any generation rule)
+ * changes a seed-grown map and therefore requires a save-version bump.
  */
 export const ACT1_LAYOUT: ActLayout = {
   rows: 15,
@@ -248,6 +335,19 @@ function strategicLinkLegal(
   // The new edge itself may not repeat a restricted room type.
   if (parent.type === child.type && RESTRICTED.has(child.type)) return false;
 
+  // This edge concatenates the longest combat suffix ending at the parent
+  // with the longest combat prefix starting at the child. Room assignment ran
+  // before strategic links, so checking only the edge itself would miss a
+  // three-room run assembled from two previously legal route fragments.
+  if (
+    isCombatRoom(parent.type) &&
+    isCombatRoom(child.type) &&
+    combatStreakEndingAt(parent, nodes) + combatStreakStartingAt(child, nodes) >
+      MAX_CONSECUTIVE_COMBATS
+  ) {
+    return false;
+  }
+
   // The new child joins the parent's existing children as a sibling.
   if (RESTRICTED.has(child.type)) {
     for (const siblingId of parent.children) {
@@ -431,6 +531,10 @@ function promoteExtraElites(
  * 精英会和**晚它一行**才定型的邻居撞在同一条边上。
  */
 function eliteUpgradeLegal(node: MapNode, nodes: Map<string, MapNode>): boolean {
+  // An event promoted between two fights would silently create a three-fight
+  // route even though all elite-specific adjacency rules below still pass.
+  if (!combatFitsBetweenNeighbours(node, nodes)) return false;
+
   for (const parentId of node.parents) {
     const parent = nodes.get(parentId)!;
     if (parent.type === 'elite') return false;
@@ -460,6 +564,9 @@ function rollType(
     const candidate = rng.weighted(items, weights);
     if (isLegal(candidate, node, nodes, byRow, layout)) return candidate;
   }
+  // Event is deliberately the hard floor: unlike the old unchecked fallback,
+  // it always breaks a combat streak and cannot violate an advanced-room rule.
+  if (!isLegal('monster', node, nodes, byRow, layout)) return 'event';
   return rng.weighted(['monster', 'event'], [0.7, 0.3]);
 }
 
@@ -470,6 +577,8 @@ function isLegal(
   byRow: string[][],
   layout: ActLayout,
 ): boolean {
+  if (isCombatRoom(type) && !combatCanFollowParents(node, nodes)) return false;
+
   if (RESTRICTED.has(type)) {
     // Elite / rest / shop are gated behind the early floors.
     if (node.row < layout.minAdvancedRow) return false;

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ACT1_LAYOUT, generateMap } from '../src/map/generateMap';
-import type { GameMap, RoomType } from '../src/map/types';
 import { Rng } from '../src/core/rng';
+import { ACTS, actSeed } from '../src/data/acts';
+import {
+  ACT1_LAYOUT,
+  MAX_CONSECUTIVE_COMBATS,
+  generateMap,
+} from '../src/map/generateMap';
+import type { GameMap, RoomType } from '../src/map/types';
 
 /**
  * The README claims the generator was validated across 400 seeds. This is that
@@ -17,6 +22,7 @@ const TREASURE_ROW = ACT1_LAYOUT.treasureRow!;
 const REST_ROW = ACT1_LAYOUT.restRow!;
 const FIXED_ROWS = new Set([0, TREASURE_ROW, REST_ROW]);
 const RESTRICTED: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'elite']);
+const COMBAT: ReadonlySet<RoomType> = new Set<RoomType>(['monster', 'elite', 'boss']);
 
 /** Node ids reachable by walking children down from the starting floor. */
 function reachable(map: GameMap): Set<string> {
@@ -43,6 +49,31 @@ function edgesOfRow(map: GameMap, row: number): [number, number][] {
     }
   }
   return out;
+}
+
+/** Longest combat-only suffix of any complete route through the map. */
+function longestCombatStreak(map: GameMap): { length: number; path: string[] } {
+  const endingAt = new Map<string, { length: number; path: string[] }>();
+  let longest = { length: 0, path: [] as string[] };
+
+  for (const id of [...map.byRow.flat(), map.bossId]) {
+    const node = map.nodes.get(id)!;
+    let current = { length: 0, path: [] as string[] };
+    if (COMBAT.has(node.type)) {
+      const before = node.parents.reduce(
+        (best, parentId) => {
+          const candidate = endingAt.get(parentId) ?? { length: 0, path: [] };
+          return candidate.length > best.length ? candidate : best;
+        },
+        { length: 0, path: [] as string[] },
+      );
+      current = { length: before.length + 1, path: [...before.path, id] };
+    }
+    endingAt.set(id, current);
+    if (current.length > longest.length) longest = current;
+  }
+
+  return longest;
 }
 
 describe(`generateMap over ${SEEDS} seeds`, () => {
@@ -154,6 +185,16 @@ describe(`generateMap over ${SEEDS} seeds`, () => {
       for (const id of map.byRow[0]) expect(map.nodes.get(id)!.type).toBe('monster');
       for (const id of map.byRow[TREASURE_ROW]) expect(map.nodes.get(id)!.type).toBe('treasure');
       for (const id of map.byRow[REST_ROW]) expect(map.nodes.get(id)!.type).toBe('rest');
+    }
+  });
+
+  it('never offers a route with more than two consecutive combat rooms', () => {
+    for (const map of maps) {
+      const streak = longestCombatStreak(map);
+      expect(
+        streak.length,
+        `${map.seed} has ${streak.length} combats through ${streak.path.join(' → ')}`,
+      ).toBeLessThanOrEqual(MAX_CONSECUTIVE_COMBATS);
     }
   });
 
@@ -273,6 +314,11 @@ describe('extraElites (todos/19 a2)', () => {
           }
         }
       }
+      const streak = longestCombatStreak(map);
+      expect(
+        streak.length,
+        `${seed} 提格后有 ${streak.length} 连战：${streak.path.join(' → ')}`,
+      ).toBeLessThanOrEqual(MAX_CONSECUTIVE_COMBATS);
     }
   });
 
@@ -286,4 +332,22 @@ describe('extraElites (todos/19 a2)', () => {
     expect(eliteCount(map)).toBeGreaterThan(0);
     expect(eliteCount(map)).toBeLessThan(free.length);
   });
+});
+
+describe('combat streaks in every generated act', () => {
+  for (const act of [1, 2, 3] as const) {
+    it(`caps 第${act}幕 routes before and after elite promotion`, () => {
+      for (let i = 0; i < 160; i++) {
+        const seed = `all-acts-${act}-${i}`;
+        for (const extraElites of [0, 3]) {
+          const map = generateMap(actSeed(seed, act), ACTS[act].layout, extraElites);
+          const streak = longestCombatStreak(map);
+          expect(
+            streak.length,
+            `${map.seed} extra=${extraElites}: ${streak.path.join(' → ')}`,
+          ).toBeLessThanOrEqual(MAX_CONSECUTIVE_COMBATS);
+        }
+      }
+    });
+  }
 });

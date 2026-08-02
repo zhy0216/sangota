@@ -23,17 +23,20 @@ npm run build       # typecheck + production bundle
 
 ## What's in
 
-**Act map** — a faithful reimplementation of the Slay the Spire generator: 4 random
-walks carved bottom-to-top over a 7×15 lattice (~47 rooms a map, the original's
-density), edges rejected when they would cross,
-then room types assigned under the design rules (floor 1 always combat, floor 9 always
-treasure, floor 15 always a camp; elite/camp/shop locked out below floor 6; no repeat
-of those types along an edge or between siblings). Maps are seeded — the seed prints
-bottom-left, and re-running it reproduces the layout exactly.
+**Act map** — a Slay-the-Spire-style generator: 4 random walks carved bottom-to-top
+over a 7×15 lattice (~47 rooms a map), crossing edges rejected, then a small set of
+legal adjacent links added to restore route choice without adding rooms. Room types
+follow fixed-floor and adjacency rules (floor 1 always combat, floor 9 always treasure,
+floor 15 always a camp; elite/camp/shop locked out below floor 6; no restricted repeat
+along an edge or between siblings), and every visible route breaks after at most two
+combat rooms. Maps are seeded — the seed prints bottom-left, and re-running it
+reproduces the layout exactly.
 
 Validated across 400 seeds on every `npm test` (`tests/generateMap.test.ts`): every node
 reachable from floor 1, no crossing edges, fixed floors correct, elite/camp/shop never
-below floor 6, and no restricted type repeating up an edge or between siblings.
+below floor 6, no restricted type repeating up an edge or between siblings, and no
+three-fight route. A second sweep covers all three generated acts before and after
+extra-elite promotion.
 
 **Heroes** — 关羽, 赵云 and 诸葛亮, chosen on the title screen and shown in an in-map
 drawer (click the HUD portrait, `Esc` to close). No hero is special-cased anywhere in the
