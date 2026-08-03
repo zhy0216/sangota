@@ -5,6 +5,8 @@ import { makeCardArt } from '../ui/cardArt';
 import { useDesignSpace } from '../ui/designSpace';
 import { makeStatusIcons } from '../ui/statusIcons';
 import { bodyStyle, brushStyle } from '../ui/theme';
+import { launchDevScene } from '../devScenes';
+import { DEV_SCENE_NAME } from '../devScenes/runtime';
 
 const ICON_KEYS = ['monster', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'] as const;
 /** Keys match `HeroDef.portraitKey` / `fullKey` minus their prefix. */
@@ -163,6 +165,10 @@ export class BootScene extends Phaser.Scene {
     // After the loader has settled, so a card with a real plate keeps it and
     // only the ones with none — curses, status cards — get a drawn stand-in.
     makeCardArt(this);
+    if (DEV_SCENE_NAME) {
+      launchDevScene(this, DEV_SCENE_NAME);
+      return;
+    }
     this.scene.start('Title');
   }
 

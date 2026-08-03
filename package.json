@@ -6,6 +6,7 @@
   "description": "三国杀戮尖塔 — a Three Kingdoms themed roguelike deckbuilder",
   "scripts": {
     "dev": "vite",
+    "dev:scene": "bun run scripts/dev-scene.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

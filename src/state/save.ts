@@ -5,6 +5,7 @@ import { ACTS, type ActIndex } from '../data/acts';
 import { modsFor, type AscensionMods } from '../data/ascension';
 import { HEROES } from '../data/heroes';
 import { generateFinalAct, generateMap } from '../map/generateMap';
+import { isDevSceneMode } from '../devScenes/runtime';
 import { adoptRun, syncPotionSlots, syncRewardCount, uidCursor, type RunState } from './run';
 
 /**
@@ -466,6 +467,7 @@ function store(): Storage | null {
 let lastWritten: string | null = null;
 
 export function writeSave(run: RunState, combat: SavedCombat | null): void {
+  if (isDevSceneMode()) return;
   const slot = store();
   if (!slot) return;
   const json = JSON.stringify(toSaved(run, combat));
@@ -506,6 +508,7 @@ export function readSlot(): SaveSlot {
 }
 
 export function clearSave(): void {
+  if (isDevSceneMode()) return;
   lastWritten = null;
   const slot = store();
   if (!slot) return;

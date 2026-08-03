@@ -13,6 +13,18 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
+### 固定战斗测试场景
+
+开发时可以从 `src/devScenes/scenes/` 直接启动一份可复现的战斗状态：
+
+```bash
+bun run dev:scene scene1
+```
+
+`scene1.ts` 展示了完整格式：可指定遭遇、敌我体力与状态、敌方意图、气、
+手牌、抽牌堆、弃牌堆、消耗堆、宝物和丹药。测试场景以自定义局运行，且不会
+读取、覆盖或清除正常游戏存档；修改场景文件后刷新浏览器即可重置战斗。
+
 ```bash
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run — unit + property + golden, under a second
