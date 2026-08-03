@@ -43,6 +43,11 @@ const CARD_KEYS = [
   'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
   // 2026-08 关羽稀有补层
   'shenzaicaoying', 'guchenghui', 'wanjunqushou', 'baimajiewei',
+  // 2026-08 关羽弃牌 / 消耗 / 洗牌体系
+  'baizhanhuifeng', 'bingyinghezhen', 'chizhongdaiji', 'duanpaojueyi',
+  'hanbingzaixing', 'huimazhan', 'juantuchonglai', 'liangdaochangtong',
+  'libingmoma', 'mingjinzhengdui', 'qingzhuangjiancong', 'wusheng',
+  'yanqiyansha', 'yijiahuanzhen', 'zhengjingwu', 'zhenqianlidao',
   // Legendary
   'qinglongjueying', 'wushenglinshi', 'yijueqianqiu',
   // 赵云
@@ -85,6 +90,11 @@ const RELIC_KEYS = [
   'qixingdeng', 'fangtianhuaji', 'hufu', 'tongquetai', 'jiuxi',
   'jiuhulu', 'hanshoutinghouyin', 'qinggangjian', 'liangyinjia', 'kongmingdeng',
   'qimendunjia',
+  // 2026-08 关羽宝物扩充
+  'bingliangce', 'chunqiubaodian', 'duanjinwan', 'fenghuotai', 'huatuoyaofang',
+  'hujunxin', 'jingzhougudao', 'jingzhouyin', 'liangcaojie', 'longlin',
+  'maichengcanqi', 'pohujia', 'qinglongdaopu', 'qinglongnizhan', 'shangjiangling',
+  'shouhanzhaoshu', 'tunbingfu', 'xiaojiling', 'yanxingling', 'zhuquejie',
 ] as const;
 const POTION_KEYS = [
   'huoyouguan', 'tiejiasan', 'zhuangxingjiu', 'junqingmibao', 'jiejiasan',
