@@ -84,7 +84,7 @@ export function defaultSettings(): Settings {
     animSpeed: 'normal',
     confirmEndTurn: true,
     confirmPlay: 'off',
-    autoEndTurn: false,
+    autoEndTurn: true,
     showIncomingDamage: true,
     keys: {
       endTurn: 'E',       // README：`E` 结束回合

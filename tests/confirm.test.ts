@@ -160,19 +160,19 @@ describe('needsPlayConfirm 三档：off 全放、rare 只拦稀有、all 全拦'
 });
 
 describe('shouldAutoEndTurn：设置开 且 玩家阶段 且 无悬置 且 无可打牌', () => {
-  it('默认关——无可打牌也不代按', () => {
+  it('默认开——无可打牌时触发', () => {
     withStorage();
-    const state = bench();
-    state.energy = 0;
-    expect(shouldAutoEndTurn(state)).toBe(false);
-  });
-
-  it('开着、气尽无可打——触发', () => {
-    withStorage();
-    updateSettings({ autoEndTurn: true });
     const state = bench();
     state.energy = 0;
     expect(shouldAutoEndTurn(state)).toBe(true);
+  });
+
+  it('明确关闭时，气尽无可打也不触发', () => {
+    withStorage();
+    updateSettings({ autoEndTurn: false });
+    const state = bench();
+    state.energy = 0;
+    expect(shouldAutoEndTurn(state)).toBe(false);
   });
 
   it('还有可打的牌——不触发', () => {
@@ -207,10 +207,10 @@ describe('shouldAutoEndTurn：设置开 且 玩家阶段 且 无悬置 且 无�
 });
 
 describe('默认值与 todo 一致——无 storage 的其余测试不受三项影响', () => {
-  it('confirmEndTurn 开、confirmPlay 关、autoEndTurn 关', () => {
+  it('confirmEndTurn 开、confirmPlay 关、autoEndTurn 开', () => {
     expect(DEFAULT_SETTINGS.confirmEndTurn).toBe(true);
     expect(DEFAULT_SETTINGS.confirmPlay).toBe('off');
-    expect(DEFAULT_SETTINGS.autoEndTurn).toBe(false);
+    expect(DEFAULT_SETTINGS.autoEndTurn).toBe(true);
   });
 });
 
