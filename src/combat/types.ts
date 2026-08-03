@@ -46,7 +46,18 @@ export interface StatusMeta {
  * they take up a hand slot and obey the same life cycle.
  */
 export type CardType = 'attack' | 'skill' | 'power' | 'curse' | 'status';
-export type CardRarity = 'basic' | 'common' | 'uncommon' | 'rare';
+export type CardRarity = 'basic' | 'common' | 'uncommon' | 'rare' | 'legendary';
+/** Presentation-only flourish selected by a card definition when it is played. */
+export type CardPlayVfx =
+  | 'emeraldDragon'
+  | 'warGod'
+  | 'oathSeal'
+  | 'sevenRides'
+  | 'dragonRoar'
+  | 'nightRaid'
+  | 'eightTrigrams'
+  | 'eastWind'
+  | 'sevenStars';
 /** Who the player picks when playing the card. */
 export type TargetMode = 'enemy' | 'self' | 'all';
 
@@ -144,6 +155,8 @@ export interface CardDef {
   target: TargetMode;
   /** Texture key for the card's illustration. */
   art: string;
+  /** Optional presentation flourish. Rules never branch on this field. */
+  playVfx?: CardPlayVfx;
   /**
    * Rules text. `{D}` is replaced with the computed damage of the first
    * damage effect and `{B}` with the first block effect, so the card always

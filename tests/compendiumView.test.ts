@@ -80,12 +80,13 @@ describe('compendium card catalogue and filters', () => {
     expect(filterCardIds(compendiumCardIds(), defaultCardFilter())).toEqual(compendiumCardIds());
   });
 
-  it('names all four rarities', () => {
+  it('names every rarity', () => {
     expect(CARD_RARITY_LABEL).toEqual({
       basic: '起始',
       common: '常见',
       uncommon: '罕见',
       rare: '稀有',
+      legendary: '传说',
     });
   });
 });

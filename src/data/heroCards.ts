@@ -382,8 +382,9 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
 
   // --- Pool expansion (todos/17, 阶段四实测) --------------------------------
   /*
-   * 11 cards taking 赵云 from 9 draftable to 20 — 8 common, 8 uncommon, 4 rare,
-   * against 关羽's 10/8/3. Same design brief as the section header: small,
+   * The first 11 additions took 赵云 from 9 draftable to 20 — 8 common,
+   * 8 uncommon, 4 rare, against 关羽's then-current 10/8/3. Same design brief
+   * as the section header: small,
    * cheap, and worth more the later in the turn they land. Appended after the
    * original nine and never re-ordered — `poolsOf` walks this table in
    * declaration order and existing runs index into the derived arrays.
@@ -732,6 +733,107 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
             { kind: 'block', amount: 4 },
           ],
         },
+      ],
+    },
+  },
+
+  // --- legendary ----------------------------------------------------------
+
+  qiruchangban: {
+    id: 'qiruchangban',
+    name: '七入长坂',
+    type: 'attack',
+    rarity: 'legendary',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-qiruchangban',
+    playVfx: 'sevenRides',
+    text: '连刺 {T} 次，每次造成 {D} 点伤害，至少一次。\n若本回合已打出 3 张【攻】牌，获得 1 点气并抽 2 张牌。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 1 },
+        then: [{ kind: 'scaleWithAttacks', per: [{ kind: 'damage', amount: 8 }] }],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 3 },
+        then: [
+          { kind: 'energy', amount: 1 },
+          { kind: 'draw', amount: 2 },
+        ],
+      },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 1 },
+          then: [{ kind: 'scaleWithAttacks', per: [{ kind: 'damage', amount: 10 }] }],
+          otherwise: [{ kind: 'damage', amount: 10 }],
+        },
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 3 },
+          then: [
+            { kind: 'energy', amount: 1 },
+            { kind: 'draw', amount: 3 },
+          ],
+        },
+      ],
+    },
+  },
+
+  longyinzhenjun: {
+    id: 'longyinzhenjun',
+    name: '龙吟震军',
+    type: 'attack',
+    rarity: 'legendary',
+    cost: 3,
+    target: 'all',
+    art: 'card-longyinzhenjun',
+    playVfx: 'dragonRoar',
+    text: '对所有敌人造成 {D} 点伤害 {T} 次。\n施加 2 层【怯战】。',
+    effects: [
+      { kind: 'damageAll', amount: 6, times: 3 },
+      { kind: 'status', status: 'weak', amount: 2, to: 'allEnemies' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '对所有敌人造成 {D} 点伤害 {T} 次。\n施加 3 层【怯战】。',
+      effects: [
+        { kind: 'damageAll', amount: 8, times: 3 },
+        { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+      ],
+    },
+  },
+
+  zhaoyepozhen: {
+    id: 'zhaoyepozhen',
+    name: '照夜破阵',
+    type: 'skill',
+    rarity: 'legendary',
+    cost: 1,
+    target: 'self',
+    art: 'card-zhaoyepozhen',
+    playVfx: 'nightRaid',
+    text: '失去 5 点体力。\n获得 2 点气，抽 3 张牌，并获得 1 层【天佑】。',
+    effects: [
+      { kind: 'loseHp', amount: 5 },
+      { kind: 'energy', amount: 2 },
+      { kind: 'draw', amount: 3 },
+      { kind: 'status', status: 'buffer', amount: 1, to: 'self' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '失去 3 点体力。\n获得 2 点气，抽 4 张牌，并获得 1 层【天佑】。',
+      effects: [
+        { kind: 'loseHp', amount: 3 },
+        { kind: 'energy', amount: 2 },
+        { kind: 'draw', amount: 4 },
+        { kind: 'status', status: 'buffer', amount: 1, to: 'self' },
       ],
     },
   },
@@ -1440,6 +1542,87 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
           then: [{ kind: 'damage', amount: 28 }],
           otherwise: [{ kind: 'damage', amount: 14 }],
         },
+      ],
+    },
+  },
+
+  // --- legendary ----------------------------------------------------------
+
+  qimenbazhen: {
+    id: 'qimenbazhen',
+    name: '奇门八阵',
+    type: 'skill',
+    rarity: 'legendary',
+    cost: 3,
+    target: 'all',
+    art: 'card-qimenbazhen',
+    playVfx: 'eightTrigrams',
+    text: '获得 {B} 点护甲。\n所有敌人添 2 层【破绽】与【怯战】。\n将 2 张「锦囊」置入手牌。',
+    effects: [
+      { kind: 'block', amount: 18 },
+      { kind: 'status', status: 'vulnerable', amount: 2, to: 'allEnemies' },
+      { kind: 'status', status: 'weak', amount: 2, to: 'allEnemies' },
+      { kind: 'addCard', defId: 'jinnang', count: 2, to: 'hand' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n所有敌人添 3 层【破绽】与【怯战】。\n将 3 张「锦囊」置入手牌。',
+      effects: [
+        { kind: 'block', amount: 24 },
+        { kind: 'status', status: 'vulnerable', amount: 3, to: 'allEnemies' },
+        { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+        { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
+      ],
+    },
+  },
+
+  dongfengjitian: {
+    id: 'dongfengjitian',
+    name: '东风祭天',
+    type: 'attack',
+    rarity: 'legendary',
+    cost: -1,
+    target: 'all',
+    art: 'card-dongfengjitian',
+    playVfx: 'eastWind',
+    text: '每消耗 1 点气，对所有敌人造成 {D} 点伤害。\n再施加 1 层【破绽】。',
+    effects: [
+      { kind: 'scaleWithEnergy', per: [{ kind: 'damageAll', amount: 6 }] },
+      { kind: 'status', status: 'vulnerable', amount: 1, to: 'allEnemies' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '每消耗 1 点气，对所有敌人造成 {D} 点伤害。\n再施加 2 层【破绽】。',
+      effects: [
+        { kind: 'scaleWithEnergy', per: [{ kind: 'damageAll', amount: 8 }] },
+        { kind: 'status', status: 'vulnerable', amount: 2, to: 'allEnemies' },
+      ],
+    },
+  },
+
+  qixingxuming: {
+    id: 'qixingxuming',
+    name: '七星续命',
+    type: 'power',
+    rarity: 'legendary',
+    cost: 3,
+    target: 'self',
+    art: 'card-qixingxuming',
+    playVfx: 'sevenStars',
+    text: '回复 12 点体力。\n获得 2 层【天佑】。\n将 3 张「锦囊」置入手牌。',
+    effects: [
+      { kind: 'heal', amount: 12 },
+      { kind: 'status', status: 'buffer', amount: 2, to: 'self' },
+      { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      cost: 2,
+      text: '回复 16 点体力。\n获得 2 层【天佑】。\n将 3 张「锦囊」置入手牌。',
+      effects: [
+        { kind: 'heal', amount: 16 },
+        { kind: 'status', status: 'buffer', amount: 2, to: 'self' },
+        { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
       ],
     },
   },

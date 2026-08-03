@@ -33,7 +33,7 @@ export function needsEndTurnConfirm(state: CombatState): boolean {
 export function needsPlayConfirm(def: Pick<CardDef, 'rarity'>): boolean {
   const mode = getSettings().confirmPlay;
   if (mode === 'all') return true;
-  return mode === 'rare' && def.rarity === 'rare';
+  return mode === 'rare' && (def.rarity === 'rare' || def.rarity === 'legendary');
 }
 
 /** 自动结束前的缓冲——留 700ms 给玩家反悔（用丹药、看局面）。 */

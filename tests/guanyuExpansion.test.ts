@@ -53,12 +53,13 @@ const uidOf = (state: CombatState, defId: string): string => {
   return uid;
 };
 
-describe('关羽 48-card engine expansion', () => {
+describe('关羽 engine expansion', () => {
   it('appends exactly 4 common, 10 uncommon and 2 rare cards', () => {
     expect(CARD_POOL_BY_RARITY.common.slice(-4)).toEqual(ADDED.common);
     expect(CARD_POOL_BY_RARITY.uncommon.slice(-10)).toEqual(ADDED.uncommon);
     expect(CARD_POOL_BY_RARITY.rare.slice(-2)).toEqual(ADDED.rare);
-    expect(Object.values(CARD_POOL_BY_RARITY).flat()).toHaveLength(48);
+    expect(CARD_POOL_BY_RARITY.legendary).toHaveLength(3);
+    expect(Object.values(CARD_POOL_BY_RARITY).flat()).toHaveLength(51);
   });
 
   it('adds five 势 cards and leaves every new card forgeable', () => {

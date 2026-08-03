@@ -190,6 +190,7 @@ test(`卡牌边际价值: 每卡 +2 对一幕首领, ${SWEEP_N} fights per row`,
       { pool: 'common', ids: [...poolFor(hero.id, 'common')] },
       { pool: 'uncommon', ids: [...poolFor(hero.id, 'uncommon')] },
       { pool: 'rare', ids: [...poolFor(hero.id, 'rare')] },
+      { pool: 'legendary', ids: [...poolFor(hero.id, 'legendary')] },
       { pool: '无色', ids: [...COLORLESS_POOL] },
     ];
     const base = measureCardRow(hero, null);

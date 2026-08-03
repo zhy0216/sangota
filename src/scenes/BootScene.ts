@@ -43,6 +43,8 @@ const CARD_KEYS = [
   'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
   // 2026-08 关羽稀有补层
   'shenzaicaoying', 'guchenghui', 'wanjunqushou', 'baimajiewei',
+  // Legendary
+  'qinglongjueying', 'wushenglinshi', 'yijueqianqiu',
   // 赵云
   'tuzhen', 'luema', 'longdan', 'tingqiang', 'qitanpanshe',
   'kongyingji', 'sanjinsanchu', 'jiejiang', 'xueranzhengpao', 'yishenshidan',
@@ -51,6 +53,7 @@ const CARD_KEYS = [
   'lianhuanqiang', 'jici', 'duojian', 'qianghua', 'chenshi',
   'yinqiang', 'hengsaoqianjun', 'longxiang', 'yanqixigu', 'huwei',
   'changbanpo',
+  'qiruchangban', 'longyinzhenjun', 'zhaoyepozhen',
   // 诸葛亮
   'yuanrongnu', 'jushou', 'longzhongdui', 'jinnang', 'jiejianzhiji',
   'jiedongfeng', 'huoji', 'kongchengji', 'qixingdeng', 'muniuliuma',
@@ -59,6 +62,7 @@ const CARD_KEYS = [
   'youdi', 'shengdongjixi', 'miaosuan', 'fubing', 'jijiangfa',
   'guanxing', 'huoshaobowang', 'jianbingzengzao', 'shenjimiaosuan', 'anjupingwulu',
   'huoshaotengjia',
+  'qimenbazhen', 'dongfengjitian', 'qixingxuming',
   // 诅咒与状态牌
   'tannian', 'jiushang', 'yixin', 'shemi', 'fanshi',
   'suming', 'fenying', 'chuangshang', 'xuanyun', 'nining',

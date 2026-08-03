@@ -117,6 +117,7 @@ describe('startCustomRun', () => {
       ...poolFor('guanyu', 'common'),
       ...poolFor('guanyu', 'uncommon'),
       ...poolFor('guanyu', 'rare'),
+      ...poolFor('guanyu', 'legendary'),
       ...COLORLESS_POOL,
     ];
     expect(run.deck).toHaveLength(DEFAULT_HERO.startingDeck.length + extra.length);

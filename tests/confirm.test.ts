@@ -141,10 +141,11 @@ describe('needsPlayConfirm 三档：off 全放、rare 只拦稀有、all 全拦'
     expect(needsPlayConfirm({ rarity: 'basic' })).toBe(false);
   });
 
-  it('rare 档只拦稀有牌', () => {
+  it('rare 档拦稀有与传说牌', () => {
     withStorage();
     updateSettings({ confirmPlay: 'rare' });
     expect(needsPlayConfirm({ rarity: 'rare' })).toBe(true);
+    expect(needsPlayConfirm({ rarity: 'legendary' })).toBe(true);
     expect(needsPlayConfirm({ rarity: 'basic' })).toBe(false);
     expect(needsPlayConfirm({ rarity: 'common' })).toBe(false);
     expect(needsPlayConfirm({ rarity: 'uncommon' })).toBe(false);

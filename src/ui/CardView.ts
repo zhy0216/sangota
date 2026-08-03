@@ -28,6 +28,8 @@ const ART = { y: -44, w: 136, h: 91 };
 
 /** 规则文本的行距。热区定位（todos/24 k2）要按它算行高，抽出来两处共用。 */
 const DESC_LINE_SPACING = 6;
+/** Legendary's violet-gold edge is deliberately independent of card type. */
+const LEGENDARY_VIOLET = 0xb88cff;
 
 /**
  * One card in hand. Owns its own face rendering so the scene only has to move
@@ -89,8 +91,12 @@ export class CardView extends Phaser.GameObjects.Container {
     const def = resolveCard(defId, upgraded);
     this.def = def;
 
-    // A curse can never be forged, so the gold accent can never claim one.
-    const accent = upgraded > 0 ? C.goldBright : CARD_TYPE_META[def.type].color;
+    // Legendary cards keep their own violet-gold identity; forging brightens
+    // the copy but does not turn it back into an ordinary type-coloured card.
+    const accent =
+      def.rarity === 'legendary'
+        ? (upgraded > 0 ? C.goldBright : LEGENDARY_VIOLET)
+        : (upgraded > 0 ? C.goldBright : CARD_TYPE_META[def.type].color);
     this.accent = accent;
 
     const shadow = scene.add.graphics();
@@ -163,7 +169,14 @@ export class CardView extends Phaser.GameObjects.Container {
 
     // The type tag keeps its own colour — it reads type, not upgrade state.
     const typeTag = scene.add
-      .text(56, -78, CARD_TYPE_META[def.type].label, brushStyle(18, CARD_TYPE_META[def.type].color))
+      .text(
+        56,
+        -78,
+        def.rarity === 'legendary'
+          ? `${CARD_TYPE_META[def.type].label}·传`
+          : CARD_TYPE_META[def.type].label,
+        brushStyle(def.rarity === 'legendary' ? 15 : 18, CARD_TYPE_META[def.type].color),
+      )
       .setOrigin(0.5);
 
     // Greys the whole face out when the card is unaffordable.
@@ -192,10 +205,21 @@ export class CardView extends Phaser.GameObjects.Container {
     g.fillStyle(this.def.type === 'curse' ? C.inkDeep : C.ink, 1);
     g.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
     if (this.def.type === 'curse') this.paintCracks(g);
-    g.lineStyle(highlighted ? 3 : 2, highlighted ? C.goldBright : accent, highlighted ? 1 : 0.8);
+    const legendary = this.def.rarity === 'legendary';
+    g.lineStyle(
+      highlighted ? 3 : legendary ? 3 : 2,
+      highlighted ? C.goldBright : accent,
+      highlighted ? 1 : legendary ? 0.95 : 0.8,
+    );
     g.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
-    g.lineStyle(1, C.paper, 0.12);
+    g.lineStyle(legendary ? 1.5 : 1, legendary ? C.goldBright : C.paper, legendary ? 0.7 : 0.12);
     g.strokeRoundedRect(-CARD_W / 2 + 4, -CARD_H / 2 + 4, CARD_W - 8, CARD_H - 8, 5);
+    if (legendary) {
+      g.fillStyle(C.goldBright, highlighted ? 1 : 0.85);
+      for (const x of [-CARD_W / 2 + 10, CARD_W / 2 - 10]) {
+        g.fillCircle(x, -CARD_H / 2 + 10, 3.5);
+      }
+    }
   }
 
   /**

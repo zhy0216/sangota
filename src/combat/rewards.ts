@@ -32,7 +32,12 @@ export type RewardTier = 'monster' | 'elite' | 'boss';
 export type RewardRarity = Exclude<CardRarity, 'basic'>;
 
 /** Ordered worst to best — the fallback walks this list, so order is load-bearing. */
-export const REWARD_RARITIES: readonly RewardRarity[] = ['common', 'uncommon', 'rare'];
+export const REWARD_RARITIES: readonly RewardRarity[] = [
+  'common',
+  'uncommon',
+  'rare',
+  'legendary',
+];
 
 /**
  * Base pick weights per tier. Elites buy their better odds out of the common
@@ -50,9 +55,9 @@ export const REWARD_RARITIES: readonly RewardRarity[] = ['common', 'uncommon', '
  * never re-introduce commons into a 首领 offer.
  */
 export const TIER_WEIGHTS: Record<RewardTier, Record<RewardRarity, number>> = {
-  monster: { common: 60, uncommon: 37, rare: 3 },
-  elite: { common: 50, uncommon: 37, rare: 13 },
-  boss: { common: 0, uncommon: 50, rare: 50 },
+  monster: { common: 60, uncommon: 37, rare: 3, legendary: 0 },
+  elite: { common: 50, uncommon: 36, rare: 12, legendary: 2 },
+  boss: { common: 0, uncommon: 45, rare: 45, legendary: 10 },
 };
 
 /** Cards offered when nothing modifies it. */
@@ -90,7 +95,7 @@ export function rollCardReward(opts: CardRewardOptions): string[] {
   const count = Math.max(0, opts.count ?? run.cardRewardCount);
 
   const picked: string[] = [];
-  let rolledRare = false;
+  let rolledHighRarity = false;
 
   for (let i = 0; i < count; i++) {
     const wanted = rollRarity(tier, run.rareBump, rng, run.mods.rarityWeightMult);
@@ -111,14 +116,14 @@ export function rollCardReward(opts: CardRewardOptions): string[] {
 
     const options = unlockedPool(run.hero.id, from).filter((id) => !picked.includes(id));
     picked.push(rng.pick(options));
-    if (from === 'rare') rolledRare = true;
+    if (from === 'rare' || from === 'legendary') rolledHighRarity = true;
   }
 
   // Escalation is per reward, not per card: three commons is one dry reward,
   // not three, or the bump would outrun the weight table within an act. A
   // reward that offered nothing at all is not a dry streak either — it was
   // never a draw.
-  if (picked.length > 0) run.rareBump = rolledRare ? 0 : run.rareBump + 1;
+  if (picked.length > 0) run.rareBump = rolledHighRarity ? 0 : run.rareBump + 1;
   return picked;
 }
 
@@ -139,6 +144,7 @@ export function rewardWeights(
     common: base.common,
     uncommon: base.uncommon * rarityWeightMult.uncommon,
     rare: base.rare * rarityWeightMult.rare + Math.max(0, rareBump),
+    legendary: base.legendary * rarityWeightMult.rare,
   };
 }
 

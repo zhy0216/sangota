@@ -49,7 +49,7 @@ export function startCustomRun(hero: HeroDef, config: CustomRunConfig): RunState
   if (config.modifiers.startWithAllCards) {
     // 本将三档奖池 + 无色牌，声明序各一张。basic 的起手牌 `startingDeck`
     // 已经带着，不再重复。
-    for (const rarity of ['common', 'uncommon', 'rare'] as const) {
+    for (const rarity of ['common', 'uncommon', 'rare', 'legendary'] as const) {
       for (const id of poolFor(hero.id, rarity)) addCard(run, id);
     }
     for (const id of COLORLESS_POOL) addCard(run, id);

@@ -36,7 +36,12 @@ function run(seed = 'reward'): RunState {
 function distribution(tier: RewardTier, n: number, seed: string): Record<RewardRarity, number> {
   const r = run(seed);
   const rng = new Rng(seed);
-  const counts: Record<RewardRarity, number> = { common: 0, uncommon: 0, rare: 0 };
+  const counts: Record<RewardRarity, number> = {
+    common: 0,
+    uncommon: 0,
+    rare: 0,
+    legendary: 0,
+  };
   let total = 0;
 
   for (let i = 0; i < n; i++) {
@@ -59,6 +64,7 @@ describe('rollCardReward · 验收标准', () => {
     expect(d.uncommon).toBeLessThan(40);
     expect(d.rare).toBeGreaterThan(0);
     expect(d.rare).toBeLessThan(6);
+    expect(d.legendary).toBe(0);
   });
 
   it('makes rares markedly likelier at an elite, and likelier again at a boss', () => {
@@ -70,19 +76,21 @@ describe('rollCardReward · 验收标准', () => {
     expect(boss.rare).toBeGreaterThan(elite.rare);
   });
 
-  it('never offers a common after a 首领, and pays rare half the time (2026-08 抬档)', () => {
+  it('never offers a common after a 首领, with a 10% Legendary capstone', () => {
     // The table itself, spelled out — retuning it has to edit this line too.
-    expect(TIER_WEIGHTS.boss).toEqual({ common: 0, uncommon: 50, rare: 50 });
+    expect(TIER_WEIGHTS.boss).toEqual({ common: 0, uncommon: 45, rare: 45, legendary: 10 });
 
     // And the behaviour: the pools are 12/10/6, a reward takes 3, so the
     // fallback ladder can never be forced down into common at this tier.
     const d = distribution('boss', 600, 'dist-boss-floor');
     expect(d.common).toBe(0);
-    expect(d.rare).toBeGreaterThan(44);
-    expect(d.rare).toBeLessThan(56);
+    expect(d.rare).toBeGreaterThan(39);
+    expect(d.rare).toBeLessThan(51);
+    expect(d.legendary).toBeGreaterThan(6);
+    expect(d.legendary).toBeLessThan(14);
   });
 
-  it('raises the rare weight once per dry reward and resets it on a hit', () => {
+  it('raises the rare weight once per dry reward and resets it on a rare or Legendary hit', () => {
     const r = run('bump');
     expect(r.rareBump).toBe(0);
 
@@ -103,6 +111,26 @@ describe('rollCardReward · 验收标准', () => {
 
     // 20 dry rewards would take monster rare from 3 to 23 — a visible shift.
     expect(rewardWeights('monster', 20).rare).toBe(TIER_WEIGHTS.monster.rare + 20);
+
+    // Legendary is above rare, so seeing one also ends the dry streak. Search
+    // deterministic seeds instead of pinning this rule to a catalog index.
+    let sawLegendary = false;
+    for (let i = 0; i < 500; i++) {
+      const lucky = run(`legendary-bump-${i}`);
+      lucky.rareBump = 7;
+      const pick = rollCardReward({
+        tier: 'boss',
+        run: lucky,
+        rng: new Rng(`legendary-bump-${i}`),
+        count: 1,
+      });
+      if (pick[0] && rarityOf(pick[0]) === 'legendary') {
+        expect(lucky.rareBump).toBe(0);
+        sawLegendary = true;
+        break;
+      }
+    }
+    expect(sawLegendary).toBe(true);
   });
 
   it('escalates per reward, not per card', () => {
@@ -203,13 +231,18 @@ describe('rollCardReward · 验收标准', () => {
 });
 
 describe('the pool itself', () => {
-  it('hits the 2026-08 engine expansion shape — 16 common, 20 uncommon, 12 rare', () => {
+  it('includes the engine expansion pools plus the three Legendary cards', () => {
     // The newest append adds four common enablers, ten uncommon engine pieces
     // and two rares without reordering the 32 existing declarations. A wider
     // pool intentionally re-deals seeded picks because `rng.int` reads its length.
     expect(CARD_POOL_BY_RARITY.common.length).toBe(16);
     expect(CARD_POOL_BY_RARITY.uncommon.length).toBe(20);
     expect(CARD_POOL_BY_RARITY.rare.length).toBe(12);
+    expect(CARD_POOL_BY_RARITY.legendary).toEqual([
+      'qinglongjueying',
+      'wushenglinshi',
+      'yijueqianqiu',
+    ]);
   });
 
   it('lists every card exactly once, and each under its own declared rarity', () => {
@@ -257,10 +290,10 @@ describe('the pool itself', () => {
     for (const id of COLORLESS_POOL) expect(all, id).not.toContain(id);
   });
 
-  it('weights every tier so the three rarities sum to 100', () => {
+  it('weights every tier so all reward rarities sum to 100', () => {
     for (const tier of Object.keys(TIER_WEIGHTS) as RewardTier[]) {
       const w = TIER_WEIGHTS[tier];
-      expect(w.common + w.uncommon + w.rare, tier).toBe(100);
+      expect(REWARD_RARITIES.reduce((sum, rarity) => sum + w[rarity], 0), tier).toBe(100);
     }
   });
 });
@@ -280,6 +313,7 @@ describe('availableRarity — degrade first, promote second', () => {
     rarities.flatMap((r) => CARD_POOL_BY_RARITY[r]);
 
   it('hands back the wanted rarity while it still has anything in it', () => {
+    expect(availableRarity(HERO, 'legendary', [])).toBe('legendary');
     expect(availableRarity(HERO, 'rare', [])).toBe('rare');
     expect(availableRarity(HERO, 'uncommon', [])).toBe('uncommon');
     expect(availableRarity(HERO, 'common', [])).toBe('common');
@@ -290,6 +324,7 @@ describe('availableRarity — degrade first, promote second', () => {
     // rares". Walking the ladder upward first passes every other test in the
     // file, because no other test ever empties a pool.
     expect(availableRarity(HERO, 'rare', drain('rare'))).toBe('uncommon');
+    expect(availableRarity(HERO, 'legendary', drain('legendary'))).toBe('rare');
     expect(availableRarity(HERO, 'uncommon', drain('uncommon'))).toBe('common');
   });
 
@@ -297,11 +332,14 @@ describe('availableRarity — degrade first, promote second', () => {
     expect(availableRarity(HERO, 'rare', drain('rare', 'uncommon'))).toBe('common');
     expect(availableRarity(HERO, 'common', drain('common'))).toBe('uncommon');
     expect(availableRarity(HERO, 'common', drain('common', 'uncommon'))).toBe('rare');
+    expect(availableRarity(HERO, 'common', drain('common', 'uncommon', 'rare'))).toBe('legendary');
     expect(availableRarity(HERO, 'uncommon', drain('uncommon', 'common'))).toBe('rare');
   });
 
   it('returns null only when every pool is empty', () => {
-    expect(availableRarity(HERO, 'uncommon', drain('common', 'uncommon', 'rare'))).toBeNull();
+    expect(
+      availableRarity(HERO, 'uncommon', drain('common', 'uncommon', 'rare', 'legendary')),
+    ).toBeNull();
   });
 
   it('is the same function the 坊市 shelf walks', () => {
@@ -319,8 +357,14 @@ describe('天命接线 (todos/19 a3) · rarityWeightMult', () => {
     expect(w.common).toBe(60);
     expect(w.uncommon).toBe(18.5);
     expect(w.rare).toBe(21.5); // 3 × 0.5 + 20，不是 (3 + 20) × 0.5 = 11.5
+    expect(w.legendary).toBe(0);
     // 缺省乘 1 恒等——既有调用点和上面每一条期望值原样成立。
-    expect(rewardWeights('monster', 20)).toEqual({ common: 60, uncommon: 37, rare: 23 });
+    expect(rewardWeights('monster', 20)).toEqual({
+      common: 60,
+      uncommon: 37,
+      rare: 23,
+      legendary: 0,
+    });
   });
 
   it('rollCardReward 从 run.mods 读倍率：rare 权重乘成 0 后一张稀有都不出', () => {
@@ -330,7 +374,7 @@ describe('天命接线 (todos/19 a3) · rarityWeightMult', () => {
     for (let i = 0; i < 200; i++) {
       r.rareBump = 0; // 关掉保底，量的就是乘出来的那个 0。
       for (const id of rollCardReward({ tier: 'boss', run: r, rng })) {
-        expect(rarityOf(id)).not.toBe('rare');
+        expect(['rare', 'legendary']).not.toContain(rarityOf(id));
       }
     }
   });
