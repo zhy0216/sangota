@@ -6,6 +6,7 @@ dist/
 
 # Generated art intermediates (finals are copied into public/assets)
 out/
+tmp/
 
 # Local tooling
 .claude/
