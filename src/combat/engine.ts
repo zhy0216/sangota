@@ -1073,6 +1073,50 @@ export function applyDamage(state: CombatState, target: Combatant, damage: numbe
   });
 }
 
+/**
+ * 作者彩蛋 · 神罚。
+ *
+ * This is intentionally an engine operation rather than scene-side mutation:
+ * every condemned enemy still emits ordinary damage/death events, kill hooks
+ * still fire, stats still see the deaths, and `checkEnd` owns the victory. The
+ * damage events are emitted as one uninterrupted run before the death events,
+ * so the presentation layer reads the judgment as one battlefield-wide blow.
+ */
+export function invokeAuthorJudgment(state: CombatState): boolean {
+  if (state.phase !== 'player' || state.energy !== 0) return false;
+  const condemned = aliveEnemies(state);
+  if (condemned.length === 0) return false;
+
+  for (const enemy of condemned) {
+    const blocked = enemy.block;
+    const hpLoss = enemy.hp;
+    enemy.block = 0;
+    enemy.hp = 0;
+    enemy.alive = false;
+    enemy.intent = null;
+    state.events.push({
+      t: 'damage',
+      targetId: enemy.id,
+      amount: hpLoss,
+      blocked,
+      lethal: true,
+    });
+  }
+
+  for (const enemy of condemned) {
+    state.events.push({ t: 'death', targetId: enemy.id });
+    fireHook(state, 'enemyKilled', enemy);
+    for (const id of STATUS_ORDER) {
+      const def = STATUS_META[id];
+      const n = stacks(state.player, id);
+      if (def.onEnemyKilled && n > 0) def.onEnemyKilled(state, state.player, n);
+    }
+  }
+
+  checkEnd(state);
+  return true;
+}
+
 // ------------------------------------------------------------- 血线触发
 
 /**

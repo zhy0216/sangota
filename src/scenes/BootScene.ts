@@ -125,6 +125,7 @@ export class BootScene extends Phaser.Scene {
     }
     this.load.svg('icon-github', 'icons/github.svg', { width: 28, height: 28 });
     this.load.image('combat-bg', 'combat/combat-bg.jpg');
+    this.load.image('author-yang-descends', 'easter-eggs/descends.jpg');
     for (const key of ROOM_KEYS) {
       this.load.image(`room-${key}`, `rooms/${key}.jpg`);
     }

@@ -9,6 +9,7 @@ import { incomingIsLethal, intentOf, totalIncomingDamage } from '../combat/inten
 import {
   canPlay,
   endPlayerTurn,
+  invokeAuthorJudgment,
   playCard,
   previewValues,
   resolveChoice,
@@ -62,6 +63,7 @@ import { getSettings, type KeyAction } from '../state/settings';
 import { recordSeenEnemies } from '../state/unlocks';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_H, CARD_W, CardView, cardTipPanel, placeCardTipPanel, type CardTipPanel } from '../ui/CardView';
+import { advanceAuthorEasterEgg } from '../ui/authorEasterEgg';
 import { cardIndexOf, combatKeyEvents, potionIndexOf, soleLivingEnemy } from '../ui/combatKeys';
 import { PLAY_LINE_Y, dropVerdict, hitIndex, pastPlayLine } from '../ui/dragPlay';
 import { HAND_Y, fanLayout, rowLayout } from '../ui/handLayout';
@@ -142,6 +144,7 @@ const DEPTH = {
   hud: 80,
   float: 120,
   overlay: 200,
+  author: 260,
 } as const;
 
 /**
@@ -320,6 +323,11 @@ export class CombatScene extends Phaser.Scene {
   private arrow!: Phaser.GameObjects.Graphics;
   private energyOrb!: Phaser.GameObjects.Container;
   private lastEnergy = 0;
+  /** 作者彩蛋：空格必须从第一击一直按到第五击，中途松手即断。 */
+  private authorSpaceHeld = false;
+  private authorEggClicks = 0;
+  private authorEggTriggered = false;
+  private authorEggCinematic = false;
   /** 连击 badge — built only for a hero whose pool reads `attacksThisTurn` (赵云). */
   private comboBadge: Phaser.GameObjects.Container | null = null;
   private comboText: Phaser.GameObjects.Text | null = null;
@@ -382,6 +390,10 @@ export class CombatScene extends Phaser.Scene {
     this.endTurnConfirm = null;
     this.autoEndTimer = null;
     this.lastEnergy = 0;
+    this.authorSpaceHeld = false;
+    this.authorEggClicks = 0;
+    this.authorEggTriggered = false;
+    this.authorEggCinematic = false;
     this.comboBadge = null;
     this.comboText = null;
     this.lastCombo = 0;
@@ -486,6 +498,7 @@ export class CombatScene extends Phaser.Scene {
       if (targets.length === 0 && !isCardGridOpen(this)) this.clearSelection();
     });
     this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.authorEggCinematic) return;
       // Esc 分层 (t3/t6)：最上层 overlay 先关——牌堆/设置开着时覆盖层栈
       // 自己收顶层，这里整个让位（isCardGridOpen 即 isOverlayOpen）。
       if (isCardGridOpen(this)) return;
@@ -516,6 +529,16 @@ export class CombatScene extends Phaser.Scene {
     this.input.keyboard?.addCapture('TAB');
     this.input.keyboard?.on('keydown-TAB', () => this.setHandExpanded(true));
     this.input.keyboard?.on('keyup-TAB', () => this.setHandExpanded(false));
+    // 作者彩蛋的隐藏和弦：空格只记「是否持续按住」，点击次数由气圆圈自己数。
+    // addCapture 阻止浏览器滚页；keyup 清零保证五击确实发生在同一次按住里。
+    this.input.keyboard?.addCapture('SPACE');
+    this.input.keyboard?.on('keydown-SPACE', () => {
+      this.authorSpaceHeld = true;
+    });
+    this.input.keyboard?.on('keyup-SPACE', () => {
+      this.authorSpaceHeld = false;
+      if (!this.authorEggTriggered) this.authorEggClicks = 0;
+    });
     // 键位 (todos/24 k4)：整表从 21 的设置账读，一个键名都不硬编码——
     // E 结束回合只是默认键帽，重绑了就听重绑的。Esc 不进这张表：它的
     // 分层在上面单独一根线。按键改不了中途换（设置里第一版只读），
@@ -852,7 +875,11 @@ export class CombatScene extends Phaser.Scene {
     // The ceiling is printed too: a relic can move it, and a lone number would
     // give the player no way to tell 3 of 3 from 3 of 4.
     this.energyMaxText = this.add.text(0, 20, '', bodyStyle(13, C.paperDim)).setOrigin(0.5);
-    this.energyOrb.add([orb, this.energyText, this.energyMaxText]);
+    const authorHit = this.add
+      .zone(0, 0, 96, 96)
+      .setInteractive({ useHandCursor: true });
+    authorHit.on('pointerdown', () => this.onAuthorOrbClick());
+    this.energyOrb.add([orb, this.energyText, this.energyMaxText, authorHit]);
     fixed(this.add.text(88, 606, '气', bodyStyle(13, C.paperFaint)).setOrigin(0.5));
 
     // 连击 counter, stacked above the 气 orb in the same gutter — and only for
@@ -943,6 +970,241 @@ export class CombatScene extends Phaser.Scene {
       onClick: () => this.onEndTurn(),
     });
     this.endTurnBtn.setDepth(DEPTH.hud);
+  }
+
+  /** One hidden click on the qi orb. Only the exact five-click chord advances. */
+  private onAuthorOrbClick(): void {
+    if (this.authorEggTriggered) return;
+    const next = advanceAuthorEasterEgg(this.authorEggClicks, {
+      phase: this.state.phase,
+      energy: this.state.energy,
+      busy: this.busy,
+      finished: this.finished,
+      spaceHeld: this.authorSpaceHeld,
+    });
+    this.authorEggClicks = next.clicks;
+    if (!next.triggered) {
+      if (next.clicks > 0) {
+        this.audio.play('ui-click', { pitchJitter: 0 });
+        shieldFlare(this, this.energyOrb.x, this.energyOrb.y, 42, {
+          depth: DEPTH.hud + 2,
+          colors: [C.goldBright, C.cinnabarBright],
+          driftY: -4,
+        });
+        pop(this, this.energyOrb, 1.12, 90);
+      }
+      return;
+    }
+
+    void this.triggerAuthorEasterEgg();
+  }
+
+  /**
+   * Full-screen hidden menu and creator-descends cinematic. The generated key
+   * art establishes the scale; procedural light, seals, brush strokes and the
+   * ordinary death pipeline make the reveal belong to the live battlefield.
+   */
+  private async triggerAuthorEasterEgg(): Promise<void> {
+    if (
+      this.authorEggTriggered ||
+      this.busy ||
+      this.finished ||
+      this.state.phase !== 'player' ||
+      this.state.energy !== 0
+    ) return;
+
+    this.authorEggTriggered = true;
+    this.authorEggCinematic = true;
+    this.authorEggClicks = 0;
+    this.busy = true;
+    this.cancelAutoEnd();
+    this.dismissEndTurnConfirm();
+    this.cancelDrag();
+    this.clearSelection();
+    this.setHandExpanded(false);
+
+    const layer = this.add.container(0, 0).setDepth(DEPTH.author);
+    const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'author-yang-descends');
+    const bgScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
+    bg.setScale(bgScale * 1.08);
+
+    const veil = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+      C.inkDeep,
+      0.2,
+    );
+
+    const heavenGate = this.add.graphics({ x: GAME_WIDTH / 2, y: 150 });
+    for (let i = 0; i < 4; i++) {
+      heavenGate.lineStyle(3 - i * 0.45, i % 2 === 0 ? C.goldBright : C.cinnabarBright, 0.5 - i * 0.07);
+      heavenGate.strokeCircle(0, 0, 122 + i * 34);
+    }
+    heavenGate.setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.5);
+
+    const halo = this.add
+      .image(GAME_WIDTH / 2, 190, 'glow')
+      .setTint(C.goldBright)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(3.6)
+      .setAlpha(0.42);
+
+    const motes = this.add.particles(GAME_WIDTH / 2, -20, 'glow', {
+      x: { min: -GAME_WIDTH * 0.46, max: GAME_WIDTH * 0.46 },
+      speedY: { min: 55, max: 190 },
+      speedX: { min: -18, max: 18 },
+      scale: { start: 0.08, end: 0 },
+      alpha: { start: 0.85, end: 0 },
+      lifespan: { min: dur(900), max: dur(1900) },
+      frequency: dur(28),
+      tint: [C.goldBright, C.paper, C.cinnabarBright],
+      blendMode: Phaser.BlendModes.ADD,
+    });
+
+    // The requested menu: an explicit easter-egg receipt, not a fleeting line
+    // hidden inside the generated painting where text accuracy would drift.
+    const menu = this.add.container(70, 472).setAlpha(0).setY(494);
+    menu.add(inkPanel(this, 0, 0, 560, 184, { alpha: 0.9, border: C.goldBright }));
+    menu.add(
+      this.add
+        .text(28, 20, '隐 藏 菜 单 · 作 者 彩 蛋', bodyStyle(15, C.gold))
+        .setLetterSpacing(3),
+    );
+    menu.add(
+      this.add
+        .text(28, 48, 'YANG · 天 神 下 凡', brushStyle(36, C.goldBright))
+        .setLetterSpacing(5),
+    );
+    menu.add(this.add.text(30, 101, '“这是我的彩蛋。”', brushStyle(22, C.paper)));
+    menu.add(this.add.text(210, 109, '—— 作者 Yang', bodyStyle(14, C.paperDim)));
+    menu.add(
+      this.add
+        .text(30, 144, '神谕：一击肃清全场', bodyStyle(16, C.cinnabarBright))
+        .setLetterSpacing(2),
+    );
+
+    const seal = this.add.container(510, 92);
+    const sealBg = this.add.graphics();
+    sealBg.fillStyle(C.cinnabar, 0.94);
+    sealBg.fillCircle(0, 0, 31);
+    sealBg.lineStyle(2, C.goldBright, 0.9);
+    sealBg.strokeCircle(0, 0, 35);
+    seal.add([
+      sealBg,
+      this.add.text(0, -6, '杨', brushStyle(27, C.paper)).setOrigin(0.5),
+      this.add.text(0, 18, 'YANG', bodyStyle(8, C.paper)).setOrigin(0.5),
+    ]);
+    menu.add(seal);
+
+    const judgment = this.add
+      .text(GAME_WIDTH / 2, 392, '天 道 · 一 击 尽 灭', brushStyle(48, C.goldBright))
+      .setOrigin(0.5)
+      .setLetterSpacing(10)
+      .setStroke(css(C.inkDeep), 8)
+      .setAlpha(0)
+      .setScale(0.72);
+
+    const blocker = this.add
+      .zone(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT)
+      .setInteractive();
+    layer.add([bg, veil, halo, heavenGate, motes, menu, judgment, blocker]);
+    layer.setAlpha(0);
+
+    this.audio.play('status-buff', { volume: 1.1, pitchJitter: 0 });
+    this.tweens.add({ targets: layer, alpha: 1, duration: dur(420), ease: 'Quad.easeOut' });
+    this.tweens.add({
+      targets: bg,
+      scale: bgScale,
+      duration: dur(4700),
+      ease: 'Sine.easeOut',
+    });
+    this.tweens.add({
+      targets: heavenGate,
+      angle: 18,
+      scale: 1.12,
+      duration: dur(4800),
+      ease: 'Sine.easeInOut',
+    });
+    this.tweens.add({
+      targets: menu,
+      alpha: 1,
+      y: 472,
+      delay: dur(180),
+      duration: dur(420),
+      ease: 'Back.easeOut',
+    });
+    // Give the player time to take in the generated scene and read the menu.
+    await this.wait(1350);
+
+    this.audio.play('relic-trigger', { volume: 1.2, pitchJitter: 0 });
+    this.tweens.add({
+      targets: judgment,
+      alpha: 1,
+      scale: 1,
+      duration: dur(320),
+      ease: 'Back.easeOut',
+    });
+    // A longer divine pause turns the title into a threat before the impact.
+    await this.wait(1450);
+
+    const beam = this.add.graphics();
+    beam.fillGradientStyle(C.paper, C.paper, C.goldBright, C.goldBright, 0, 0, 0.95, 0.95);
+    beam.fillRect(GAME_WIDTH / 2 - 78, -40, 156, GAME_HEIGHT + 80);
+    beam.setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+    const flash = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.goldBright, 0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    layer.add([beam, flash]);
+
+    this.audio.play('hit-heavy', { volume: 1.35, pitchJitter: 0 });
+    screenShake(this, 560, 0.018);
+    this.tweens.add({ targets: beam, alpha: 0.92, duration: dur(80), yoyo: true });
+    this.tweens.add({ targets: flash, alpha: 0.7, duration: dur(70), yoyo: true });
+    // `slash` owns the dur() conversion internally; variables keep that fact
+    // explicit without making the scene's bare-duration source guard misread it.
+    const authorSlashDuration = 620;
+    const authorCrossSlashDuration = 520;
+    slash(this, GAME_WIDTH * 0.72, 340, {
+      angle: -8,
+      length: GAME_WIDTH * 0.72,
+      thickness: 92,
+      bow: 74,
+      color: C.gold,
+      coreColor: C.paper,
+      depth: DEPTH.author + 2,
+      duration: authorSlashDuration,
+    });
+    slash(this, GAME_WIDTH * 0.72, 356, {
+      angle: 8,
+      length: GAME_WIDTH * 0.62,
+      thickness: 40,
+      bow: -46,
+      color: C.cinnabarBright,
+      coreColor: C.goldBright,
+      depth: DEPTH.author + 3,
+      duration: authorCrossSlashDuration,
+    });
+
+    const judged = invokeAuthorJudgment(this.state);
+    // Hold the white-gold aftermath before returning to the ordinary board.
+    await this.wait(720);
+
+    this.tweens.add({ targets: layer, alpha: 0, duration: dur(760), ease: 'Quad.easeIn' });
+    await this.wait(800);
+    layer.destroy(true);
+
+    if (judged) {
+      await this.playEvents();
+      this.syncHand();
+      this.refresh();
+    }
+
+    this.authorEggCinematic = false;
+    this.busy = false;
+    this.checkOutcome();
+    this.autosave();
   }
 
   // -------------------------------------------------------------- pile views
@@ -2739,6 +3001,12 @@ export class CombatScene extends Phaser.Scene {
   // ------------------------------------------------------------------ render
 
   private refresh(): void {
+    if (
+      !this.authorEggTriggered &&
+      (this.state.phase !== 'player' || this.state.energy !== 0 || this.busy || !this.authorSpaceHeld)
+    ) {
+      this.authorEggClicks = 0;
+    }
     if (this.state.energy < this.lastEnergy) {
       this.tweens.killTweensOf(this.energyOrb);
       this.energyOrb.setScale(1);
