@@ -142,6 +142,11 @@ describe('hero lock reasons', () => {
 describe('the seven entries are wired into the title screen', () => {
   const title = read('src/scenes/TitleScene.ts');
 
+  it('uses advanced wrapping for unspaced Chinese hero copy', () => {
+    const panel = title.slice(title.indexOf('private paintPanel(hero: HeroDef): void'));
+    expect(panel.match(/wordWrap: \{ width: 396, useAdvancedWrap: true \}/g)).toHaveLength(3);
+  });
+
   it('lays the row out through the pure function, labels in the scene', () => {
     expect(title).toContain('layoutTitleActions(this.slot.kind, pending !== null)');
     for (const label of ['典 籍', '战 史', '自 定 义', '设 置', '新 卷 可 阅']) {

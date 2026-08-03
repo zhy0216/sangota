@@ -211,6 +211,16 @@ describe('the settings panel is wired like the other overlays', () => {
     expect(panel).toContain('查 看 统 计');
   });
 
+  it('只在局内设置显示回到主菜单，且保留存档', () => {
+    const panel = read('src/ui/SettingsPanel.ts');
+    expect(panel).toContain("scene.scene.key === 'Map' || scene.scene.key === 'Combat'");
+    expect(panel).toContain('回 到 主 菜 单');
+    expect(panel).toContain("onClick: () => scene.scene.start('Title')");
+
+    const returnButton = panel.slice(panel.indexOf('// 标题页也复用'), panel.indexOf('const paintTabs'));
+    expect(returnButton).not.toContain('clearSave()');
+  });
+
   it('shows the keys tab read-only in this first cut', () => {
     const panel = read('src/ui/SettingsPanel.ts');
     expect(panel).toContain('按键暂不可改，仅供查阅。');

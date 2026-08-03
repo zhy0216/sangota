@@ -33,6 +33,8 @@ export interface DevSceneEnemy {
 export interface DevCombatScene {
   name: string;
   description?: string;
+  /** Lower numbers appear first on the in-game scene browser. */
+  order?: number;
   hero?: string;
   encounter: string;
   /** Defaults to the encounter's own tier. */

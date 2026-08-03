@@ -10,6 +10,7 @@ import { defineCombatScene } from '../types';
 export default defineCombatScene({
   name: '关羽传奇 · 三式合演',
   description: '华雄带破绽且血量加厚，关羽首回合持有三张传奇牌与 8 点气。',
+  order: 0,
   hero: 'guanyu',
   encounter: 'e1',
   seed: 'guanyu-legendary-scene1',

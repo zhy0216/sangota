@@ -1,9 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import { devSceneEntries } from '../src/devScenes';
 import { restoreCombat } from '../src/state/save';
 import { prepareDevScene } from '../src/devScenes/prepare';
+import exhaust from '../src/devScenes/scenes/guanyu-exhaust';
+import qinglong from '../src/devScenes/scenes/guanyu-qinglong';
+import wusheng from '../src/devScenes/scenes/guanyu-wusheng';
+import yijue from '../src/devScenes/scenes/guanyu-yijue';
 import scene1 from '../src/devScenes/scenes/scene1';
 
 describe('dev combat scenes', () => {
+  it('lists the comprehensive scene first, followed by focused Guan Yu scenes', () => {
+    expect(devSceneEntries().map((entry) => entry.key)).toEqual([
+      'scene1',
+      'guanyu-qinglong',
+      'guanyu-wusheng',
+      'guanyu-yijue',
+      'guanyu-exhaust',
+    ]);
+  });
+
   it('builds scene1 into the exact requested hand, piles and battlefield', () => {
     const { run, combat } = prepareDevScene('scene1', scene1);
     const state = restoreCombat(combat, run.mods);
@@ -50,5 +65,20 @@ describe('dev combat scenes', () => {
 
     expect(state.hand).toHaveLength(5);
     expect(Object.keys(state.cards)).toHaveLength(run.deck.length);
+  });
+
+  it.each([
+    ['guanyu-qinglong', qinglong, 2],
+    ['guanyu-wusheng', wusheng, 1],
+    ['guanyu-yijue', yijue, 1],
+    ['guanyu-exhaust', exhaust, 1],
+  ] as const)('prepares focused scene %s', (key, definition, enemyCount) => {
+    const { run, combat } = prepareDevScene(key, definition);
+    const state = restoreCombat(combat, run.mods);
+
+    expect(run.hero.id).toBe('guanyu');
+    expect(state.enemies).toHaveLength(enemyCount);
+    expect(state.hand).toHaveLength(5);
+    expect(state.energy).toBeGreaterThanOrEqual(5);
   });
 });

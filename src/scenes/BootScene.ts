@@ -5,8 +5,8 @@ import { makeCardArt } from '../ui/cardArt';
 import { useDesignSpace } from '../ui/designSpace';
 import { makeStatusIcons } from '../ui/statusIcons';
 import { bodyStyle, brushStyle } from '../ui/theme';
-import { launchDevScene } from '../devScenes';
-import { DEV_SCENE_NAME } from '../devScenes/runtime';
+import { showDevSceneBrowser } from '../devScenes';
+import { DEV_SCENE_MENU, DEV_SCENE_NAME } from '../devScenes/runtime';
 
 const ICON_KEYS = ['monster', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'] as const;
 /** Keys match `HeroDef.portraitKey` / `fullKey` minus their prefix. */
@@ -123,6 +123,7 @@ export class BootScene extends Phaser.Scene {
     for (const key of ICON_KEYS) {
       this.load.image(`icon-${key}`, `icons/${key}.png`);
     }
+    this.load.svg('icon-github', 'icons/github.svg', { width: 28, height: 28 });
     this.load.image('combat-bg', 'combat/combat-bg.jpg');
     for (const key of ROOM_KEYS) {
       this.load.image(`room-${key}`, `rooms/${key}.jpg`);
@@ -166,7 +167,7 @@ export class BootScene extends Phaser.Scene {
     // only the ones with none — curses, status cards — get a drawn stand-in.
     makeCardArt(this);
     if (DEV_SCENE_NAME) {
-      launchDevScene(this, DEV_SCENE_NAME);
+      showDevSceneBrowser(this, DEV_SCENE_NAME === DEV_SCENE_MENU ? null : DEV_SCENE_NAME);
       return;
     }
     this.scene.start('Title');

@@ -32,6 +32,8 @@ function cover(img: Phaser.GameObjects.Image, w: number, h: number): void {
 const LEFT = 108;
 const PANEL = { x: LEFT, y: 326, w: 442, h: 292 };
 const HERO_X = 905;
+const GITHUB_URL = 'https://github.com/zhy0216/sangota';
+const APP_VERSION = 'v0.0.1';
 
 /** The 选将 strip down the right edge: one tile per hero, top to bottom. */
 const TILE = { x: 1196, y: 190, w: 96, h: 104, gap: 18 };
@@ -176,8 +178,31 @@ export class TitleScene extends Phaser.Scene {
 
     // Bottom-right, out of the way of the 存档 line the action row prints under
     // 「继续」 — the two used to share the bottom-left corner.
+    const github = this.add
+      .image(GAME_WIDTH - 30, GAME_HEIGHT - 66, 'icon-github')
+      .setTint(C.gold)
+      .setInteractive({ useHandCursor: true });
+    github.on('pointerover', () => {
+      github.setTint(C.goldBright);
+      this.tweens.add({ targets: github, scale: 1.12, duration: 100 });
+    });
+    github.on('pointerout', () => {
+      github.setTint(C.gold);
+      this.tweens.add({ targets: github, scale: 1, duration: 100 });
+    });
+    github.on('pointerup', () => window.open(GITHUB_URL, '_blank', 'noopener,noreferrer'));
+
     this.add
-      .text(GAME_WIDTH - 16, GAME_HEIGHT - 26, 'v0.1 原型 · 三将逐鹿', bodyStyle(12, 0x554d40))
+      .text(
+        GAME_WIDTH - 16,
+        GAME_HEIGHT - 44,
+        '您的关注就是我的动力',
+        bodyStyle(12, C.paperFaint),
+      )
+      .setOrigin(1, 0);
+
+    this.add
+      .text(GAME_WIDTH - 16, GAME_HEIGHT - 24, APP_VERSION, bodyStyle(12, 0x554d40))
       .setOrigin(1, 0);
 
     this.input.keyboard?.on('keydown-ENTER', () => this.onEnter());
@@ -658,7 +683,7 @@ export class TitleScene extends Phaser.Scene {
     p.add(
       this.add.text(24, 132, hero.passive.desc, {
         ...bodyStyle(13, C.paperDim),
-        wordWrap: { width: 396 },
+        wordWrap: { width: 396, useAdvancedWrap: true },
         lineSpacing: 5,
       }),
     );
@@ -668,7 +693,9 @@ export class TitleScene extends Phaser.Scene {
     p.add(
       this.add.text(24, 202, hero.mechanic.desc, {
         ...bodyStyle(13, C.paperDim),
-        wordWrap: { width: 396 },
+        // Basic wrapping only splits on spaces, so an unspaced Chinese sentence
+        // such as 赵云's 「连击」 copy is treated as one oversized word.
+        wordWrap: { width: 396, useAdvancedWrap: true },
         lineSpacing: 5,
       }),
     );
@@ -681,7 +708,7 @@ export class TitleScene extends Phaser.Scene {
     p.add(
       this.add.text(24, 258, hero.blurb, {
         ...bodyStyle(12, C.paperFaint),
-        wordWrap: { width: 396 },
+        wordWrap: { width: 396, useAdvancedWrap: true },
         lineSpacing: 4,
       }),
     );
