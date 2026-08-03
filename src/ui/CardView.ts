@@ -4,6 +4,11 @@ import { CARD_TYPE_META, KEYWORD_LABEL, resolveCard } from '../combat/cards';
 import { X_COST, canPlay, describeCard, effectiveCardCost, hasKeyword } from '../combat/engine';
 import type { CardDef, CombatState } from '../combat/types';
 import { Rng } from '../core/rng';
+import {
+  CARD_RULE_TEXT_PRESETS,
+  chooseCardRuleTextPreset,
+  compactCardRulesText,
+} from './cardText';
 import { KEYWORDS, cardTipSegments, findKeywords } from './keywords';
 import { composeTip, placeTip, type TipBox, type TipSide, type TooltipManager } from './Tooltip';
 import { bodyStyle, brushStyle, paintInkPanel } from './theme';
@@ -26,8 +31,11 @@ export interface CardViewOptions {
 /** Art window, in card-local coordinates. Matches the 3:2 crop of the plates. */
 const ART = { y: -44, w: 136, h: 91 };
 
-/** 规则文本的行距。热区定位（todos/24 k2）要按它算行高，抽出来两处共用。 */
-const DESC_LINE_SPACING = 6;
+/** Rules copy owns a fixed print box; no card is allowed to paint below it. */
+const DESC_Y = 40;
+const DESC_W = CARD_W - 16;
+const DESC_H = 40;
+const KEYWORDS_Y = CARD_H / 2 - 10;
 /** Legendary's violet-gold edge is deliberately independent of card type. */
 const LEGENDARY_VIOLET = 0xb88cff;
 
@@ -43,6 +51,8 @@ export class CardView extends Phaser.GameObjects.Container {
   private frame: Phaser.GameObjects.Graphics;
   private costText: Phaser.GameObjects.Text;
   private descText: Phaser.GameObjects.Text;
+  private descFontSize = CARD_RULE_TEXT_PRESETS[0].fontSize;
+  private descLineSpacing = CARD_RULE_TEXT_PRESETS[0].lineSpacing;
   private dimmer: Phaser.GameObjects.Graphics;
   private hit: Phaser.GameObjects.Zone;
 
@@ -127,13 +137,14 @@ export class CardView extends Phaser.GameObjects.Container {
     const name = scene.add.text(0, 17, def.name, nameStyle).setOrigin(0.5).setLetterSpacing(2);
 
     this.descText = scene.add
-      .text(0, 42, '', {
-        ...bodyStyle(13, upgraded > 0 ? C.goldBright : C.paperDim),
+      .text(0, DESC_Y, '', {
+        ...bodyStyle(this.descFontSize, upgraded > 0 ? C.goldBright : C.paperDim),
         align: 'center',
-        wordWrap: { width: CARD_W - 22 },
-        lineSpacing: DESC_LINE_SPACING,
+        wordWrap: { width: DESC_W, useAdvancedWrap: true },
+        lineSpacing: this.descLineSpacing,
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 0)
+      .setFixedSize(DESC_W, DESC_H);
 
     // Keywords ride along the bottom edge in small grey type, the way the
     // original prints them — they change the card's life cycle, not its numbers,
@@ -141,7 +152,7 @@ export class CardView extends Phaser.GameObjects.Container {
     const keywords = scene.add
       .text(
         0,
-        CARD_H / 2 - 13,
+        KEYWORDS_Y,
         (def.keywords ?? []).map((k) => KEYWORD_LABEL[k]).join(' · '),
         bodyStyle(11, C.paperFaint),
       )
@@ -170,14 +181,14 @@ export class CardView extends Phaser.GameObjects.Container {
     // The type tag keeps its own colour — it reads type, not upgrade state.
     const typeTag = scene.add
       .text(
-        56,
+        64,
         -78,
         def.rarity === 'legendary'
           ? `${CARD_TYPE_META[def.type].label}·传`
           : CARD_TYPE_META[def.type].label,
         brushStyle(def.rarity === 'legendary' ? 15 : 18, CARD_TYPE_META[def.type].color),
       )
-      .setOrigin(0.5);
+      .setOrigin(1, 0.5);
 
     // Greys the whole face out when the card is unaffordable.
     this.dimmer = scene.add.graphics();
@@ -246,7 +257,7 @@ export class CardView extends Phaser.GameObjects.Container {
 
   /** Re-read the combat state: playability and the live damage/block numbers. */
   refresh(state: CombatState | undefined): void {
-    this.descText.setText(describeCard(state, this.def));
+    this.layoutDescription(describeCard(state, this.def));
     const cost = this.mode === 'hand' ? effectiveCardCost(state, this.def) : this.def.cost;
     this.costText.setText(
       hasKeyword(this.def, 'unplayable') ? '' : cost === X_COST ? 'X' : String(cost),
@@ -258,6 +269,29 @@ export class CardView extends Phaser.GameObjects.Container {
     this.playable = this.mode === 'display' || (!!state && canPlay(state, this.uid));
     this.dimmer.setVisible(!this.playable);
     this.costText.setColor(this.playable ? '#f0d67a' : '#8a7f66');
+  }
+
+  /**
+   * Fit the complete rules copy into its print box. `fixedHeight=0` lets Phaser
+   * report the natural wrapped height while presets are tried; restoring the
+   * fixed height afterwards is the hard safety net against future long copy or
+   * platform-specific fallback-font metrics.
+   */
+  private layoutDescription(text: string): void {
+    const compact = compactCardRulesText(text);
+    this.descText.setFixedSize(DESC_W, 0);
+
+    const preset = chooseCardRuleTextPreset((candidate) => {
+      this.descText
+        .setFontSize(candidate.fontSize)
+        .setLineSpacing(candidate.lineSpacing)
+        .setText(compact);
+      return this.descText.height;
+    }, DESC_H);
+
+    this.descFontSize = preset.fontSize;
+    this.descLineSpacing = preset.lineSpacing;
+    this.descText.setFixedSize(DESC_W, DESC_H);
   }
 
   /**
@@ -279,7 +313,7 @@ export class CardView extends Phaser.GameObjects.Container {
     const text = this.descText.text;
     if (!text) return;
 
-    const ruler = this.scene.make.text({ style: bodyStyle(13), add: false });
+    const ruler = this.scene.make.text({ style: bodyStyle(this.descFontSize), add: false });
     const measure = (s: string): number => {
       ruler.setText(s);
       return ruler.width;
@@ -287,12 +321,16 @@ export class CardView extends Phaser.GameObjects.Container {
     ruler.setText('永');
     const lineH = ruler.height;
 
-    this.descText.getWrappedText(text).forEach((line, row) => {
+    const maxRows = Math.max(
+      1,
+      Math.floor((DESC_H + this.descLineSpacing) / (lineH + this.descLineSpacing)),
+    );
+    this.descText.getWrappedText(text).slice(0, maxRows).forEach((line, row) => {
       const hits = findKeywords(line);
       if (hits.length === 0) return;
       // descText 原点 (0.5, 0)、align center：每一行都以 x=0 为中心。
       const lineW = measure(line);
-      const rowY = this.descText.y + row * (lineH + DESC_LINE_SPACING) + lineH / 2;
+      const rowY = this.descText.y + row * (lineH + this.descLineSpacing) + lineH / 2;
       for (const hit of hits) {
         const termW = measure(hit.term);
         const x = -lineW / 2 + measure(line.slice(0, hit.index)) + termW / 2;
@@ -322,7 +360,7 @@ export class CardView extends Phaser.GameObjects.Container {
         from = at + term.length;
         const termW = mw(term);
         const x = -rowW / 2 + mw(joined.slice(0, at)) + termW / 2;
-        this.addKeywordZone(tips, term, x, CARD_H / 2 - 13, termW + 4, rowH + 2);
+        this.addKeywordZone(tips, term, x, KEYWORDS_Y, termW + 4, rowH + 2);
       }
       rowRuler.destroy();
     }
