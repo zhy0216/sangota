@@ -476,6 +476,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     id: 'feixiongjun',
     name: '飞熊军',
     art: 'enemy-feixiongjun',
+    flipX: true,
     hp: [48, 54],
     height: 256,
     passives: { metallicize: 3 },
@@ -811,6 +812,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     id: 'tuntianbing',
     name: '屯田兵',
     art: 'enemy-tuntianbing',
+    flipX: true,
     hp: [30, 34],
     height: 218,
     moves: [

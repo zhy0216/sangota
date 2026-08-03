@@ -123,6 +123,13 @@ describe('the original four are frozen', () => {
   }
 });
 
+describe('敌军立绘朝向', () => {
+  it('把原图朝右的飞熊军与屯田兵翻向左侧武将', () => {
+    expect(getEnemy('feixiongjun').flipX).toBe(true);
+    expect(getEnemy('tuntianbing').flipX).toBe(true);
+  });
+});
+
 describe('天命强化招式表', () => {
   it('每名敌人至少强化一招，且不改招式 id、权重、脚本顺序', () => {
     expect(Object.keys(ENHANCED_MOVE_PATCHES).sort()).toEqual(Object.keys(ENEMIES).sort());

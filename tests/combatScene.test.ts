@@ -644,6 +644,28 @@ describe('the intent marker is drawn, not written', () => {
   });
 });
 
+describe('战斗立绘与战利品排布接线', () => {
+  const scene = read('src/scenes/CombatScene.ts');
+
+  it('按敌人定义翻转朝向', () => {
+    expect(scene).toContain('getEnemy(enemy.defId).flipX ?? false');
+  });
+
+  it('为丹药和宝物分配独立收据行', () => {
+    const at = scene.indexOf('let receiptY = 184;');
+    const body = scene.slice(at, scene.indexOf('const spacing =', at));
+    expect(at).toBeGreaterThan(-1);
+    expect(body).toContain('receiptY += 54;');
+    expect(body).toContain('receiptY += 40;');
+    expect(body).toContain('const captionY = drop || relic ? receiptY : 184;');
+  });
+
+  it('奖励牌词条面板向外侧展开，不再盖住战利品收据', () => {
+    expect(scene).toContain("const side = x < GAME_WIDTH / 2 ? 'left' : 'right';");
+    expect(scene).toContain('placeCardTipPanel(rewardTip, { x: x - w / 2, y: 386 - h / 2, w, h }, side);');
+  });
+});
+
 // ------------------------------------------------- 出手之后，身子要归位
 
 describe('an enemy that acts goes back to where it stood', () => {

@@ -343,6 +343,8 @@ export interface EnemyDef {
   id: string;
   name: string;
   art: string;
+  /** Mirror a right-facing source plate so enemies look toward the hero. */
+  flipX?: boolean;
   hp: [min: number, max: number];
   /** On-screen height in design units. */
   height: number;

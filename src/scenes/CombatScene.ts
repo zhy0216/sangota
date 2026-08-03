@@ -4,6 +4,7 @@ import { getAudio, type Audio } from '../audio/sfx';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { STATUS_META, STATUS_ORDER } from '../combat/cards';
 import { resolveCombatEndHooks } from '../combat/curses';
+import { getEnemy } from '../combat/enemies';
 import { incomingIsLethal, intentOf, totalIncomingDamage } from '../combat/intent';
 import {
   canPlay,
@@ -711,7 +712,14 @@ export class CombatScene extends Phaser.Scene {
    * decides what one looks like.
    */
   private buildEnemyView(enemy: EnemyState, x: number): EnemyViewParts {
-    const base = this.makeActorView(x, enemy.art, enemy.height, false, 140, enemy.hp);
+    const base = this.makeActorView(
+      x,
+      enemy.art,
+      enemy.height,
+      getEnemy(enemy.defId).flipX ?? false,
+      140,
+      enemy.hp,
+    );
 
     // Intent marker, pinned above the sprite but never under the top HUD.
     // Everything the badge is made of is a child of this container, so the
@@ -3335,11 +3343,19 @@ export class CombatScene extends Phaser.Scene {
         .text(GAME_WIDTH / 2, 140, `获得资财 ${gold + (relic?.gold ?? 0)}　·　体力 ${this.run.hp} / ${this.run.maxHp}`, bodyStyle(17, C.paperDim))
         .setOrigin(0.5),
     );
-    // A drop pushes the card row's caption down; with no drop the screen keeps
-    // the layout it had before potions existed.
-    if (drop) this.buildPotionDrop(layer, drop, 196);
-    if (relic) this.buildRelicDrop(layer, relic, drop ? 226 : 196);
-    const captionY = 184 + (drop ? 62 : 0) + (relic ? 52 : 0);
+    // Each receipt owns a full row. The potion is 45px tall and the relic 28px;
+    // the old 30px centre gap made the two icons and captions occupy each
+    // other's space. Advance a cursor by the actual furniture each row needs.
+    let receiptY = 184;
+    if (drop) {
+      this.buildPotionDrop(layer, drop, receiptY);
+      receiptY += 54;
+    }
+    if (relic) {
+      this.buildRelicDrop(layer, relic, receiptY);
+      receiptY += 40;
+    }
+    const captionY = drop || relic ? receiptY : 184;
     layer.add(
       this.add
         .text(GAME_WIDTH / 2, captionY, '择一牌收入行囊', bodyStyle(15, C.paperFaint))
@@ -3369,10 +3385,12 @@ export class CombatScene extends Phaser.Scene {
         hideRewardTip();
         rewardTip = cardTipPanel(this, card.def, this.state);
         if (rewardTip) {
-          // 面板贴着悬停后的卡框摆（1.1 倍、抬到 386），顶不下时翻去底下。
+          // 战利品收据占着卡牌上方；词条面板因此向屏幕外侧展开，
+          // 最外一张装不下时 `placeTip` 自会翻到另一边。
           const w = CARD_W * 1.1;
           const h = CARD_H * 1.1;
-          placeCardTipPanel(rewardTip, { x: x - w / 2, y: 386 - h / 2, w, h }, 'top');
+          const side = x < GAME_WIDTH / 2 ? 'left' : 'right';
+          placeCardTipPanel(rewardTip, { x: x - w / 2, y: 386 - h / 2, w, h }, side);
           rewardTip.root.setDepth(DEPTH.overlay + 2);
           layer.add(rewardTip.root);
         }
