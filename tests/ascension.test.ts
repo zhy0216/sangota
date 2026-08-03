@@ -72,7 +72,7 @@ describe('modsFor', () => {
     expect(one.extraElites).toBe(1);
     expect(one.hpMult).toEqual(DEFAULT_MODS.hpMult);
     expect(one.damageMult).toEqual(DEFAULT_MODS.damageMult);
-    expect(one.restHealPercent).toBe(30);
+    expect(one.restHealPercent).toBe(50);
   });
 
   it('修改累积：九重同时带着 1..9 的全部效果', () => {
@@ -84,7 +84,7 @@ describe('modsFor', () => {
     expect(nine.hpMult.monster).toBeCloseTo(1.05, 10); // 二重
     expect(nine.hpMult.elite).toBeCloseTo(1.05 * 1.02, 10); // 三重 × 八重
     expect(nine.hpMult.boss).toBeCloseTo(1.05 * 1.02, 10); // 四重 × 九重
-    expect(nine.restHealPercent).toBe(25); // 五重
+    expect(nine.restHealPercent).toBe(40); // 五重
     expect(nine.actStartHpLossPercent).toBe(10); // 六重
     expect(nine.damageMult.monster).toBeCloseTo(1.05, 10); // 七重
     expect(nine.damageMult.elite).toBeCloseTo(1.05, 10); // 三重
@@ -95,8 +95,8 @@ describe('modsFor', () => {
     // 三重给精英体力 ×1.05，八重再 ×1.02：正确是 1.071；写成覆盖会得 1.02。
     expect(modsFor(8).hpMult.elite).toBeCloseTo(1.05 * 1.02, 10);
     expect(modsFor(8).hpMult.elite).not.toBe(1.02);
-    // 取值类则相反，是覆盖：五重把营帐回血从 30 改成 25，不是 30×0.25。
-    expect(modsFor(5).restHealPercent).toBe(25);
+    // 取值类则相反，是覆盖：五重把营帐回血从 50 改成 40，不是 50×0.4。
+    expect(modsFor(5).restHealPercent).toBe(40);
   });
 
   it('十重拼上「宿业」，九重还没有', () => {
@@ -114,7 +114,7 @@ describe('modsFor', () => {
     expect(twenty.rarityWeightMult).toEqual({ uncommon: 0.9, rare: 0.75 });
     expect(twenty.eliteGoldMult).toBe(0.85);
     expect(twenty.maxHpMult).toBeCloseTo(0.97 * 0.95, 10);
-    expect(twenty.restHealPercent).toBe(20);
+    expect(twenty.restHealPercent).toBe(30);
     expect(twenty.shopPriceMult).toBe(1.1);
     expect(twenty.enhancedMoves).toEqual({ monster: true, elite: true, boss: true });
     expect(twenty.doubleBoss).toBe(true);

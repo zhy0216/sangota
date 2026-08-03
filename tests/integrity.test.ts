@@ -277,6 +277,12 @@ describe('scene exits are one-way', () => {
   });
 });
 
+describe('browser input stays inside the game canvas', () => {
+  it('suppresses the system context menu used by right-clicking cards', () => {
+    expect(read('src/main.ts')).toContain('disableContextMenu: true');
+  });
+});
+
 /**
  * Phaser keeps **one instance per scene key** for the life of the game:
  * `SceneManager.start` calls `sys.shutdown()` and then `sys.start(data)` on the

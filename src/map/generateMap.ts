@@ -33,8 +33,16 @@ const POOL: { type: RoomType; weight: number }[] = [
   { type: 'shop', weight: 0.05 },
 ];
 
-/** Types that may not repeat across an edge or between siblings. */
-const RESTRICTED: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'elite']);
+/** Rooms held out of the opening floors. 奇遇 remains available from floor 2. */
+const ADVANCED_ROOMS: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'elite']);
+
+/** Types spaced across routes and choices instead of appearing in clumps. */
+const SPACED_ROOMS: ReadonlySet<RoomType> = new Set<RoomType>([
+  'event',
+  'rest',
+  'shop',
+  'elite',
+]);
 
 const edgeKey = (row: number, from: number, to: number) => `${row}:${from}>${to}`;
 
@@ -332,8 +340,8 @@ function strategicLinkLegal(
 ): boolean {
   if (child.row !== parent.row + 1 || Math.abs(child.col - parent.col) > 1) return false;
 
-  // The new edge itself may not repeat a restricted room type.
-  if (parent.type === child.type && RESTRICTED.has(child.type)) return false;
+  // The new edge itself may not repeat a room that is meant to be interleaved.
+  if (parent.type === child.type && SPACED_ROOMS.has(child.type)) return false;
 
   // This edge concatenates the longest combat suffix ending at the parent
   // with the longest combat prefix starting at the child. Room assignment ran
@@ -349,7 +357,7 @@ function strategicLinkLegal(
   }
 
   // The new child joins the parent's existing children as a sibling.
-  if (RESTRICTED.has(child.type)) {
+  if (SPACED_ROOMS.has(child.type)) {
     for (const siblingId of parent.children) {
       if (nodes.get(siblingId)!.type === child.type) return false;
     }
@@ -564,10 +572,20 @@ function rollType(
     const candidate = rng.weighted(items, weights);
     if (isLegal(candidate, node, nodes, byRow, layout)) return candidate;
   }
-  // Event is deliberately the hard floor: unlike the old unchecked fallback,
-  // it always breaks a combat streak and cannot violate an advanced-room rule.
-  if (!isLegal('monster', node, nodes, byRow, layout)) return 'event';
-  return rng.weighted(['monster', 'event'], [0.7, 0.3]);
+  // The weighted loop can miss a low-weight legal utility room by chance, so
+  // make the bounded fallback choose from every legal pool entry rather than
+  // silently violating spacing. At a rare constrained merge/split there may be
+  // no legal entry at all: one route already has two combats while another
+  // brings an event, or several children all need to break the same two-combat
+  // suffix while every utility type is blocked by its own spacing rule.
+  // Event remains the hard floor because preserving the combat cap is the
+  // safety rule; the resulting adjacent event is harmless and unavoidable.
+  const legal = POOL.filter((entry) => isLegal(entry.type, node, nodes, byRow, layout));
+  if (legal.length === 0) return 'event';
+  return rng.weighted(
+    legal.map((entry) => entry.type),
+    legal.map((entry) => entry.weight),
+  );
 }
 
 function isLegal(
@@ -579,7 +597,7 @@ function isLegal(
 ): boolean {
   if (isCombatRoom(type) && !combatCanFollowParents(node, nodes)) return false;
 
-  if (RESTRICTED.has(type)) {
+  if (ADVANCED_ROOMS.has(type)) {
     // Elite / rest / shop are gated behind the early floors.
     if (node.row < layout.minAdvancedRow) return false;
 
@@ -588,13 +606,18 @@ function isLegal(
       return false;
     }
 
-    // No repeat straight up an edge.
+  }
+
+  if (SPACED_ROOMS.has(type)) {
+    // No repeat straight up an edge. This is what keeps 奇遇 interleaved with
+    // fights and utility rooms instead of growing into event-only stretches.
     for (const parentId of node.parents) {
       if (nodes.get(parentId)!.type === type) return false;
     }
 
-    // No two siblings (nodes sharing a parent) with the same restricted type —
-    // otherwise a branch choice stops being a real choice.
+    // No two siblings (nodes sharing a parent) with the same spaced type —
+    // otherwise a branch choice stops being a real choice (and two 奇遇 doors
+    // are still effectively one kind of destination).
     for (const parentId of node.parents) {
       for (const siblingId of nodes.get(parentId)!.children) {
         if (siblingId === node.id) continue;

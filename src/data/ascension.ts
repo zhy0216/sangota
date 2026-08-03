@@ -17,7 +17,7 @@ export interface AscensionMods {
   hpMult: { monster: number; elite: number; boss: number };
   /** 敌人伤害倍率，按档位。 */
   damageMult: { monster: number; elite: number; boss: number };
-  /** 营帐回血比例，百分数（30 = 回 30% 体力上限）。接线在 `restAmount`（`src/rooms/campfire.ts`）。 */
+  /** 营帐回血比例，百分数（50 = 回 50% 体力上限）。接线在 `restAmount`（`src/rooms/campfire.ts`）。 */
   restHealPercent: number;
   /** 每幕开始失去的当前体力比例，百分数（10 = 失去 10%）。 */
   actStartHpLossPercent: number;
@@ -47,7 +47,7 @@ export const DEFAULT_MODS: AscensionMods = deepFreeze({
   extraElites: 0,
   hpMult: { monster: 1, elite: 1, boss: 1 },
   damageMult: { monster: 1, elite: 1, boss: 1 },
-  restHealPercent: 30,
+  restHealPercent: 50,
   actStartHpLossPercent: 0,
   maxHpMult: 1,
   potionSlots: 3,
@@ -108,7 +108,7 @@ export const ASCENSION_STEP_DESC: Record<number, string> = {
   2: '杂兵体力 +5%',
   3: '精英体力 +5%、伤害 +5%',
   4: '首领体力 +5%',
-  5: '营帐回血 30% → 25%',
+  5: '营帐回血 50% → 40%',
   6: '每幕开始失去 10% 当前体力',
   7: '杂兵伤害 +5%',
   8: '精英体力再 +2%',
@@ -118,7 +118,7 @@ export const ASCENSION_STEP_DESC: Record<number, string> = {
   12: '奖励中罕见牌与稀有牌更少',
   13: '精英与首领资财奖励 −15%',
   14: '体力上限再 −5%',
-  15: '营帐回血 25% → 20%',
+  15: '营帐回血 40% → 30%',
   16: '商店价格 +10%',
   17: '杂兵使用强化招式',
   18: '精英使用强化招式',
@@ -132,14 +132,14 @@ export const ASCENSION_STEP_DESC: Record<number, string> = {
  *
  * 数值是 a6 标定过的，不是设计稿的原版增量：原版的 +10%/+25%/+20% 把
  * 十重通关率直接砍到 0%。标定过程和预算记在 `sim/balance.sim.ts` 的
- * 「天命连场」一节；结论是四条规则行（1/5/6/10）保持设计原值，六条
- * 倍率行合计只有 ~10 个通关点的预算，且**伤害倍率比体力倍率贵得多**
- * ——所以 4/8/9 初版动的是体力。改这里任何一个数，先跑 `npm run sim`：
- * 「天命连场」的断言把十重 threat 通关率钉在 15-25%。
+ * 「天命连场」一节；结论是规则行保持结构、六条倍率行合计只有 ~10 个
+ * 通关点的预算，且**伤害倍率比体力倍率贵得多**——所以 4/8/9 初版动的
+ * 是体力。营帐后来随基础休整从 30/25/20 调到 50/40/30。改这里任何一个
+ * 数，先跑 `bun run sim`：断言把十重 threat 通关率钉在 14-24%。
  *
  * 2026-08 复标定：关羽扩到 48 张、宝物池扩到 53 件后，固定种子的整局
- * threat 曲线量得零重 43%、十重 14%、二十重 1%。九重首领伤害收在 +4%，
- * 十重上限收在 −3%；一至八重不动，前段爬梯坡度保持原样。
+ * threat 曲线在旧营帐数值下量得零重 43%、十重 14%、二十重 1%。九重首领
+ * 伤害收在 +4%，十重上限收在 −3%；营帐上调后当前三点为 56% / 24% / 2%。
  */
 export const ASCENSION_STEPS: Record<number, Partial<AscensionMods>> = {
   1: { extraElites: 1 },
@@ -152,7 +152,7 @@ export const ASCENSION_STEPS: Record<number, Partial<AscensionMods>> = {
     hpMult: { monster: 1, elite: 1, boss: 1.05 },
     damageMult: { monster: 1, elite: 1, boss: 1 },
   },
-  5: { restHealPercent: 25 },
+  5: { restHealPercent: 40 },
   6: { actStartHpLossPercent: 10 },
   7: { damageMult: { monster: 1.05, elite: 1, boss: 1 } },
   8: { hpMult: { monster: 1, elite: 1.02, boss: 1 } },
@@ -165,7 +165,7 @@ export const ASCENSION_STEPS: Record<number, Partial<AscensionMods>> = {
   12: { rarityWeightMult: { uncommon: 0.9, rare: 0.75 } },
   13: { eliteGoldMult: 0.85 },
   14: { maxHpMult: 0.95 },
-  15: { restHealPercent: 20 },
+  15: { restHealPercent: 30 },
   16: { shopPriceMult: 1.1 },
   17: { enhancedMoves: { monster: true, elite: false, boss: false } },
   18: { enhancedMoves: { monster: false, elite: true, boss: false } },

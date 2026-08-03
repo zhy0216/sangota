@@ -17,9 +17,8 @@ import { addRelic, startRun, upgradeCard, type RunState } from '../src/state/run
 /**
  * 营帐 — the room whose only rule is "one of these, not both".
  *
- * The numbers are asserted against literals as well as against the formula:
- * `Math.round(82 * 0.3)` is 25, and a test that only re-computes the expression
- * it is checking would pass just as happily against `Math.floor`.
+ * The numbers are asserted against literals as well as against the formula;
+ * the 75-体力 case also pins `.5` rounding so a floor cannot slip in.
  */
 
 const restNodes = (run: RunState): string[] =>
@@ -41,26 +40,25 @@ const wounded = (seed = 'campfire'): RunState => {
 };
 
 describe('休整', () => {
-  it('restores 30% of 最大体力, rounded rather than truncated', () => {
+  it('restores 50% of 最大体力', () => {
     const run = wounded();
     expect(run.maxHp).toBe(82);
-    // 82 * 0.3 = 24.6 — a floor would pay 24.
-    expect(restAmount(run)).toBe(25);
+    expect(restAmount(run)).toBe(41);
 
     const report = applyCampfireOption(run, camp(run), 'rest')!;
-    expect(report.healed).toBe(25);
-    expect(report.offered).toBe(25);
-    expect(run.hp).toBe(26);
-    expect(report.hp).toBe(26);
+    expect(report.healed).toBe(41);
+    expect(report.offered).toBe(41);
+    expect(run.hp).toBe(42);
+    expect(report.hp).toBe(42);
     expect(report.maxHp).toBe(82);
     expect(report.card).toBeNull();
   });
 
   it('rounds a half up rather than to even', () => {
     const run = wounded();
-    run.maxHp = 75; // 22.5
-    expect(restAmount(run)).toBe(23);
-    expect(applyCampfireOption(run, camp(run), 'rest')!.healed).toBe(23);
+    run.maxHp = 75; // 37.5
+    expect(restAmount(run)).toBe(38);
+    expect(applyCampfireOption(run, camp(run), 'rest')!.healed).toBe(38);
   });
 
   it('tracks 最大体力 granted by relics rather than the hero sheet', () => {
@@ -68,22 +66,20 @@ describe('休整', () => {
     expect(addRelic(run, 'xuanjia')).toBe(true); // 玄甲: 最大体力 +8
     expect(run.maxHp).toBe(90);
     run.hp = 1;
-    expect(restAmount(run)).toBe(27); // 90 * 0.3, not 82 * 0.3
-    expect(applyCampfireOption(run, camp(run), 'rest')!.healed).toBe(27);
+    expect(restAmount(run)).toBe(45); // 90 * 0.5, not the hero sheet's 82
+    expect(applyCampfireOption(run, camp(run), 'rest')!.healed).toBe(45);
   });
 
-  it('天命五重回 25% 而不是 30% —— 比例从 run.mods 读 (todos/19 a3)', () => {
-    // 验收标准原文：「天命五重营帐回 25% 而不是 30%」。82 * 0.25 = 20.5 → 21，
-    // 和零重的 25（82 * 0.3 = 24.6）是两个数，写死 0.3 的旧账在哪边一望便知。
+  it('天命五重回 40% 而不是 50% —— 比例从 run.mods 读 (todos/19 a3)', () => {
     const run = startRun(DEFAULT_HERO, 'campfire-asc', 5);
     run.hp = 1;
     expect(run.maxHp).toBe(82);
-    expect(restAmount(run)).toBe(21);
+    expect(restAmount(run)).toBe(33);
 
     const report = applyCampfireOption(run, camp(run), 'rest')!;
-    expect(report.offered).toBe(21);
-    expect(report.healed).toBe(21);
-    expect(run.hp).toBe(22);
+    expect(report.offered).toBe(33);
+    expect(report.healed).toBe(33);
+    expect(run.hp).toBe(34);
   });
 
   it('reports what landed, not what was offered, near full health', () => {
@@ -103,15 +99,15 @@ describe('休整', () => {
     // The view used to compute this from `restGain`, which is itself already
     // capped by the wound, so the two were equal by construction and the
     // 「伤已痊愈」 line was dead code.
-    expect(report.offered).toBe(25);
+    expect(report.offered).toBe(41);
     expect(report.healed).toBeLessThan(report.offered);
   });
 
   it('offers the full night when the wound is deep enough to take it', () => {
     const run = wounded();
     const report = applyCampfireOption(run, camp(run), 'rest')!;
-    expect(report.offered).toBe(25);
-    expect(report.healed).toBe(25);
+    expect(report.offered).toBe(41);
+    expect(report.healed).toBe(41);
     expect(report.healed).toBe(report.offered);
   });
 

@@ -616,7 +616,7 @@ test(`per-hero balance: ${HERO_N} fights per row, every 武将`, () => {
  *
  * The path is the one `generateMap` actually produces, measured rather than
  * assumed: ~7.4 monster rooms, ~1.2 精英, ~1.9 篝火 and the 首领, so the walk
- * below is 7 normals (the first two out of `weak`), one 精英, two rests at 30%
+ * below is 7 normals (the first two out of `weak`), one 精英, two rests at 50%
  * of max HP, and the crown.
  *
  * The three variants exist because the first one alone is misleading. A sim
@@ -658,8 +658,8 @@ const GAUNTLETS: GauntletVariant[] = [
   { label: '裁五张 + 每战两瓶', cull: 5, potions: ['huoyouguan', 'zhuangxingjiu'] },
 ];
 
-/** Rest sites in `generateMap` are worth 30% of max HP. */
-const REST_HEAL = 0.3;
+/** Rest sites in `generateMap` are worth 50% of max HP. */
+const REST_HEAL = 0.5;
 
 const drinkOnTurnOne = (name: PolicyName): Policy => ({
   ...POLICIES[name],
@@ -757,7 +757,7 @@ test(`gauntlet: ${GAUNTLET_N} acts walked end to end per row`, () => {
       }
     }
   }
-  console.log('\n### 连场 — one act, HP carried across, two 篝火 at 30%\n');
+  console.log('\n### 连场 — one act, HP carried across, two 篝火 at 50%\n');
   console.log(out.join('\n') + '\n');
 });
 
@@ -794,19 +794,20 @@ test(`gauntlet: ${GAUNTLET_N} acts walked end to end per row`, () => {
  *
  * 最终落表（与 `ASCENSION_STEP_DESC` 同步）：二重杂兵 HP+5%；三重精英
  * HP+5%/伤+5%；四重首领 HP+5%；七重杂兵伤+5%；八重精英 HP 再+2%；九重
- * 首领 HP 再+2%。1/5/6/10（精英房、营帐 25%、开幕失血 10%、宿业）保持
- * 设计原值——它们是规则不是数字，砍它们等于砍设计。
+ * 首领 HP 再+2%。1/6/10（精英房、开幕失血 10%、宿业）保持设计原值；
+ * 五重营帐后来随基础休整一并调成 40%。
  *
- * 2026-08 扩卡、扩宝与模拟策略修正后重新量得（threat）：0/3/5/10/15/20
- * 重约 **43% / 38% / 25% / 14% / 9% / 1%**。下面的断言同时钉住十重
- * 的中段带与二十重「极难但仍可通关」的尾端。
+ * 2026-08 扩卡、扩宝与模拟策略修正后，营帐 30/25/20 时量得（threat）
+ * 0/3/5/10/15/20 重约 **43% / 38% / 25% / 14% / 9% / 1%**。营帐随后
+ * 提到 50/40/30，当前固定种子为 **56% / 50% / 32% / 24% / 16% / 2%**；
+ * 下面的断言继续钉住十重中段带与二十重「极难但仍可通关」的尾端。
  */
 const ASCENSION_LEVELS = [0, 3, 5, 10, 15, 20];
 const RUN_N = 500;
 /**
- * 十重 threat 的当前验收带。扩到 48 张牌与 53 件可用宝物后，旧的 15–25%
- * 带在固定种子上落到 14.4%；新带留出一侧余量，防止为了追一个整数百分点
- * 把单张牌或单件宝物反向过拟合。
+ * 十重 threat 的当前验收带。扩到 48 张牌与 53 件可用宝物后曾落到 14.4%，
+ * 营帐上调后落在 24%；两端都保留，防止为了追一个整数百分点把单张牌或
+ * 单件宝物反向过拟合。
  */
 const A10_BAND = { lo: 0.14, hi: 0.24 };
 /**

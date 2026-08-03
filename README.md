@@ -27,16 +27,17 @@ npm run build       # typecheck + production bundle
 over a 7×15 lattice (~47 rooms a map), crossing edges rejected, then a small set of
 legal adjacent links added to restore route choice without adding rooms. Room types
 follow fixed-floor and adjacency rules (floor 1 always combat, floor 9 always treasure,
-floor 15 always a camp; elite/camp/shop locked out below floor 6; no restricted repeat
-along an edge or between siblings), and every visible route breaks after at most two
-combat rooms. Maps are seeded — the seed prints bottom-left, and re-running it
-reproduces the layout exactly.
+floor 15 always a camp; elite/camp/shop locked out below floor 6; events and advanced
+rooms are interleaved rather than repeated along an edge or between siblings), and every
+visible route breaks after at most two combat rooms. A forced event repeat is allowed
+only when it is the sole way to break a two-fight route. Maps are seeded — the seed
+prints bottom-left, and re-running it reproduces the layout exactly.
 
 Validated across 400 seeds on every `npm test` (`tests/generateMap.test.ts`): every node
 reachable from floor 1, no crossing edges, fixed floors correct, elite/camp/shop never
-below floor 6, no restricted type repeating up an edge or between siblings, and no
-three-fight route. A second sweep covers all three generated acts before and after
-extra-elite promotion.
+below floor 6, no avoidable event/advanced-room repeats up an edge or between siblings,
+and no three-fight route. A second sweep covers all three generated acts before and
+after extra-elite promotion.
 
 **Heroes** — 关羽, 赵云 and 诸葛亮, chosen on the title screen and shown in an in-map
 drawer (click the HUD portrait, `Esc` to close). No hero is special-cased anywhere in the

@@ -57,8 +57,10 @@ import { adoptRun, syncPotionSlots, syncRewardCount, uidCursor, type RunState } 
  * 若继续会在同一节点看见另一组可走出口，因此拓扑变化同样作废旧档。
  * v6：所有路线最多两间连续战斗房。房型分配、天命精英提格和战略补边都会
  * 因此改变；S1 会从同一 seed 重长出不同房型/出口，旧档必须作废。
+ * v7：奇遇加入相邻与同父分散规则。相同 seed 会长出不同房型，依 S1 作废
+ * 旧档，避免已走路径与重生后的地图分岔。
  */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 const SAVE_KEY = 'sangota.save.v1';
 

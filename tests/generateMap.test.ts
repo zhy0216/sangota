@@ -21,7 +21,8 @@ const seeds = Array.from({ length: SEEDS }, (_, i) => `map-seed-${i}`);
 const TREASURE_ROW = ACT1_LAYOUT.treasureRow!;
 const REST_ROW = ACT1_LAYOUT.restRow!;
 const FIXED_ROWS = new Set([0, TREASURE_ROW, REST_ROW]);
-const RESTRICTED: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'elite']);
+const ADVANCED: ReadonlySet<RoomType> = new Set<RoomType>(['rest', 'shop', 'elite']);
+const SPACED: ReadonlySet<RoomType> = new Set<RoomType>(['event', 'rest', 'shop', 'elite']);
 const COMBAT: ReadonlySet<RoomType> = new Set<RoomType>(['monster', 'elite', 'boss']);
 
 /** Node ids reachable by walking children down from the starting floor. */
@@ -74,6 +75,28 @@ function longestCombatStreak(map: GameMap): { length: number; path: string[] } {
   }
 
   return longest;
+}
+
+/** Combat-only suffix ending at one node, used to justify forced event merges. */
+function longestCombatStreakEndingAt(
+  nodeId: string,
+  map: GameMap,
+  memo = new Map<string, number>(),
+): number {
+  const cached = memo.get(nodeId);
+  if (cached !== undefined) return cached;
+  const node = map.nodes.get(nodeId)!;
+  if (!COMBAT.has(node.type)) {
+    memo.set(nodeId, 0);
+    return 0;
+  }
+  const before = node.parents.reduce(
+    (best, parentId) => Math.max(best, longestCombatStreakEndingAt(parentId, map, memo)),
+    0,
+  );
+  const streak = before + 1;
+  memo.set(nodeId, streak);
+  return streak;
 }
 
 describe(`generateMap over ${SEEDS} seeds`, () => {
@@ -202,7 +225,7 @@ describe(`generateMap over ${SEEDS} seeds`, () => {
     for (const map of maps) {
       for (const node of map.nodes.values()) {
         if (node.id === map.bossId) continue;
-        if (RESTRICTED.has(node.type)) {
+        if (ADVANCED.has(node.type)) {
           expect(node.row, `${map.seed} ${node.id} is ${node.type}`).toBeGreaterThanOrEqual(
             ACT1_LAYOUT.minAdvancedRow,
           );
@@ -215,27 +238,59 @@ describe(`generateMap over ${SEEDS} seeds`, () => {
     }
   });
 
-  it('never repeats a restricted type up an edge', () => {
+  it('interleaves events and other spaced rooms instead of repeating them up an edge', () => {
     for (const map of maps) {
       for (const node of map.nodes.values()) {
-        if (!RESTRICTED.has(node.type)) continue;
+        if (!SPACED.has(node.type)) continue;
         for (const parentId of node.parents) {
           const parent = map.nodes.get(parentId)!;
+          // A merge can be impossible to colour perfectly: an event parent on
+          // one side and a two-combat streak on the other forces the child to
+          // be an event to preserve the combat cap. Only 奇遇 has this safety
+          // exception; advanced rooms must remain strictly separated.
+          if (node.type === 'event' && parent.type === 'event') {
+            expect(
+              node.parents.some((id) => {
+                const other = map.nodes.get(id)!;
+                return COMBAT.has(other.type) && longestCombatStreakEndingAt(id, map) >= 2;
+              }),
+              `${map.seed} ${parentId} → ${node.id} has an avoidable repeated event`,
+            ).toBe(true);
+            continue;
+          }
           expect(parent.type, `${map.seed} ${parentId} → ${node.id}`).not.toBe(node.type);
         }
       }
     }
   });
 
-  it('never gives two siblings the same restricted type', () => {
+  it('never gives two siblings the same spaced type unless the split must break combat', () => {
     for (const map of maps) {
       for (const node of map.nodes.values()) {
         // The forced camp floor is a deliberate exception — every node on it is
         // a camp, siblings included.
         const children = node.children
           .map((id) => map.nodes.get(id)!)
-          .filter((c) => !FIXED_ROWS.has(c.row) && RESTRICTED.has(c.type));
+          .filter((c) => !FIXED_ROWS.has(c.row) && SPACED.has(c.type));
         const types = children.map((c) => c.type);
+        if (new Set(types).size !== types.length) {
+          const duplicated = [...new Set(types.filter((type, i) => types.indexOf(type) !== i))];
+          expect(duplicated, `${map.seed} under ${node.id}: only 奇遇 may repeat`).toEqual([
+            'event',
+          ]);
+          expect(
+            children
+              .filter((child) => child.type === 'event')
+              .every((child) =>
+                child.parents.some(
+                  (parentId) =>
+                    longestCombatStreakEndingAt(parentId, map) >= MAX_CONSECUTIVE_COMBATS,
+                ),
+              ),
+            `${map.seed} under ${node.id}: avoidable duplicate event`,
+          ).toBe(true);
+          continue;
+        }
         expect(new Set(types).size, `${map.seed} under ${node.id}: ${types.join(',')}`).toBe(
           types.length,
         );

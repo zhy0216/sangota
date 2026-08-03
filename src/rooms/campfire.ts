@@ -65,8 +65,8 @@ export interface CampfireOptionDef {
 /**
  * What 休整 would restore if taken right now, capped by the wound.
  *
- * 天命 (todos/19 a3)：比例从 `run.mods.restHealPercent` 读——零重 30、
- * 五重起 25，见 `ASCENSION_STEPS`。写死的 0.3 已随之退役：难度修改一律
+ * 天命 (todos/19 a3)：比例从 `run.mods.restHealPercent` 读——零重 50、
+ * 五重起 40，见 `ASCENSION_STEPS`。难度修改一律
  * 走集中修饰器，这里不许再长第二个数。
  */
 export const restAmount = (run: RunState): number =>

@@ -14,6 +14,9 @@ import { CustomScene } from './scenes/CustomScene';
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
+  // Cards use the right button for in-game interaction; the browser menu must
+  // never steal that click once the pointer is over the game canvas.
+  disableContextMenu: true,
   // Backing store in physical pixels; scenes still work in design units via
   // the camera zoom applied by useDesignSpace().
   width: CANVAS_WIDTH,
