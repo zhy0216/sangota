@@ -1,3 +1,9 @@
+## Package management
+
+- This repository uses Bun as its package manager. Use `bun install` for dependency installation and `bun run <script>` for package scripts.
+- `bun.lock` is the canonical dependency lockfile and must be committed whenever it changes.
+- Do not regenerate `package-lock.json` or use npm to install or update dependencies unless the user explicitly requests it.
+
 <!-- BEGIN genmedia:genmedia -->
 ## genmedia CLI
 
