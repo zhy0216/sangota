@@ -4,14 +4,26 @@
 
 ## 运行项目
 
-请先安装 [Bun](https://bun.sh/)，然后执行：
+请先安装 [Bun](https://bun.sh/)，并安装项目依赖：
 
 ```bash
 bun install
+```
+
+开发项目：
+
+```bash
 bun run dev
 ```
 
-打开 `http://localhost:5173` 即可开始游戏。
+本地试玩生产版本：
+
+```bash
+bun run build
+bun run preview
+```
+
+执行后打开终端中显示的本地地址即可。
 
 ## 这个项目是怎么开发的
 
