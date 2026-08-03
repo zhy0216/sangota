@@ -148,6 +148,35 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
     ],
   },
   yibaoyuntian: { effects: [{ kind: 'status', status: 'artifact', amount: 3, to: 'self' }] },
+  qinglongjueying: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'vulnerable' },
+        then: [{ kind: 'damage', amount: 45 }],
+        otherwise: [{ kind: 'damage', amount: 30 }],
+      },
+      { kind: 'status', status: 'vulnerable', amount: 4, to: 'target' },
+    ],
+  },
+  wushenglinshi: {
+    effects: [
+      { kind: 'status', status: 'strength', amount: 5, to: 'self' },
+      { kind: 'status', status: 'buffer', amount: 2, to: 'self' },
+      { kind: 'block', amount: 20 },
+    ],
+  },
+  yijueqianqiu: {
+    effects: [
+      {
+        kind: 'scaleWithEnergy',
+        per: [
+          { kind: 'damage', amount: 10 },
+          { kind: 'block', amount: 4 },
+        ],
+      },
+    ],
+  },
 
   // --- todos/05 无色 stock, sold only over a 商旅's counter -----------------
   qingnangshu: { effects: [{ kind: 'heal', amount: 9 }] },
@@ -336,6 +365,38 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       },
     ],
   },
+  qiruchangban: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 1 },
+        then: [{ kind: 'scaleWithAttacks', per: [{ kind: 'damage', amount: 10 }] }],
+        otherwise: [{ kind: 'damage', amount: 10 }],
+      },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 3 },
+        then: [
+          { kind: 'energy', amount: 1 },
+          { kind: 'draw', amount: 3 },
+        ],
+      },
+    ],
+  },
+  longyinzhenjun: {
+    effects: [
+      { kind: 'damageAll', amount: 8, times: 3 },
+      { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+    ],
+  },
+  zhaoyepozhen: {
+    effects: [
+      { kind: 'loseHp', amount: 3 },
+      { kind: 'energy', amount: 2 },
+      { kind: 'draw', amount: 4 },
+      { kind: 'status', status: 'buffer', amount: 1, to: 'self' },
+    ],
+  },
 
   // --- todos/17 诸葛亮 · 锦囊 -----------------------------------------------
   yuanrongnu: { effects: [{ kind: 'damage', amount: 4, times: 2 }] },
@@ -483,6 +544,28 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
         then: [{ kind: 'damage', amount: 28 }],
         otherwise: [{ kind: 'damage', amount: 14 }],
       },
+    ],
+  },
+  qimenbazhen: {
+    effects: [
+      { kind: 'block', amount: 24 },
+      { kind: 'status', status: 'vulnerable', amount: 3, to: 'allEnemies' },
+      { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+      { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
+    ],
+  },
+  dongfengjitian: {
+    effects: [
+      { kind: 'scaleWithEnergy', per: [{ kind: 'damageAll', amount: 8 }] },
+      { kind: 'status', status: 'vulnerable', amount: 2, to: 'allEnemies' },
+    ],
+  },
+  qixingxuming: {
+    cost: 2,
+    effects: [
+      { kind: 'heal', amount: 16 },
+      { kind: 'status', status: 'buffer', amount: 2, to: 'self' },
+      { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
     ],
   },
 };

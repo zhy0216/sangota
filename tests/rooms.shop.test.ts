@@ -223,6 +223,7 @@ describe('定价', () => {
     expect(CARD_PRICE.common).toEqual([26, 32]);
     expect(CARD_PRICE.uncommon).toEqual([40, 48]);
     expect(CARD_PRICE.rare).toEqual([78, 92]);
+    expect(CARD_PRICE.legendary).toEqual([126, 152]);
 
     for (let i = 0; i < 80; i++) {
       const run = fresh(`price-${i}`);
@@ -325,8 +326,8 @@ describe('定价', () => {
   it('weights the card rarities to 100', () => {
     const total = REWARD_RARITIES.reduce((sum, r) => sum + SHOP_CARD_WEIGHTS[r], 0);
     expect(total).toBe(100);
-    // Rarer than a monster reward (3% rare), flatter than an elite's (13%).
-    expect(SHOP_CARD_WEIGHTS.rare).toBe(12);
+    expect(SHOP_CARD_WEIGHTS.rare).toBe(11);
+    expect(SHOP_CARD_WEIGHTS.legendary).toBe(2);
   });
 
   it('keeps a whole shelf out of reach of one run', () => {
@@ -695,7 +696,7 @@ describe('无色牌', () => {
       expect(def, id).toBeDefined();
       expect(isNegative(def), id).toBe(false);
       expect(def.upgrade, id).toBeDefined();
-      expect(['common', 'uncommon', 'rare'], id).toContain(def.rarity);
+      expect(['common', 'uncommon', 'rare', 'legendary'], id).toContain(def.rarity);
       // 势 cards must declare 消耗 — the engine has no type branch for it.
       if (def.type === 'power') expect(def.keywords ?? [], id).toContain('exhaust');
     }

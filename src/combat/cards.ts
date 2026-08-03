@@ -781,6 +781,105 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
       effects: [{ kind: 'status', status: 'artifact', amount: 3, to: 'self' }],
     },
   },
+
+  // --- legendary ----------------------------------------------------------
+
+  /** A single verdict: the vulnerable branch replaces, rather than stacks on, the headline hit. */
+  qinglongjueying: {
+    id: 'qinglongjueying',
+    name: '青龙绝影',
+    type: 'attack',
+    rarity: 'legendary',
+    cost: 3,
+    target: 'enemy',
+    art: 'card-qinglongjueying',
+    playVfx: 'emeraldDragon',
+    text: '造成 {D} 点伤害。\n若目标已有【破绽】，改为 36 点。\n再施加 3 层【破绽】。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'vulnerable' },
+        then: [{ kind: 'damage', amount: 36 }],
+        otherwise: [{ kind: 'damage', amount: 24 }],
+      },
+      { kind: 'status', status: 'vulnerable', amount: 3, to: 'target' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若目标已有【破绽】，改为 45 点。\n再施加 4 层【破绽】。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'targetHasStatus', status: 'vulnerable' },
+          then: [{ kind: 'damage', amount: 45 }],
+          otherwise: [{ kind: 'damage', amount: 30 }],
+        },
+        { kind: 'status', status: 'vulnerable', amount: 4, to: 'target' },
+      ],
+    },
+  },
+
+  /** The once-per-fight moment where the whole big-swing kit comes online at once. */
+  wushenglinshi: {
+    id: 'wushenglinshi',
+    name: '武圣临世',
+    type: 'power',
+    rarity: 'legendary',
+    cost: 3,
+    target: 'self',
+    art: 'card-wushenglinshi',
+    playVfx: 'warGod',
+    text: '获得 4 层【神力】、1 层【天佑】与 {B} 点护甲。',
+    effects: [
+      { kind: 'status', status: 'strength', amount: 4, to: 'self' },
+      { kind: 'status', status: 'buffer', amount: 1, to: 'self' },
+      { kind: 'block', amount: 16 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 5 层【神力】、2 层【天佑】与 {B} 点护甲。',
+      effects: [
+        { kind: 'status', status: 'strength', amount: 5, to: 'self' },
+        { kind: 'status', status: 'buffer', amount: 2, to: 'self' },
+        { kind: 'block', amount: 20 },
+      ],
+    },
+  },
+
+  /** X-cost converts every last point of 气 into both offence and a closing guard. */
+  yijueqianqiu: {
+    id: 'yijueqianqiu',
+    name: '义绝千秋',
+    type: 'attack',
+    rarity: 'legendary',
+    cost: -1,
+    target: 'enemy',
+    art: 'card-yijueqianqiu',
+    playVfx: 'oathSeal',
+    text: '每消耗 1 点气，造成 {D} 点伤害并获得 3 点护甲。',
+    effects: [
+      {
+        kind: 'scaleWithEnergy',
+        per: [
+          { kind: 'damage', amount: 8 },
+          { kind: 'block', amount: 3 },
+        ],
+      },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '每消耗 1 点气，造成 {D} 点伤害并获得 4 点护甲。',
+      effects: [
+        {
+          kind: 'scaleWithEnergy',
+          per: [
+            { kind: 'damage', amount: 10 },
+            { kind: 'block', amount: 4 },
+          ],
+        },
+      ],
+    },
+  },
 });
 
 /**
@@ -949,7 +1048,7 @@ export type CardPools = Record<Exclude<CardRarity, 'basic'>, string[]>;
  * silently re-deal old runs instead of failing.
  */
 export function poolsOf(table: Record<string, CardDef>): CardPools {
-  const pools: CardPools = { common: [], uncommon: [], rare: [] };
+  const pools: CardPools = { common: [], uncommon: [], rare: [], legendary: [] };
   for (const def of Object.values(table)) {
     if (def.rarity === 'basic') continue;
     pools[def.rarity].push(def.id);

@@ -46,12 +46,13 @@ export const defaultCardFilter = (): CardFilter => ({
   rarity: 'all',
 });
 
-/** 稀有度的字。`Record` 铺满四档,新加一档编译期就报。 */
+/** 稀有度的字。`Record` 铺满全部档位,新加一档编译期就报。 */
 export const CARD_RARITY_LABEL: Record<CardRarity, string> = {
   basic: '起始',
   common: '常见',
   uncommon: '罕见',
   rare: '稀有',
+  legendary: '传说',
 };
 
 /** 全卷卡目:`CARDS` 逐行,含咒/厄——典籍录的是「见过世面」,不是奖池。 */

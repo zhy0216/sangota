@@ -73,6 +73,7 @@ const GUANYU_POOLS = {
     'qianlizoudanqi',
     'yibaoyuntian',
   ],
+  legendary: ['qinglongjueying', 'wushenglinshi', 'yijueqianqiu'],
 } as const;
 
 describe('卡池按武将分流', () => {
@@ -80,6 +81,7 @@ describe('卡池按武将分流', () => {
     expect(poolFor('guanyu', 'common')).toEqual([...GUANYU_POOLS.common]);
     expect(poolFor('guanyu', 'uncommon')).toEqual([...GUANYU_POOLS.uncommon]);
     expect(poolFor('guanyu', 'rare')).toEqual([...GUANYU_POOLS.rare]);
+    expect(poolFor('guanyu', 'legendary')).toEqual([...GUANYU_POOLS.legendary]);
   });
 
   it('keeps the old alias pointing at the same arrays', () => {

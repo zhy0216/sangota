@@ -97,6 +97,7 @@ export const CARD_PRICE: Record<RewardRarity, readonly [number, number]> = {
   common: [26, 32],
   uncommon: [40, 48],
   rare: [78, 92],
+  legendary: [126, 152],
 };
 
 /**
@@ -126,8 +127,9 @@ export const POTION_PRICE: Record<'common' | 'uncommon' | 'rare', readonly [numb
  */
 export const SHOP_CARD_WEIGHTS: Record<RewardRarity, number> = {
   common: 55,
-  uncommon: 33,
-  rare: 12,
+  uncommon: 32,
+  rare: 11,
+  legendary: 2,
 };
 
 /** 弃卡 — the run's only reliable way to thin a deck, and priced like it. */

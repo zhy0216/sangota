@@ -82,6 +82,7 @@ import { TooltipManager, type TipSegment } from '../ui/Tooltip';
 import { bodyStyle, brushStyle, inkButton, inkPanel } from '../ui/theme';
 import { dur } from '../ui/timing';
 import { groupCombatEvents, groupTotal, type DamageEv } from '../ui/eventGroups';
+import { playLegendaryVfx } from '../ui/legendaryVfx';
 import {
   burst,
   dust,
@@ -1683,6 +1684,17 @@ export class CombatScene extends Phaser.Scene {
     // energy-spend——0 费牌白喊一声「消耗」是谎报。
     this.audio.play(cardPlaySfx(def.type));
     if (this.state.energy < energyBefore) this.audio.play('energy-spend');
+
+    if (def.playVfx) {
+      const targetView = targetId ? this.roster.get(targetId) : undefined;
+      await playLegendaryVfx(this, def.playVfx, {
+        player: this.torso(this.playerView),
+        target: targetView ? this.torso(targetView) : undefined,
+        enemies: this.roster.living().map((enemy) => this.torso(enemy)),
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
+      });
+    }
 
     if (def.type === 'attack') {
       await this.lunge(this.playerView, 1, 76, 110);
@@ -3563,4 +3575,3 @@ export class CombatScene extends Phaser.Scene {
     );
   }
 }
-

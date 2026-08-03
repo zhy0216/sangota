@@ -492,6 +492,7 @@ const GUANYU = {
     'weizhenhuaxia', 'wuguanliujiang', 'shengougaolei',
     'yanyuezhan', 'qianlizoudanqi', 'yibaoyuntian',
   ],
+  legendary: ['qinglongjueying', 'wushenglinshi', 'yijueqianqiu'],
 };
 
 const ZHAOYUN = {
@@ -504,6 +505,7 @@ const ZHAOYUN = {
     'yinqiang', 'hengsaoqianjun', 'longxiang', 'yanqixigu', 'huwei',
   ],
   rare: ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang', 'changbanpo'],
+  legendary: ['qiruchangban', 'longyinzhenjun', 'zhaoyepozhen'],
 };
 
 const ZHUGELIANG = {
@@ -516,6 +518,7 @@ const ZHUGELIANG = {
     'guanxing', 'huoshaobowang', 'jianbingzengzao', 'shenjimiaosuan', 'anjupingwulu',
   ],
   rare: ['wolongchushan', 'chushibiao', 'qiqinqizong', 'huoshaotengjia'],
+  legendary: ['qimenbazhen', 'dongfengjitian', 'qixingxuming'],
 };
 
 const POOLS: Record<string, typeof GUANYU> = {
@@ -530,13 +533,14 @@ describe('专属卡池', () => {
       expect(poolFor(heroId, 'common'), heroId).toEqual(pools.common);
       expect(poolFor(heroId, 'uncommon'), heroId).toEqual(pools.uncommon);
       expect(poolFor(heroId, 'rare'), heroId).toEqual(pools.rare);
+      expect(poolFor(heroId, 'legendary'), heroId).toEqual(pools.legendary);
     }
   });
 
   it('never lets two heroes share a card', () => {
     const seen = new Map<string, string>();
     for (const [heroId, pools] of Object.entries(POOLS)) {
-      for (const id of [...pools.common, ...pools.uncommon, ...pools.rare]) {
+      for (const id of [...pools.common, ...pools.uncommon, ...pools.rare, ...pools.legendary]) {
         expect(seen.get(id), `${id} is in both ${seen.get(id)} and ${heroId}`).toBeUndefined();
         seen.set(id, heroId);
         expect(CARDS[id].hero, id).toBe(heroId);
@@ -550,6 +554,7 @@ describe('专属卡池', () => {
         ...poolFor(heroId, 'common'),
         ...poolFor(heroId, 'uncommon'),
         ...poolFor(heroId, 'rare'),
+        ...poolFor(heroId, 'legendary'),
       ];
       for (const id of COLORLESS_POOL) expect(all, `${heroId}/${id}`).not.toContain(id);
       // 「锦囊」 is minted in combat and must never be draftable or purchasable.
@@ -562,7 +567,12 @@ describe('专属卡池', () => {
 
   it('offers a 赵云 run nothing but 赵云 cards, over 300 rewards', () => {
     const run = startRun(HEROES.zhaoyun, 'reward-zhaoyun');
-    const mine = new Set([...ZHAOYUN.common, ...ZHAOYUN.uncommon, ...ZHAOYUN.rare]);
+    const mine = new Set([
+      ...ZHAOYUN.common,
+      ...ZHAOYUN.uncommon,
+      ...ZHAOYUN.rare,
+      ...ZHAOYUN.legendary,
+    ]);
     let dealt = 0;
     for (let i = 0; i < 100; i++) {
       for (const id of rollCardReward({ tier: 'monster', run, rng: new Rng(`rw-${i}`) })) {
@@ -575,7 +585,12 @@ describe('专属卡池', () => {
 
   it('stocks a 诸葛亮 shelf with his cards and the 无色 stock, nothing else', () => {
     const run = startRun(HEROES.zhugeliang, 'shop-zhugeliang');
-    const mine = new Set([...ZHUGELIANG.common, ...ZHUGELIANG.uncommon, ...ZHUGELIANG.rare]);
+    const mine = new Set([
+      ...ZHUGELIANG.common,
+      ...ZHUGELIANG.uncommon,
+      ...ZHUGELIANG.rare,
+      ...ZHUGELIANG.legendary,
+    ]);
     const colourless = new Set(COLORLESS_POOL);
     let own = 0;
     let shelved = 0;
@@ -593,7 +608,12 @@ describe('专属卡池', () => {
 
   it('never lets a 关羽 run see another hero’s card', () => {
     const run = startRun(HEROES.guanyu, 'reward-guanyu');
-    const his = new Set([...GUANYU.common, ...GUANYU.uncommon, ...GUANYU.rare]);
+    const his = new Set([
+      ...GUANYU.common,
+      ...GUANYU.uncommon,
+      ...GUANYU.rare,
+      ...GUANYU.legendary,
+    ]);
     for (let i = 0; i < 100; i++) {
       for (const id of rollCardReward({ tier: 'monster', run, rng: new Rng(`gw-${i}`) })) {
         expect(his.has(id), id).toBe(true);
@@ -615,22 +635,20 @@ describe('专属卡的表面', () => {
     Object.keys(CARDS).filter((id) => CARDS[id].hero === heroId);
 
   it('gives 赵云 and 诸葛亮 a full pool plus their starters', () => {
-    // 赵云: 3 起手 + 20 draftable (8/8/4, against 关羽's 10/8/3 — the todos/17
-    // 「20+ 张」 bar). 诸葛亮: 3 起手 + 20 draftable (8/8/4 as well) plus the
-    // 锦囊 token.
-    expect(heroCards('zhaoyun')).toHaveLength(23);
-    expect(heroCards('zhugeliang')).toHaveLength(24);
+    // 赵云: 3 起手 + 23 draftable. 诸葛亮同数，另有一张战斗内生成的锦囊。
+    expect(heroCards('zhaoyun')).toHaveLength(26);
+    expect(heroCards('zhugeliang')).toHaveLength(27);
     expect(
-      ZHAOYUN.common.length + ZHAOYUN.uncommon.length + ZHAOYUN.rare.length,
+      ZHAOYUN.common.length + ZHAOYUN.uncommon.length + ZHAOYUN.rare.length + ZHAOYUN.legendary.length,
     ).toBeGreaterThanOrEqual(20);
     expect(
-      ZHUGELIANG.common.length + ZHUGELIANG.uncommon.length + ZHUGELIANG.rare.length,
+      ZHUGELIANG.common.length + ZHUGELIANG.uncommon.length + ZHUGELIANG.rare.length + ZHUGELIANG.legendary.length,
     ).toBeGreaterThanOrEqual(20);
   });
 
   it('leaves every drafted card forgeable, and the 令牌 not', () => {
     for (const pools of Object.values(POOLS)) {
-      for (const id of [...pools.common, ...pools.uncommon, ...pools.rare]) {
+      for (const id of [...pools.common, ...pools.uncommon, ...pools.rare, ...pools.legendary]) {
         expect(CARDS[id].upgrade, id).toBeDefined();
       }
     }
@@ -663,9 +681,12 @@ describe('武将机制互不串味', () => {
     // Only the rare 一身是胆 grants it, and only one layer.
     expect(strengthCards).toEqual([]);
 
-    const guanyuScaling = [...GUANYU.common, ...GUANYU.uncommon, ...GUANYU.rare].filter((id) =>
-      JSON.stringify(CARDS[id].effects).includes('scaleWithAttacks'),
-    );
+    const guanyuScaling = [
+      ...GUANYU.common,
+      ...GUANYU.uncommon,
+      ...GUANYU.rare,
+      ...GUANYU.legendary,
+    ].filter((id) => JSON.stringify(CARDS[id].effects).includes('scaleWithAttacks'));
     expect(guanyuScaling).toEqual([]);
   });
 
@@ -686,7 +707,7 @@ describe('武将机制互不串味', () => {
     });
     expect(readers.sort()).toEqual([
       'changbanpo', 'chenshi', 'duojian', 'hengsaoqianjun', 'jici', 'jiejiang',
-      'longdan', 'qianghua', 'qitanpanshe', 'tingqiang',
+      'longdan', 'qianghua', 'qiruchangban', 'qitanpanshe', 'tingqiang',
     ]);
     for (const id of readers) expect(CARDS[id].hero, id).toBe('zhaoyun');
   });
