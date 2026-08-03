@@ -14,8 +14,8 @@
     "test:watch": "vitest",
     "sim": "vitest run --config vitest.sim.config.ts --reporter=verbose",
     "eval": "vitest run --config vitest.eval.config.ts --reporter=verbose",
-    "check": "npm run typecheck && npm test",
-    "deploy": "npm run build && wrangler deploy"
+    "check": "bun run typecheck && bun run test",
+    "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {
     "phaser": "^3.90.0"
