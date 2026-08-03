@@ -19,7 +19,7 @@ import { bodyStyle, brushStyle, inkButton, inkPanel } from './theme';
 /**
  * 设置面板 (todos/21 t5) — 全屏覆盖层：左侧分组 tab（画面/音频/游戏/按键），
  * 右侧选项列表，底部「清除存档」与「查看统计」；局内打开时左下另有
- * 「回到主菜单」，不清存档，下次仍可继续。
+ * 「主菜单」，不清存档，下次仍可继续。
  *
  * 骨架照抄 07 `CardGrid` / 22 `HistoryPanel`：`pushOverlay` 管 Esc 与深度，
  * 本文件不自绑 Esc 键；可点蒙布挡下层输入；点空白处关闭是几何判定；scene-level
@@ -152,7 +152,7 @@ export function openSettings(scene: Phaser.Scene): void {
   // 存档不动：TitleScene 会重读存档并给出「继续」。
   if (inGame) {
     root.add(
-      inkButton(scene, PANEL_X + TAB_COL_W / 2, PANEL_Y + PANEL_H - 128, '回 到 主 菜 单', {
+      inkButton(scene, PANEL_X + TAB_COL_W / 2, PANEL_Y + PANEL_H - 128, '主 菜 单', {
         width: 136,
         height: 42,
         fontSize: 18,

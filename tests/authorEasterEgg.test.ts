@@ -3,6 +3,7 @@ import { invokeAuthorJudgment, startCombat } from '../src/combat/engine';
 import type { Encounter } from '../src/combat/types';
 import {
   AUTHOR_EASTER_EGG_CLICKS,
+  AUTHOR_EASTER_EGG_HOLD_MS,
   advanceAuthorEasterEgg,
 } from '../src/ui/authorEasterEgg';
 import { newDeckCard } from '../src/state/run';
@@ -28,6 +29,10 @@ const fight = () =>
   });
 
 describe('作者彩蛋隐藏和弦', () => {
+  it('holds the full-screen author page for 8.8 seconds without a click', () => {
+    expect(AUTHOR_EASTER_EGG_HOLD_MS).toBe(8_800);
+  });
+
   it('only triggers on the fifth eligible click in one continuous Space hold', () => {
     let clicks = 0;
     for (let i = 1; i <= AUTHOR_EASTER_EGG_CLICKS; i++) {
@@ -116,6 +121,10 @@ describe('作者彩蛋场景接线', () => {
     expect(combatSceneSource).toContain("this.input.keyboard?.on('keyup-SPACE'");
     expect(combatSceneSource).toContain("authorHit.on('pointerdown', () => this.onAuthorOrbClick())");
     expect(combatSceneSource).toContain('“这是我的彩蛋。”');
+    expect(combatSceneSource).toContain('点击任意处继续 · 8.8 秒后自动降下神罚');
+    expect(combatSceneSource).toContain(
+      'waitForAuthorAdvance(blocker, AUTHOR_EASTER_EGG_HOLD_MS)',
+    );
     expect(combatSceneSource).toContain('invokeAuthorJudgment(this.state)');
   });
 });

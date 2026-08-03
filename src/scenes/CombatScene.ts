@@ -63,7 +63,7 @@ import { getSettings, type KeyAction } from '../state/settings';
 import { recordSeenEnemies } from '../state/unlocks';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_H, CARD_W, CardView, cardTipPanel, placeCardTipPanel, type CardTipPanel } from '../ui/CardView';
-import { advanceAuthorEasterEgg } from '../ui/authorEasterEgg';
+import { AUTHOR_EASTER_EGG_HOLD_MS, advanceAuthorEasterEgg } from '../ui/authorEasterEgg';
 import { cardIndexOf, combatKeyEvents, potionIndexOf, soleLivingEnemy } from '../ui/combatKeys';
 import { PLAY_LINE_Y, dropVerdict, hitIndex, pastPlayLine } from '../ui/dragPlay';
 import { HAND_Y, fanLayout, rowLayout } from '../ui/handLayout';
@@ -1066,7 +1066,7 @@ export class CombatScene extends Phaser.Scene {
     // The requested menu: an explicit easter-egg receipt, not a fleeting line
     // hidden inside the generated painting where text accuracy would drift.
     const menu = this.add.container(70, 472).setAlpha(0).setY(494);
-    menu.add(inkPanel(this, 0, 0, 560, 184, { alpha: 0.9, border: C.goldBright }));
+    menu.add(inkPanel(this, 0, 0, 560, 204, { alpha: 0.9, border: C.goldBright }));
     menu.add(
       this.add
         .text(28, 20, '隐 藏 菜 单 · 作 者 彩 蛋', bodyStyle(15, C.gold))
@@ -1083,6 +1083,11 @@ export class CombatScene extends Phaser.Scene {
       this.add
         .text(30, 144, '神谕：一击肃清全场', bodyStyle(16, C.cinnabarBright))
         .setLetterSpacing(2),
+    );
+    menu.add(
+      this.add
+        .text(30, 176, '点击任意处继续 · 8.8 秒后自动降下神罚', bodyStyle(12, C.paperFaint))
+        .setLetterSpacing(1),
     );
 
     const seal = this.add.container(510, 92);
@@ -1117,14 +1122,14 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.add({
       targets: bg,
       scale: bgScale,
-      duration: dur(4700),
+      duration: dur(AUTHOR_EASTER_EGG_HOLD_MS),
       ease: 'Sine.easeOut',
     });
     this.tweens.add({
       targets: heavenGate,
       angle: 18,
       scale: 1.12,
-      duration: dur(4800),
+      duration: dur(AUTHOR_EASTER_EGG_HOLD_MS),
       ease: 'Sine.easeInOut',
     });
     this.tweens.add({
@@ -1135,8 +1140,11 @@ export class CombatScene extends Phaser.Scene {
       duration: dur(420),
       ease: 'Back.easeOut',
     });
-    // Give the player time to take in the generated scene and read the menu.
-    await this.wait(1350);
+    // The fifth orb click created this page but cannot also dismiss it: Phaser
+    // resolved that pointerdown's targets before this new blocker existed.
+    // From the next click onward the whole screen advances; otherwise the page
+    // holds for 8.8 seconds at normal animation speed.
+    await this.waitForAuthorAdvance(blocker, AUTHOR_EASTER_EGG_HOLD_MS);
 
     this.audio.play('relic-trigger', { volume: 1.2, pitchJitter: 0 });
     this.tweens.add({
@@ -1146,8 +1154,7 @@ export class CombatScene extends Phaser.Scene {
       duration: dur(320),
       ease: 'Back.easeOut',
     });
-    // A longer divine pause turns the title into a threat before the impact.
-    await this.wait(1450);
+    await this.wait(900);
 
     const beam = this.add.graphics();
     beam.fillGradientStyle(C.paper, C.paper, C.goldBright, C.goldBright, 0, 0, 0.95, 0.95);
@@ -1205,6 +1212,25 @@ export class CombatScene extends Phaser.Scene {
     this.busy = false;
     this.checkOutcome();
     this.autosave();
+  }
+
+  /** Click anywhere to leave the author page, with a timed automatic fallback. */
+  private waitForAuthorAdvance(blocker: Phaser.GameObjects.Zone, holdMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      let settled = false;
+      let timer: Phaser.Time.TimerEvent | null = null;
+      const finish = (clicked: boolean): void => {
+        if (settled) return;
+        settled = true;
+        blocker.removeAllListeners('pointerdown');
+        timer?.remove(false);
+        if (clicked) this.audio.play('ui-click', { pitchJitter: 0 });
+        resolve();
+      };
+
+      blocker.once('pointerdown', () => finish(true));
+      timer = this.time.delayedCall(dur(holdMs), () => finish(false));
+    });
   }
 
   // -------------------------------------------------------------- pile views

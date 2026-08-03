@@ -2,6 +2,8 @@ import type { CombatPhase } from '../combat/types';
 
 /** The hidden chord is deliberately exact: hold Space, then click the empty qi orb five times. */
 export const AUTHOR_EASTER_EGG_CLICKS = 5;
+/** Normal-speed hold before the full-screen author page advances by itself. */
+export const AUTHOR_EASTER_EGG_HOLD_MS = 8_800;
 
 export interface AuthorEasterEggClickContext {
   phase: CombatPhase;
