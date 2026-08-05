@@ -1,7 +1,7 @@
 import { ACT1, ACT2, ACT3, FINAL, type EncounterTable } from '../combat/enemies';
 import { ACT1_LAYOUT, generateFinalAct, generateMap, type ActLayout } from '../map/generateMap';
 import { roomCommit } from '../rooms/commit';
-import { clearActProgress, heal, type RunState } from '../state/run';
+import { clearActProgress, type RunState } from '../state/run';
 
 /**
  * 幕 — the four chapters of a run, and the only place that knows how to get
@@ -10,8 +10,8 @@ import { clearActProgress, heal, type RunState } from '../state/run';
  * The direction is one-way and must stay that way: this module reads
  * `src/combat/enemies.ts`, and `enemies.ts` must never read this one. The
  * encounter tables are combat data and live beside the enemies they field; a
- * 幕 is a *frame* around one of those tables — a name, a map shape, a seed
- * suffix and what the player is paid on arrival.
+ * 幕 is a *frame* around one of those tables — a name, a map shape and a seed
+ * suffix.
  */
 
 export type ActIndex = 1 | 2 | 3 | 4;
@@ -28,20 +28,6 @@ export interface ActDef {
   layout: ActLayout;
   /** The fights this act draws from. */
   table: EncounterTable;
-  /**
-   * 体力 restored on *arriving* in this act, as a percentage of 体力上限.
-   *
-   * A percentage rather than a flat number because 体力上限 grows across a run
-   * (养精 / 歌钵 / 玉玺), and a flat 20 that mattered in 第一幕 is noise by 第三幕.
-   *
-   * Every door after the first pays 30% (2026-08 幕间回血): a chapter starts
-   * with a breath, not with the last one's wounds. Deliberately *not* a full
-   * heal — an act's 篝火 rooms are still the recovery, and 30% of the bar is
-   * small enough that skipping the last 篝火 of an act to bank the door heal
-   * remains a real gamble rather than free value. 第一幕 pays nothing because
-   * `startRun` already hands the player a full bar.
-   */
-  interActHealPercent: number;
   /** Map backdrop texture. All four share one plate until the art lands. */
   bgKey: string;
 }
@@ -60,7 +46,6 @@ export const ACTS: Record<ActIndex, ActDef> = {
     epigraph: '',
     layout: ACT1_LAYOUT,
     table: ACT1,
-    interActHealPercent: 0,
     bgKey: 'map-bg',
   },
   2: {
@@ -73,7 +58,6 @@ export const ACTS: Record<ActIndex, ActDef> = {
     // the free relic sooner to survive them.
     layout: { rows: 15, treasureRow: 7, restRow: 14, minAdvancedRow: 4 },
     table: ACT2,
-    interActHealPercent: 30,
     bgKey: 'map-bg',
   },
   3: {
@@ -83,7 +67,6 @@ export const ACTS: Record<ActIndex, ActDef> = {
     epigraph: '鸡肋鸡肋，食之无肉，弃之有味。',
     layout: { rows: 15, treasureRow: 6, restRow: 14, minAdvancedRow: 3 },
     table: ACT3,
-    interActHealPercent: 30,
     bgKey: 'map-bg',
   },
   4: {
@@ -95,7 +78,6 @@ export const ACTS: Record<ActIndex, ActDef> = {
     // rather than left null so `ActDef` needs no optional field.
     layout: { rows: 2, treasureRow: null, restRow: 1, minAdvancedRow: 0 },
     table: FINAL,
-    interActHealPercent: 30,
     bgKey: 'map-bg',
   },
 };
@@ -166,9 +148,10 @@ export const actSeed = (runSeed: string, index: ActIndex): string =>
  * 3. 终章 is built by hand and spends no draws at all; the others take a seed
  *    derived from the run's, so three acts of one seed are three different maps
  *    and each is reproducible on its own.
- * 4. 天命六重的开幕失血先扣（todos/19 a3）——掉的是上一幕带过来的体力，
- *    终章的幕间回血不被它打折扣。
- * 5. The 幕间 heal lands last, against the *new* act's rate.
+ * 4. 天命六重的开幕失血最后扣（todos/19 a3）。首领战胜利已把体力回满
+ *    （`healAfterBossVictory`，2026-08-05——它同时废掉了这里曾有的 30% 幕间
+ *    回血：每道幕门都紧跟一场首领战），所以这一扣落在满条上，六重起每幕
+ *    以九成体力开局。
  *
  * Called from exactly one place — `InterludeScene.create()` — so that the
  * chest, the spoils and the ledger wipe can never interleave. Skipping the
@@ -198,6 +181,5 @@ export function advanceAct(run: RunState): ActDef {
   // 天命 (todos/19 a3)：六重起每幕开始失去 10% **当前**体力。取整向下，
   // 零重比例为 0 时恒等；一成的地板值永远小于当前体力，所以扣不死人。
   run.hp -= Math.floor((run.hp * run.mods.actStartHpLossPercent) / 100);
-  heal(run, Math.floor((run.maxHp * next.interActHealPercent) / 100));
   return next;
 }

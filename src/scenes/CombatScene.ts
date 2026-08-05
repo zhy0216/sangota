@@ -46,6 +46,7 @@ import type {
 import {
   applyCombatResult,
   getRun,
+  healAfterBossVictory,
   recordCombatEvents,
   recordFightSettled,
   removePotion,
@@ -3489,6 +3490,9 @@ export class CombatScene extends Phaser.Scene {
       // 和 `resolveCombatEndHooks` 同一道 `resumed` 闸——存档恢复的胜利
       // 画面已经记过账，再记就是双份。
       recordFightSettled(this.run, this.nodeType, this.fightDamageTaken);
+      // 首领战结束回满体力 (2026-08-05)。压在 `saveFight` 之前，读档恢复的
+      // 胜利画面从存档里直接拿到满血——resumed 分支才可以什么都不补。
+      healAfterBossVictory(this.run, this.nodeType);
       // Written *now*, still tagged as a won fight, because the screen the
       // player is about to see owes them a card and a 首领 relic. Saved as「on
       // the map」instead, a reload would strand the run on a node whose spoils
@@ -3497,8 +3501,9 @@ export class CombatScene extends Phaser.Scene {
     }
 
     // 天命二十重：第三幕第一位首领只结算战斗本身，不发宝箱/金币/牌，原地
-    // 接第二位不同首领。存档仍保留第一战的 won 状态；若在淡出途中退出，
-    // 读档会走 resumed 分支直接接战，不会重复结算体力、诅咒钩子或统计。
+    // 接第二位不同首领——结算含首领战后的回满，第二战是满血开打。存档仍
+    // 保留第一战的 won 状态；若在淡出途中退出，读档会走 resumed 分支直接
+    // 接战，不会重复结算体力、诅咒钩子或统计。
     const nextBoss = nextDoubleBossNode(this.run, this.nodeId, this.nodeType);
     if (nextBoss) {
       this.startSecondBoss(nextBoss);

@@ -87,16 +87,6 @@ describe('幕表', () => {
     expect(ACTS[3].layout.minAdvancedRow).toBeLessThan(ACTS[2].layout.minAdvancedRow);
   });
 
-  it('pays a 30% 幕间 heal at every door after the first (2026-08 幕间回血)', () => {
-    // 第一幕 is `startRun` — the bar is already full, so its door pays nothing.
-    expect([
-      ACTS[1].interActHealPercent,
-      ACTS[2].interActHealPercent,
-      ACTS[3].interActHealPercent,
-      ACTS[4].interActHealPercent,
-    ]).toEqual([0, 30, 30, 30]);
-  });
-
   it('labels an act the way the map header prints it', () => {
     expect(actLabel(ACTS[1])).toBe('第一幕 · 讨黄巾');
     expect(actLabel(ACTS[3])).toBe('第三幕 · 征汉中');
@@ -471,57 +461,29 @@ describe('advanceAct', () => {
     expect(run.relics).toEqual(relics);
     expect(run.potions[0]).toBe('jiuqi');
     expect(run.gold).toBe(271);
-    // The one thing the seam *does* touch: the 幕间回血. 40 + floor(82 × 30%) = 64.
-    expect(run.hp).toBe(64);
+    // 体力 too: 首领战后的回满在胜利结算侧（`healAfterBossVictory`），零重的
+    // 幕门对体力一个子儿也不碰——曾经的 30% 门回血 (2026-08) 已废。这里的
+    // 40 是刻意压低的假读数，本尊流程里走到门口的条永远是满的。
+    expect(run.hp).toBe(40);
   });
 
   it('天命六重进第二幕掉 10% 当前体力，且每幕都掉 (todos/19 a3)', () => {
     // 验收标准原文：「天命六重进第二幕时掉 10% 当前体力」。当前体力，不是
-    // 上限；先扣后补（advanceAct 第 4/5 步），所以六重的扣和幕间回血各算
-    // 各的：20 掉 floor(2.0) = 2，再回 floor(82 × 30%) = 24。起手压得够低，
-    // 两道门都不碰上限，两个数字都露在外面。
+    // 上限。门回血已废（首领战后回满在胜利结算侧），扣完不再补：20 掉
+    // floor(2.0) = 2 剩 18。本尊流程里这一扣落在回满后的满条上——六重起
+    // 每幕以九成体力开局；这里起手压低只为让地板取整露在外面。
     const run = startRun(DEFAULT_HERO, 'act-hp-loss', 6);
     run.hp = 20;
     clearBoss(run);
     advanceAct(run);
     expect(run.act).toBe(2);
-    expect(run.hp).toBe(42); // 20 - 2 + 24
+    expect(run.hp).toBe(18); // 20 - floor(2.0)
 
-    // 「每幕开始」不是「第二幕开始」：进第三幕再掉一成，42 - floor(4.2) + 24 = 62。
+    // 「每幕开始」不是「第二幕开始」：进第三幕再掉一成，18 - floor(1.8) = 17。
     clearBoss(run);
     advanceAct(run);
     expect(run.act).toBe(3);
-    expect(run.hp).toBe(62);
-  });
-
-  it('pays 30% of 体力上限 at every door, and never past the cap', () => {
-    const run = fresh('heal');
-    run.maxHp = 100;
-    run.hp = 30;
-
-    // 每一段都在 clearBoss 之后取样再断言：clearBoss 收下的首领宝物可以
-    // 合法地移动 hp/上限（独断的 +12 走 addRelic 的同步抬升），被测的只是
-    // advanceAct 的幕间回血本身。
-    clearBoss(run, true); // decline in 第一幕 — a pure pass, no key; heal is what's under test
-    let before = run.hp;
-    advanceAct(run);
-    expect(run.act).toBe(2);
-    expect(run.hp).toBe(Math.min(run.maxHp, before + Math.floor((run.maxHp * 30) / 100)));
-    expect(run.hp).toBeGreaterThan(before);
-
-    clearBoss(run);
-    before = run.hp;
-    advanceAct(run);
-    expect(run.act).toBe(3);
-    expect(run.hp).toBe(Math.min(run.maxHp, before + Math.floor((run.maxHp * 30) / 100)));
-
-    clearBoss(run);
-    before = run.hp;
-    advanceAct(run);
-    expect(run.act).toBe(4);
-    expect(run.hp).toBe(Math.min(run.maxHp, before + Math.floor((run.maxHp * 30) / 100)));
-    // Never past the cap — a run walking in nearly full banks only the gap.
-    expect(run.hp).toBeLessThanOrEqual(run.maxHp);
+    expect(run.hp).toBe(17);
   });
 
   it('lands 终章 on the hand-built three-room map', () => {

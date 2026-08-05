@@ -5,7 +5,7 @@ import { ACT_TABLES } from '../src/combat/enemies';
 import { RELICS } from '../src/combat/relics';
 import { rollCardReward, rollRelicOfTier } from '../src/combat/rewards';
 import { Rng } from '../src/core/rng';
-import { ACTS, type ActIndex } from '../src/data/acts';
+import type { ActIndex } from '../src/data/acts';
 import { modsFor } from '../src/data/ascension';
 import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../src/data/heroes';
 import {
@@ -403,8 +403,8 @@ function walkRunRecorded(
 
   for (const act of [1, 2, 3, 4] as const satisfies readonly ActIndex[]) {
     if (act > 1) {
+      // 幕门上只剩六重的开幕失血；首领战打赢时已回满（healAfterBossVictory）。
       hp -= Math.floor((hp * mods.actStartHpLossPercent) / 100);
-      hp = Math.min(maxHp, hp + Math.floor((maxHp * ACTS[act].interActHealPercent) / 100));
     }
 
     const t = ACT_TABLES[act - 1];
@@ -481,6 +481,9 @@ function walkRunRecorded(
         return { cleared: false, hpLeft: 0 };
       }
       hp = r.hpLeft;
+      // 首领战后回满（healAfterBossVictory；终章除外，同天命连场的理由）。
+      // 先回满再记 hpOut，下一步的 hpIn 才和这一栏接得上。
+      if (act < 4 && t.boss.some((b) => b.id === step)) hp = maxHp;
       stat.hpOutSum += hp;
     }
   }

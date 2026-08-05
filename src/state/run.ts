@@ -551,6 +551,19 @@ export function applyCombatResult(run: RunState, hpAfter: number): void {
   run.hp = Math.max(0, hpAfter);
 }
 
+/**
+ * 首领战后回满体力 (2026-08-05)。每一场打赢的首领战都回满——含天命二十重
+ * 连战的第一场，所以第二位首领是满血迎战。挂在胜利结算（`CombatScene.
+ * showVictory` 的未-resumed 块、`saveFight` 之前）而不是幕门上：存档写在
+ * 结算之后，读档恢复的胜利画面自带满血，resumed 分支无需重跑；置满本身
+ * 幂等，跑一次和跑两次一个样。幕间 30% 门回血（2026-08）由此作废——每道
+ * 幕门都紧跟一场首领战，门回血永远追不上一个已满的条——`advanceAct` 只剩
+ * 六重的开幕失血，六重起每幕以九成体力开局。
+ */
+export function healAfterBossVictory(run: RunState, tier: CombatTier): void {
+  if (tier === 'boss') run.hp = run.maxHp;
+}
+
 export const isRunOver = (run: RunState): boolean => run.hp <= 0;
 
 // ------------------------------------------------------------- 统计 (22)

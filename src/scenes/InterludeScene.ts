@@ -128,17 +128,14 @@ export class InterludeScene extends Phaser.Scene {
       this.fadeUp(epigraph, 420);
     }
 
-    // The one line that reports a number: every door after the first pays 30%
-    // of 体力上限 (2026-08 幕间回血) and the player must be able to see it land.
-    const healed = act.interActHealPercent > 0;
+    // 首领战胜利已回满（`healAfterBossVictory`，2026-08-05），幕门不再另付
+    // 回血；这一行只报进入新幕的现状——六重起的开幕失血也在这里露出来。
     const line = this.add
       .text(
         midX,
         GAME_HEIGHT - 112,
-        healed
-          ? `休整片刻　·　体力 ${this.run.hp} / ${this.run.maxHp}`
-          : `体力 ${this.run.hp} / ${this.run.maxHp}　·　资财 ${this.run.gold}`,
-        bodyStyle(16, healed ? C.jade : C.paperDim),
+        `体力 ${this.run.hp} / ${this.run.maxHp}　·　资财 ${this.run.gold}`,
+        bodyStyle(16, C.paperDim),
       )
       .setOrigin(0.5, 0)
       .setLetterSpacing(2);

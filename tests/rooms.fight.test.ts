@@ -19,7 +19,7 @@ import {
   takePotionDrop,
 } from '../src/rooms/fight';
 import { stream } from '../src/rooms/rng';
-import { addRelic, startRun, type RunState } from '../src/state/run';
+import { addRelic, healAfterBossVictory, startRun, type RunState } from '../src/state/run';
 import { DEFAULT_HERO } from '../src/data/heroes';
 
 /**
@@ -427,6 +427,35 @@ describe('天命二十重双首领路由', () => {
     expect(bossChestNodeId('boss')).toBe('boss');
     expect(bossChestNodeId('boss#2')).toBe('boss');
     expect(bossChestNodeId('event#fight')).toBe('event#fight');
+  });
+});
+
+describe('healAfterBossVictory', () => {
+  it('首领战打赢回满体力，杂兵与精英不回 (2026-08-05)', () => {
+    const run = fresh('boss-heal');
+    run.hp = 7;
+    healAfterBossVictory(run, 'monster');
+    expect(run.hp).toBe(7);
+    healAfterBossVictory(run, 'elite');
+    expect(run.hp).toBe(7);
+    healAfterBossVictory(run, 'boss');
+    expect(run.hp).toBe(run.maxHp);
+    // 幂等：resumed 的胜利画面重跑一遍也只是把满条再置满。
+    healAfterBossVictory(run, 'boss');
+    expect(run.hp).toBe(run.maxHp);
+  });
+
+  it('二十重的第一场首领战也回满——第二位首领是满血迎战', () => {
+    // 结算发生在 `nextDoubleBossNode` 路由之前（CombatScene.showVictory 的
+    // 未-resumed 块），所以第一战的回满先落账，第二战才开打。
+    const run = startRun(DEFAULT_HERO, 'double-boss-heal', 20);
+    run.act = 3;
+    run.hp = 3;
+    healAfterBossVictory(run, 'boss');
+    expect(run.hp).toBe(run.maxHp);
+    expect(nextDoubleBossNode(run, run.map.bossId, 'boss')).toBe(
+      secondBossNodeId(run.map.bossId),
+    );
   });
 });
 

@@ -3,7 +3,7 @@ import { COLORLESS_POOL } from '../src/combat/cards';
 import { ACT_TABLES } from '../src/combat/enemies';
 import { rollCardReward, rollRelicOfTier } from '../src/combat/rewards';
 import { Rng } from '../src/core/rng';
-import { ACTS, type ActIndex } from '../src/data/acts';
+import type { ActIndex } from '../src/data/acts';
 import { modsFor } from '../src/data/ascension';
 import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../src/data/heroes';
 import {
@@ -769,10 +769,11 @@ test(`gauntlet: ${GAUNTLET_N} acts walked end to end per row`, () => {
  * 概率」这个问题。
  *
  * 走法沿用上面 gauntlet 的「裁五张 + 每战两瓶」，腰带上再多一瓶见底才喝
- * 的续命汤（`runBelt` 的注释说为什么）。幕间规则照抄 `advanceAct` 的固定
- * 顺序（先扣六重的开幕失血，再吃幕间回血——只有终章回 30%），营帐回血从
- * `mods.restHealPercent` 读，牌组按 `mods.startingCurses` 挂宿业，倍率类
- * 修改经 `simulateCombat` 的 `ascension` 参数进引擎本尊。
+ * 的续命汤（`runBelt` 的注释说为什么）。幕间规则照抄本尊：首领战打赢即
+ * 回满（`healAfterBossVictory`，2026-08-05，它废掉了 30% 门回血），幕门上
+ * 只剩六重的开幕失血；营帐回血从 `mods.restHealPercent` 读，牌组按
+ * `mods.startingCurses` 挂宿业，倍率类修改经 `simulateCombat` 的
+ * `ascension` 参数进引擎本尊。
  *
  * 一重的 extraElites：`promoteExtraElites` 是把一间杂兵房**晋升**成精英房，
  * 不是加房；一条路径盖到全图杂兵房的约一半，所以按掷硬币决定这条路上的
@@ -798,27 +799,31 @@ test(`gauntlet: ${GAUNTLET_N} acts walked end to end per row`, () => {
  * 五重营帐后来随基础休整一并调成 40%。
  *
  * 2026-08 扩卡、扩宝与模拟策略修正后，营帐 30/25/20 时量得（threat）
- * 0/3/5/10/15/20 重约 **43% / 38% / 25% / 14% / 9% / 1%**。营帐随后
- * 提到 50/40/30，当前固定种子为 **56% / 50% / 32% / 24% / 16% / 2%**；
- * 下面的断言继续钉住十重中段带与二十重「极难但仍可通关」的尾端。
+ * 0/3/5/10/15/20 重约 **43% / 38% / 25% / 14% / 9% / 1%**。营帐提到
+ * 50/40/30 时为 **56% / 50% / 32% / 24% / 16% / 2%**；2026-08-05 首领战后
+ * 回满（废 30% 门回血，二十重两战之间同样回满）后，当前固定种子为
+ * **57% / 52% / 35% / 27% / 19% / 7%**——抬升集中在高天命与二十重，
+ * 正是满血迎战第二位首领的那一份。下面的断言继续钉住十重中段带与
+ * 二十重「极难但仍可通关」的尾端。
  */
 const ASCENSION_LEVELS = [0, 3, 5, 10, 15, 20];
 const RUN_N = 500;
 /**
  * 十重 threat 的当前验收带。扩到 48 张牌与 53 件可用宝物后曾落到 14.4%，
- * 营帐上调后落在 24%；两端都保留，防止为了追一个整数百分点把单张牌或
- * 单件宝物反向过拟合。
+ * 营帐上调后落在 24%；2026-08-05 首领战后回满（`healAfterBossVictory`，
+ * 同批废掉 30% 门回血）量得 27%，带随之重钉在它两侧。两端都保留，防止
+ * 为了追一个整数百分点把单张牌或单件宝物反向过拟合。
  */
-const A10_BAND = { lo: 0.14, hi: 0.24 };
+const A10_BAND = { lo: 0.22, hi: 0.32 };
 /**
  * gauntlet 的两瓶再带一瓶续命汤。它是每场重置的「真人资源补偿」，不是
  * 按跑团库存逐瓶消耗的腰带；因此十一重的两槽不在这里机械砍成两瓶——那会
  * 把少一个库存位错误放大成四幕每一场都少一瓶。槽位规则由单元测试锁定，
  * 本表保持同一份补偿，量战斗与构筑曲线。单幕的 gauntlet 不需要它——满血开幕，
- * 两座篝火够用；连走四幕的血线仍是整程最紧的账（幕间回血 2026-08 起
- * 每道门回三成，`ACTS[*].interActHealPercent`，回不满一场首领战的出血），
- * 血瓶正是真人扛过这道挤压的东西——续命汤连 `usableOutOfCombat` 都是
- * true，按「见底才喝」拿着它不是给模拟开挂，是补上它一直少算的资源。
+ * 两座篝火够用；首领战后回满（2026-08-05）后每幕都是满血开局，但幕内
+ * 精英段的血线仍是整程最紧的账，血瓶正是真人扛过这道挤压的东西——续命汤
+ * 连 `usableOutOfCombat` 都是 true，按「见底才喝」拿着它不是给模拟开挂，
+ * 是补上它一直少算的资源。
  */
 const RUN_POTIONS = ['huoyouguan', 'zhuangxingjiu', 'xumintang'];
 
@@ -852,10 +857,9 @@ function walkRun(
 
   for (const act of [1, 2, 3, 4] as const satisfies readonly ActIndex[]) {
     if (act > 1) {
-      // advanceAct 的固定顺序：先扣开幕失血（六重，扣当前体力的一成），
-      // 再吃新一幕的幕间回血——每道门都是 30%（2026-08 幕间回血）。
+      // advanceAct：幕门上只剩六重的开幕失血（扣当前体力的一成）。首领战
+      // 打赢时已经回满，所以这一扣落在满条上。
       hp -= Math.floor((hp * mods.actStartHpLossPercent) / 100);
-      hp = Math.min(maxHp, hp + Math.floor((maxHp * ACTS[act].interActHealPercent) / 100));
     }
 
     const t = ACT_TABLES[act - 1];
@@ -915,6 +919,10 @@ function walkRun(
       });
       if (!r.won) return { cleared: false, hpLeft: 0, diedAt: `${act}幕 ${step}` };
       hp = r.hpLeft;
+      // 首领战后回满（healAfterBossVictory）——含二十重第三幕两战之间。
+      // 终章首领除外：不是规则不同，是「median hp at run end」量的是走出
+      // 终战的余血，终局回满只有仪式意义，混进来这一栏就成常数了。
+      if (act < 4 && t.boss.some((b) => b.id === step)) hp = maxHp;
     }
   }
   return { cleared: true, hpLeft: hp, diedAt: null };

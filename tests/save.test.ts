@@ -589,6 +589,10 @@ describe('where the save is actually written', () => {
     expect(head).toContain('if (!resumed) {');
     expect(head).toContain('resolveCombatEndHooks(this.state, this.run)');
     expect(head).toContain('this.saveFight()');
+    // 首领战后的回满 (2026-08-05) 必须压在写档之前：读档恢复的胜利画面从
+    // 存档拿到的就是满血，resumed 分支才有资格什么都不补。
+    expect(head).toContain('healAfterBossVictory(this.run, this.nodeType)');
+    expect(head.indexOf('healAfterBossVictory')).toBeLessThan(head.indexOf('this.saveFight()'));
 
     // And the resumed path is the only caller that passes `true`.
     const create = scene.slice(scene.indexOf('  create(): void {'));
