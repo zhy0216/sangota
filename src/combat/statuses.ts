@@ -102,6 +102,7 @@ export const STATUS_ORDER: readonly StatusId[] = [
   'warSaint',
   'noDraw',
   'entangled',
+  'riposte',
   'curlUp',
   'angry',
   'thorns',
@@ -366,6 +367,30 @@ export const STATUS_META: Record<StatusId, StatusDef> = {
     blockable: false,
     onCardExhausted: (state, owner, n, card) => {
       if (card?.type !== 'power') addStatus(state, owner, 'strength', n);
+    },
+  },
+
+  // --- 赵云 · 枪胆防反 ----------------------------------------------------
+  /**
+   * Fires after the attack has *fully* resolved, exactly like 反刺 — so the
+   * hit that triggers it is never softened. 回枪 answers multi-hit turns and
+   * long fights, never a single enormous blow; that is 天佑's territory, and
+   * the boundary between the two is this timing. The block arrives as
+   * `'power'`-sourced, the same as 重甲: 身法 does not shape it, which is what
+   * keeps the passive wall from compounding with the active one.
+   */
+  riposte: {
+    id: 'riposte',
+    label: '回枪',
+    desc: '每次受到攻击后，获得等量护甲。',
+    kind: 'buff',
+    color: 0x9aa8b5, // stone — the 护甲 family
+    icon: 'status-riposte',
+    decay: 'none',
+    blockable: false,
+    onAttacked: (state, owner) => {
+      if (owner.hp <= 0) return;
+      gainBlock(state, owner, owner.statuses.riposte ?? 0, 'power');
     },
   },
 

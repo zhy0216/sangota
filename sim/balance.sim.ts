@@ -581,8 +581,8 @@ test(`per-hero balance: ${HERO_N} fights per row, every 武将`, () => {
   console.log(`\n### 三将逐场 — ${HERO_N} fights per row, greedy, act-appropriate kit\n`);
   console.log(
     '每格是该 tier 的 band 指标（首领看胜率，精英看体力消耗）。⚠ = 落在带外。\n' +
-      '赵云 / 诸葛亮 的可选池各 20 张，关羽 2026-08 扩到 48 张；\n' +
-      '在补齐之前不对这两列调参 —— 池子一变，调出来的数就作废。\n',
+      '关羽 48 张、赵云 2026-08 扩到 48 张（枪胆防反批）；诸葛亮池仍是 20 张，\n' +
+      '在补齐之前不对他那列调参 —— 池子一变，调出来的数就作废。\n',
   );
   console.log(out.join('\n') + '\n');
 

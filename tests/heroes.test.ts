@@ -505,12 +505,21 @@ const ZHAOYUN = {
   common: [
     'tingqiang', 'qitanpanshe', 'kongyingji',
     'lianhuanqiang', 'jici', 'duojian', 'qianghua', 'chenshi',
+    'qingweixianfeng', 'juqiang', 'xianmei', 'touzhen',
+    'rangshantuwei', 'baipao', 'yushiyuekeng', 'lianzhonggushou',
   ],
   uncommon: [
     'sanjinsanchu', 'jiejiang', 'xueranzhengpao',
     'yinqiang', 'hengsaoqianjun', 'longxiang', 'yanqixigu', 'huwei',
+    'huimaqiang', 'jianbi', 'juma', 'chengxi', 'panhejiugong', 'bowangqinlan',
+    'hanshuijushou', 'huaibaoyoudou', 'qiangwulihua', 'guochuang',
+    'shatouchongwei', 'yimadangxian',
   ],
-  rare: ['yishenshidan', 'danqijiuzhu', 'lizhanwujiang', 'changbanpo'],
+  rare: [
+    'yishenshidan', 'danqijiuzhu', 'lizhanwujiang', 'changbanpo',
+    'qiangchurulong', 'qiangcijiankan', 'changshanzhaozilong', 'lituizhanghe',
+    'huzhuchongzhen', 'shunpinghou', 'zairuchongwei', 'qiangtiaogaolan',
+  ],
   legendary: ['qiruchangban', 'longyinzhenjun', 'zhaoyepozhen'],
 };
 
@@ -641,8 +650,9 @@ describe('专属卡的表面', () => {
     Object.keys(CARDS).filter((id) => CARDS[id].hero === heroId);
 
   it('gives 赵云 and 诸葛亮 a full pool plus their starters', () => {
-    // 赵云: 3 起手 + 23 draftable. 诸葛亮同数，另有一张战斗内生成的锦囊。
-    expect(heroCards('zhaoyun')).toHaveLength(26);
+    // 赵云: 3 起手 + 51 draftable（2026-08 扩池后与关羽持平）。
+    // 诸葛亮: 3 起手 + 23 draftable，另有一张战斗内生成的锦囊。
+    expect(heroCards('zhaoyun')).toHaveLength(54);
     expect(heroCards('zhugeliang')).toHaveLength(27);
     expect(
       ZHAOYUN.common.length + ZHAOYUN.uncommon.length + ZHAOYUN.rare.length + ZHAOYUN.legendary.length,
@@ -716,9 +726,20 @@ describe('武将机制互不串味', () => {
       return json.includes('attacksAtLeast') || json.includes('scaleWithAttacks');
     });
     expect(readers.sort()).toEqual([
-      'changbanpo', 'chenshi', 'duojian', 'hengsaoqianjun', 'jici', 'jiejiang',
-      'longdan', 'qianghua', 'qiruchangban', 'qitanpanshe', 'tingqiang',
+      'changbanpo', 'changshanzhaozilong', 'chenshi', 'duojian', 'hengsaoqianjun',
+      'jici', 'jiejiang', 'longdan', 'qianghua', 'qiangtiaogaolan', 'qiruchangban',
+      'qitanpanshe', 'shatouchongwei', 'tingqiang', 'touzhen', 'zairuchongwei',
     ]);
+    for (const id of readers) expect(CARDS[id].hero, id).toBe('zhaoyun');
+  });
+
+  it('keeps the 据守反击 readers to 赵云', () => {
+    // `blockAtLeast` (2026-08 扩池) is 赵云's second axis the way
+    // `exhaustedAtLeast` is 诸葛亮's — pinned here so it stays his.
+    const readers = Object.keys(CARDS).filter((id) =>
+      JSON.stringify(CARDS[id].effects).includes('blockAtLeast'),
+    );
+    expect(readers.sort()).toEqual(['chengxi', 'juma', 'juqiang', 'qiangchurulong']);
     for (const id of readers) expect(CARDS[id].hero, id).toBe('zhaoyun');
   });
 });

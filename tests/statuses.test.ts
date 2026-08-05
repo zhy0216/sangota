@@ -65,8 +65,8 @@ describe('the status table', () => {
     expect(new Set(STATUS_ORDER).size).toBe(STATUS_ORDER.length);
   });
 
-  it('gives all 23 statuses a name, a description and an icon', () => {
-    expect(STATUS_ORDER).toHaveLength(23);
+  it('gives all 24 statuses a name, a description and an icon', () => {
+    expect(STATUS_ORDER).toHaveLength(24);
     for (const id of STATUS_ORDER) {
       const def = STATUS_META[id];
       expect(def.id, id).toBe(id);
@@ -82,8 +82,8 @@ describe('the status table', () => {
 
   it('runs the reactive statuses last, 龟缩 before 反刺', () => {
     const reactive = STATUS_ORDER.filter((id) => STATUS_META[id].onAttacked);
-    expect(reactive).toEqual(['curlUp', 'angry', 'thorns']);
-    expect(STATUS_ORDER.slice(-3)).toEqual(reactive);
+    expect(reactive).toEqual(['riposte', 'curlUp', 'angry', 'thorns']);
+    expect(STATUS_ORDER.slice(-4)).toEqual(reactive);
   });
 });
 

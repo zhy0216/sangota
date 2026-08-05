@@ -1292,6 +1292,256 @@ export const RELICS: Record<string, RelicDef> = {
     text: '坊市弃牌费用减半，且不再递增。',
     modifiers: { removalPriceMultiplier: 0.5, noRemovalSurcharge: true },
   },
+
+  // ------------------------------------------- 2026-08 赵云宝物扩充
+  //
+  // 赵云可掷池从 11/9/6 扩到 15/14/7（常见 +4 / 罕见 +5 / 稀有 +1），十件全部
+  // 携 `hero: 'zhaoyun'`——关羽与诸葛亮的池子逐字不动，既有关羽 seed 的每一次
+  // 掉落原样重放。全部只追加在表尾，声明顺序一字不动。
+  //
+  // 设计随卡池同一批（枪胆防反）：宝物阶梯把「第 N 次」数满——首攻（红缨）→
+  // 第二攻（涯角枪）→ 第三攻（青釭剑）→ 第四攻（翊军印）→ 第五攻（龙胆枪谱），
+  // 第四格退的 1 气恰好付第五枪；防守半场按行为发工资（素征袍/蒺藜/得胜鼓），
+  // 血线两件（阿斗襁褓）与击杀一件（牙门旗）收方差。
+
+  // --- 常见 -----------------------------------------------------------------
+
+  /**
+   * 枪头那撮红缨。阶梯的空格：涯角枪占第 2 击、青釭剑占第 3 击、亮银甲占
+   * 「≥2 击回合末」，首击此前无人认领。出枪即披甲——进攻回合的第一格甲，
+   * 常见档的单条件小数值。`attacksThisTurn` 在 attackPlayed 前已自增，
+   * `=== 1` 恰读首击；不自设 counter（青釭剑同注）。
+   */
+  hongying: {
+    id: 'hongying',
+    name: '红缨',
+    tier: 'common',
+    hero: 'zhaoyun',
+    art: 'relic-hongying',
+    text: '每回合首次打出【攻】牌时，获得 {N} 点护甲。',
+    value: 2,
+    hooks: {
+      attackPlayed: ({ state, value, trigger }) => {
+        if (state.attacksThisTurn !== 1) return;
+        trigger();
+        gainBlock(state, state.player, value, 'relic');
+      },
+    },
+  },
+
+  /**
+   * 云曾拜牙门将军，旗随斩将立。华佗药方（击杀回血）同一时钟的护甲面：多人
+   * 房每倒一人送 5 甲，恰是薄血条在乱战里最缺的过渡帧；孤 boss 房一文不值
+   * ——常见件敢占这个方差，稀有件才不敢。最后一刀也触发（枭首令同则）。
+   */
+  yamenqi: {
+    id: 'yamenqi',
+    name: '牙门旗',
+    tier: 'common',
+    hero: 'zhaoyun',
+    art: 'relic-yamenqi',
+    text: '击杀一名敌人时，获得 {N} 点护甲。',
+    value: 5,
+    hooks: {
+      enemyKilled: ({ state, value, trigger }) => {
+        trigger();
+        gainBlock(state, state.player, value, 'relic');
+      },
+    },
+  },
+
+  /**
+   * 素袍未染，是因为甲一层压着一层。断金腕（首次获甲 +3）的镜像移位——那件
+   * 奖第一口，这件奖第三口，专喂多段甲（枪舞梨花三段、截江的每个 +3、掠马+
+   * 枪花的散件）。递归护栏照断金腕：先把计数推过阈值再补甲，补进来的甲再
+   * 触发 blockGained 时已不命中。
+   */
+  suzhengpao: {
+    id: 'suzhengpao',
+    name: '素征袍',
+    tier: 'common',
+    hero: 'zhaoyun',
+    art: 'relic-suzhengpao',
+    text: '每回合第 3 次获得护甲时，额外获得 {N} 点护甲。',
+    value: 3,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      blockGained: ({ state, counter, value, trigger }) => {
+        if (state.turn <= 0) return;
+        counter.value += 1;
+        if (counter.value !== 3) return;
+        // Mark past the threshold first: gainBlock recursively fires blockGained.
+        counter.value = 4;
+        trigger();
+        gainBlock(state, state.player, value, 'relic');
+      },
+    },
+  },
+
+  /**
+   * 旗到之处，士气自续。赵云的回合是全游戏出牌张数最多的回合——第 5 张牌的
+   * 门槛在他手里是常态，在别人手里是奢望，这就是「贴武将玩法轴」的常见件
+   * 写法。读张数不读攻数，与青釭剑（攻数）分属两个时钟；嵌套抽牌不破手牌
+   * 上限（drawCards 自查，兵粮册同则）。
+   */
+  changshanjunqi: {
+    id: 'changshanjunqi',
+    name: '常山军旗',
+    tier: 'common',
+    hero: 'zhaoyun',
+    art: 'relic-changshanjunqi',
+    text: '每回合打出第 5 张牌时，抽 {N} 张牌。',
+    value: 1,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      cardPlayed: ({ state, counter, value, trigger }) => {
+        counter.value += 1;
+        if (counter.value !== 5) return;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  // --- 罕见 -----------------------------------------------------------------
+
+  /**
+   * 汉寿亭侯印的镜像倒装——那件付肥卡（费 2+ 的攻 +3），这件付碎卡：龙胆/
+   * 疾刺/刺晏明从 3 直接跳到 5，白给的计数器第一次自己也疼人。`X_COST`(-1)
+   * 落在 `=== 0` 之外：X 费是贵着打的便宜牌，不领这份钱。0 费攻是赵云回合
+   * 的地板砖，所以这件放罕见档——同构的汉寿亭侯印也在这一档。
+   */
+  baiying: {
+    id: 'baiying',
+    name: '白缨',
+    tier: 'uncommon',
+    hero: 'zhaoyun',
+    art: 'relic-baiying',
+    text: '你打出的费用为 0 的【攻】牌额外造成 {N} 点伤害。',
+    value: 2,
+    damageBonus: ({ def, value }) => (def.type === 'attack' && def.cost === 0 ? value : 0),
+  },
+
+  /**
+   * 拜翊军将军之印。宝物阶梯的第四级：涯角枪付第二击、青釭剑付第三击、这件
+   * 付第四击——退回的 1 气恰好是第五张攻的费用，连击的斜率在第四枪之后由它
+   * 续上。`attacksThisTurn` 在 attackPlayed 前已自增，`=== 4` 恰读第四枪、
+   * 一回合一次；不自设 counter（青釭剑注释原文适用）。
+   */
+  yijunyin: {
+    id: 'yijunyin',
+    name: '翊军印',
+    tier: 'uncommon',
+    hero: 'zhaoyun',
+    art: 'relic-yijunyin',
+    text: '每回合第 4 次打出【攻】牌时，获得 {N} 点气。',
+    value: 1,
+    hooks: {
+      attackPlayed: ({ state, value, trigger }) => {
+        if (state.attacksThisTurn !== 4) return;
+        trigger();
+        state.energy += value;
+      },
+    },
+  },
+
+  /**
+   * 墙根撒蒺藜。把「回合末还立着的高墙」折成永久反刺，长战斗里逐回合复利
+   * ——防守构筑第一次有了随时间变强的理由。阈值 8 与拒马同刻度，一套铺垫两
+   * 处兑现。eval 红线：与回马枪/坚壁的被动墙合流若把零重抬破 60%，第一刀
+   * 抬这里的阈值 8 → 10。
+   */
+  jili: {
+    id: 'jili',
+    name: '蒺藜',
+    tier: 'uncommon',
+    hero: 'zhaoyun',
+    art: 'relic-jili',
+    text: '回合结束时，若你有至少 {N} 点护甲，获得 1 层【反刺】。',
+    value: 8,
+    hooks: {
+      turnEnd: ({ state, value, trigger }) => {
+        if (state.player.block < value) return;
+        trigger();
+        addStatus(state, state.player, 'thorns', 1);
+      },
+    },
+  },
+
+  /**
+   * 长坂坡怀中那个襁褓——最脆的东西裹在最里面。74 体力的英雄跌破半血是常态
+   * 节点（单骑救主/玉狮跃坑同一条线），这件在那一刻垫一层天佑，吃掉下一次
+   * 整笔失血。一场一次（战斗计数器守门），与护军心同档：一个挡减益，一个挡
+   * 巨锤。也给护主冲阵的天佑读数多开一个自动上游。
+   */
+  adouqiangbao: {
+    id: 'adouqiangbao',
+    name: '阿斗襁褓',
+    tier: 'uncommon',
+    hero: 'zhaoyun',
+    art: 'relic-adouqiangbao',
+    text: '每场战斗你的体力首次低于一半时，获得 {N} 层【天佑】。',
+    value: 1,
+    hooks: {
+      damageTaken: ({ state, counter, value, trigger }) => {
+        if (counter.value > 0) return;
+        if (state.player.hp * 2 >= state.player.maxHp) return;
+        counter.value = 1;
+        trigger();
+        addStatus(state, state.player, 'buffer', value);
+      },
+    },
+  },
+
+  /**
+   * 这一阵打得漂亮，鼓声传到下一阵。亮银甲占了「回合末 ≥2 攻」的甲位，这件
+   * 把门槛抬到 ≥4、报酬换成节奏：好回合滚成下一个好回合。与青釭剑分属两个
+   * 时钟——一个救当下，一个养明天。跨回合记账走荆州印范式；≥ 而非 ===：
+   * 第五枪、第六枪不该反而弄丢它。
+   */
+  deshenggu: {
+    id: 'deshenggu',
+    name: '得胜鼓',
+    tier: 'uncommon',
+    hero: 'zhaoyun',
+    art: 'relic-deshenggu',
+    text: '回合结束时，若本回合已打出至少 4 张【攻】牌，下回合开始时抽 {N} 张牌。',
+    value: 1,
+    hooks: {
+      turnEnd: ({ state, counter }) => {
+        counter.value = state.attacksThisTurn >= 4 ? 1 : 0;
+      },
+      turnStart: ({ state, counter, value, trigger }) => {
+        if (counter.value === 0) return;
+        counter.value = 0;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  // --- 稀有 -----------------------------------------------------------------
+
+  /**
+   * 青龙逆斩的赵云化，两个旋钮都反着拧：那件每**场**首张、付「费 2+」；这件
+   * 每**回合**第五张、付「真打出四枪再留一张好的」。效果复读、不复读生命
+   * 周期与计数（relicCardCopies 契约），复读的连刺读的是同一份 enqueue
+   * 快照。`playCopies` 在结算前查询、计数器尚未为本牌自增，`=== 4` 恰指本
+   * 回合第 5 张攻——且必须查 `def.type`：四攻之后的谋/势牌不领这份复读。
+   */
+  longdanqiangpu: {
+    id: 'longdanqiangpu',
+    name: '龙胆枪谱',
+    tier: 'rare',
+    hero: 'zhaoyun',
+    art: 'relic-longdanqiangpu',
+    text: '每回合第 5 次打出的【攻】牌，其效果额外结算一次。',
+    playCopies: ({ state, def }) => (def.type === 'attack' && state.attacksThisTurn === 4 ? 1 : 0),
+  },
 };
 
 // -------------------------------------------------------------- 掉落档位数据

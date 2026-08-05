@@ -61,6 +61,14 @@ const CARD_KEYS = [
   'yinqiang', 'hengsaoqianjun', 'longxiang', 'yanqixigu', 'huwei',
   'changbanpo',
   'qiruchangban', 'longyinzhenjun', 'zhaoyepozhen',
+  // 2026-08 赵云 · 枪胆防反
+  'qingweixianfeng', 'juqiang', 'xianmei', 'touzhen', 'rangshantuwei',
+  'baipao', 'yushiyuekeng', 'lianzhonggushou',
+  'huimaqiang', 'jianbi', 'juma', 'chengxi', 'panhejiugong', 'bowangqinlan',
+  'hanshuijushou', 'huaibaoyoudou', 'qiangwulihua', 'guochuang',
+  'shatouchongwei', 'yimadangxian',
+  'qiangchurulong', 'qiangcijiankan', 'changshanzhaozilong', 'lituizhanghe',
+  'huzhuchongzhen', 'shunpinghou', 'zairuchongwei', 'qiangtiaogaolan',
   // 诸葛亮
   'yuanrongnu', 'jushou', 'longzhongdui', 'jinnang', 'jiejianzhiji',
   'jiedongfeng', 'huoji', 'kongchengji', 'qixingdeng', 'muniuliuma',
@@ -97,6 +105,9 @@ const RELIC_KEYS = [
   'hujunxin', 'jingzhougudao', 'jingzhouyin', 'liangcaojie', 'longlin',
   'maichengcanqi', 'pohujia', 'qinglongdaopu', 'qinglongnizhan', 'shangjiangling',
   'shouhanzhaoshu', 'tunbingfu', 'xiaojiling', 'yanxingling', 'zhuquejie',
+  // 2026-08 赵云宝物扩充
+  'hongying', 'yamenqi', 'suzhengpao', 'changshanjunqi', 'baiying',
+  'yijunyin', 'jili', 'adouqiangbao', 'deshenggu', 'longdanqiangpu',
 ] as const;
 const POTION_KEYS = [
   'huoyouguan', 'tiejiasan', 'zhuangxingjiu', 'junqingmibao', 'jiejiasan',

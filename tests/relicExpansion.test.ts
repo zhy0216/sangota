@@ -93,10 +93,14 @@ const uidOf = (state: CombatState, defId: string): string => {
 
 describe('关羽宝物池扩充', () => {
   it('appends exactly twenty definitions and reaches 15/15/10/8/5 for 关羽', () => {
+    // A consecutive window rather than a tail anchor: the 2026-08 赵云批
+    // appends behind this one, so "last N of the tier" now belongs to it —
+    // what this batch owns is its ids, contiguous and in declaration order.
     for (const [tier, ids] of Object.entries(ADDED)) {
-      expect(relicsOfTier(tier as keyof typeof ADDED).slice(-ids.length).map((r) => r.id)).toEqual(
-        ids,
-      );
+      const tierIds = relicsOfTier(tier as keyof typeof ADDED).map((r) => r.id);
+      const at = tierIds.indexOf(ids[0]);
+      expect(at, tier).toBeGreaterThanOrEqual(0);
+      expect(tierIds.slice(at, at + ids.length), tier).toEqual(ids);
     }
     expect(Object.values(ADDED).flat()).toHaveLength(20);
 

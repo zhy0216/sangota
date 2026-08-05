@@ -689,6 +689,241 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
     ],
   },
+
+  // --- 2026-08 赵云 · 枪胆防反 ----------------------------------------------
+  qingweixianfeng: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attackPlayedThisTurn' },
+        then: [{ kind: 'damage', amount: 7 }],
+        otherwise: [{ kind: 'damage', amount: 11 }],
+      },
+    ],
+  },
+  juqiang: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'blockAtLeast', n: 5 },
+        then: [{ kind: 'damage', amount: 13 }],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+  },
+  xianmei: { effects: [{ kind: 'damage', amount: 9 }] },
+  touzhen: {
+    effects: [
+      { kind: 'damage', amount: 7 },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [{ kind: 'block', amount: 5 }],
+      },
+    ],
+  },
+  rangshantuwei: {
+    effects: [
+      { kind: 'damage', amount: 8 },
+      {
+        kind: 'conditional',
+        when: { c: 'enemyCountAtLeast', n: 2 },
+        then: [{ kind: 'block', amount: 5 }],
+      },
+    ],
+  },
+  baipao: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attackPlayedThisTurn' },
+        then: [{ kind: 'block', amount: 8 }],
+        otherwise: [{ kind: 'block', amount: 5 }],
+      },
+    ],
+  },
+  yushiyuekeng: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'hpBelow', percent: 50 },
+        then: [{ kind: 'block', amount: 10 }],
+        otherwise: [{ kind: 'block', amount: 5 }],
+      },
+    ],
+  },
+  lianzhonggushou: { cost: 1 },
+  huimaqiang: {
+    effects: [{ kind: 'status', status: 'riposte', amount: 4, to: 'self' }],
+  },
+  jianbi: {
+    effects: [
+      { kind: 'block', amount: 15 },
+      { kind: 'status', status: 'thorns', amount: 3, to: 'self' },
+    ],
+  },
+  juma: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'blockAtLeast', n: 8 },
+        then: [{ kind: 'damageAll', amount: 8 }],
+        otherwise: [{ kind: 'damageAll', amount: 6 }],
+      },
+    ],
+  },
+  chengxi: {
+    effects: [
+      { kind: 'damage', amount: 5 },
+      {
+        kind: 'conditional',
+        when: { c: 'blockAtLeast', n: 5 },
+        then: [{ kind: 'draw', amount: 1 }],
+      },
+    ],
+  },
+  panhejiugong: {
+    effects: [
+      { kind: 'damage', amount: 9 },
+      { kind: 'status', status: 'weak', amount: 2, to: 'target' },
+    ],
+  },
+  bowangqinlan: {
+    effects: [
+      { kind: 'damage', amount: 9 },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [{ kind: 'energy', amount: 1 }],
+      },
+    ],
+  },
+  hanshuijushou: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attackPlayedThisTurn' },
+        then: [{ kind: 'block', amount: 7 }],
+        otherwise: [
+          { kind: 'block', amount: 7 },
+          { kind: 'status', status: 'thorns', amount: 3, to: 'self' },
+        ],
+      },
+    ],
+  },
+  huaibaoyoudou: {
+    effects: [
+      { kind: 'status', status: 'buffer', amount: 1, to: 'self' },
+      { kind: 'block', amount: 7 },
+    ],
+  },
+  qiangwulihua: {
+    effects: [
+      { kind: 'block', amount: 3 },
+      { kind: 'block', amount: 3 },
+      { kind: 'block', amount: 3 },
+    ],
+  },
+  guochuang: {
+    effects: [{ kind: 'status', status: 'regen', amount: 5, to: 'self' }],
+  },
+  shatouchongwei: {
+    effects: [
+      { kind: 'damage', amount: 10 },
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [{ kind: 'heal', amount: 2 }],
+      },
+    ],
+  },
+  yimadangxian: {
+    effects: [
+      { kind: 'block', amount: 7 },
+      { kind: 'status', status: 'dexterity', amount: 1, to: 'self' },
+    ],
+  },
+  qiangchurulong: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'blockAtLeast', n: 10 },
+        then: [{ kind: 'damage', amount: 24 }],
+        otherwise: [{ kind: 'damage', amount: 13 }],
+      },
+    ],
+  },
+  qiangcijiankan: {
+    effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 4, times: 2 }] }],
+  },
+  changshanzhaozilong: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 3 },
+        then: [
+          { kind: 'damageAll', amount: 20 },
+          { kind: 'status', status: 'weak', amount: 1, to: 'allEnemies' },
+        ],
+        otherwise: [{ kind: 'damageAll', amount: 13 }],
+      },
+    ],
+  },
+  lituizhanghe: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [
+          { kind: 'damage', amount: 24 },
+          { kind: 'block', amount: 6 },
+        ],
+        otherwise: [{ kind: 'damage', amount: 17 }],
+      },
+    ],
+  },
+  huzhuchongzhen: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'selfHasStatus', status: 'buffer' },
+        then: [
+          { kind: 'damage', amount: 16 },
+          { kind: 'block', amount: 5 },
+        ],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+  },
+  shunpinghou: {
+    effects: [
+      { kind: 'status', status: 'riposte', amount: 3, to: 'self' },
+      { kind: 'status', status: 'dexterity', amount: 2, to: 'self' },
+    ],
+  },
+  zairuchongwei: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [
+          { kind: 'energy', amount: 1 },
+          { kind: 'draw', amount: 4 },
+        ],
+        otherwise: [{ kind: 'draw', amount: 2 }],
+      },
+    ],
+  },
+  qiangtiaogaolan: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 3 },
+        then: [{ kind: 'damage', amount: 36 }],
+        otherwise: [{ kind: 'damage', amount: 18 }],
+      },
+    ],
+  },
 };
 
 /** Minimal combat state to preview a card face against — no enemies needed. */

@@ -23,6 +23,7 @@ export type StatusId =
   | 'armory'
   | 'supply'
   | 'warSaint'
+  | 'riposte'
   | 'noDraw'
   | 'entangled'
   | 'curlUp'
@@ -78,7 +79,9 @@ export type EffectCondition =
   /** 攻 played *before* this card this turn — 赵云's 连击 reads this. */
   | { c: 'attacksAtLeast'; n: number }
   /** Cards in the 消耗堆 right now. */
-  | { c: 'exhaustedAtLeast'; n: number };
+  | { c: 'exhaustedAtLeast'; n: number }
+  /** 玩家当前护甲 ≥ n — 赵云's 据守反击 axis, the defensive mirror of `attacksAtLeast`. */
+  | { c: 'blockAtLeast'; n: number };
 
 export type Effect =
   | { kind: 'damage'; amount: number; times?: number }

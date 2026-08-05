@@ -824,6 +824,10 @@ function conditionMet(
       return state.attacksThisTurn >= cond.n;
     case 'exhaustedAtLeast':
       return state.exhaustPile.length >= cond.n;
+    case 'blockAtLeast':
+      // Always the player's wall, whoever the card targets — same shape as
+      // `exhaustedAtLeast`, and preview reads the identical number.
+      return state.player.block >= cond.n;
   }
 }
 

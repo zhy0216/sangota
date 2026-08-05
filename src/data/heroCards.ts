@@ -16,7 +16,7 @@ import type { CardDef } from '../combat/types';
  * silently re-deals every existing run of that hero.
  *
  * Rate check, against the three printed baselines the whole game is priced off
- * (劈砍 1气/6伤, 铁壁 1气/5甲, 结营 2气/14甲): roughly 6 damage or 5–7 block per
+ * (劈砍 1气/6伤, 铁壁 1气/5甲, 结营 2气/15甲): roughly 6 damage or 5–7 block per
  * 气 at basic rarity. Anything above that pays for it with a keyword, a
  * condition, or 体力 — the notes on each card say which.
  */
@@ -834,6 +834,921 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
         { kind: 'energy', amount: 2 },
         { kind: 'draw', amount: 4 },
         { kind: 'status', status: 'buffer', amount: 1, to: 'self' },
+      ],
+    },
+  },
+
+  // --- 2026-08 扩池：枪胆防反 ---------------------------------------------
+  /*
+   * 赵云从 8/8/4/3 = 23 张扩到与关羽持平的 16/20/12/3 = 51：+8 常见、
+   * +12 罕见、+8 稀有，传说已满不动。铁律照关羽三批：只追加不插队、数值对
+   * 三条印刷基线算账、台架与天命连场两口径都过。
+   *
+   * 本批补的是**结构洞**，不是把连击轴再拧三圈：读 attacksAtLeast /
+   * scaleWithAttacks 的新卡恰 5 张（透阵/杀透重围/常山赵子龙/再入重围/
+   * 枪挑高览），其余全部落在此前没人住的房间——第二条真构筑路线「据守反击」
+   * （新条件 `blockAtLeast`：立甲→兑现，阈值 5/8/10 三档）、被动半场
+   * 【回枪】（挨完那一击才回甲，答多段不答巨伤——巨伤是天佑的地盘）、
+   * 全池第一张 retain（衔枚）与第一张 innate（请为先锋/一马当先）、身法
+   * 支线的第二签与专职兑现件、体力代价轴的回款窗口（裹创/杀透重围）。
+   * 神力零新增：一身是胆的那一层仍是全池唯一。得气仍永不白给（博望擒兰
+   * 要上游怯战、再入重围要两张攻的铺垫）。
+   */
+
+  // --- common (扩) ---------------------------------------------------------
+
+  /**
+   * 七十岁上帐前请命：「不以老将为先锋，臣当碎首于阶下」。全池第一张固有：
+   * 开局必在手，且必须**第一个**打——8 伤超劈砍两点，付账是顺位约束（后手
+   * 缩水到 5）加固有必然占据的起手位；然后它反过来给整条连击链当第一发
+   * 计数。挺枪的镜像：那张奖励晚落，这张奖励先落。
+   */
+  qingweixianfeng: {
+    id: 'qingweixianfeng',
+    name: '请为先锋',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-qingweixianfeng',
+    text: '造成 {D} 点伤害。\n若本回合已打出过【攻】牌，改为 5 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attackPlayedThisTurn' },
+        then: [{ kind: 'damage', amount: 5 }],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+    keywords: ['innate'],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若本回合已打出过【攻】牌，改为 7 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attackPlayedThisTurn' },
+          then: [{ kind: 'damage', amount: 7 }],
+          otherwise: [{ kind: 'damage', amount: 11 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * `blockAtLeast` 的教学卡，挺枪的防守镜像。冷 6 是劈砍基线；热 10 的溢价
+   * 由「本回合先花一张牌立甲」支付——阈值 5 恰是一张掠马，包价 2 气 =
+   * 5甲+10伤 对基线 12 伤，拿 2 伤换 5 甲，不多不少。单实例结算，{D} 印实话。
+   */
+  juqiang: {
+    id: 'juqiang',
+    name: '据枪',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-juqiang',
+    text: '造成 {D} 点伤害。\n若你有至少 5 点护甲，改为 10 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'blockAtLeast', n: 5 },
+        then: [{ kind: 'damage', amount: 10 }],
+        otherwise: [{ kind: 'damage', amount: 6 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若你有至少 5 点护甲，改为 13 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'blockAtLeast', n: 5 },
+          then: [{ kind: 'damage', amount: 13 }],
+          otherwise: [{ kind: 'damage', amount: 8 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 衔枚夜行，枪藏到该出的那回合。全池第一张保留攻：对连击组是存进下回合的
+   * 一个计数，对防反组是把攻牌腾出防守回合。6 伤 = 基线整；保留不另收费的
+   * 价签是秉烛达旦（1费 7甲 retain 常见）立过的，付的是它永远占一个手牌位。
+   */
+  xianmei: {
+    id: 'xianmei',
+    name: '衔枚',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-xianmei',
+    text: '造成 {D} 点伤害。',
+    effects: [{ kind: 'damage', amount: 6 }],
+    keywords: ['retain'],
+    upgrade: { effects: [{ kind: 'damage', amount: 9 }] },
+  },
+
+  /**
+   * 夺剑把破绽挂在第三击后，这张把护甲挂在第三击后——杀进阵去还能全身而
+   * 出。冷 5 伤在基线下，热 5伤+5甲 的溢价由两张攻的铺垫支付；是连击组唯一
+   * 自带防御的攻牌，两个半场的焊点。护甲印定值：条件臂里的 {B} 在冷面会
+   * 印 0，挺枪的「改为 9 点」先例适用于一切条件行。
+   */
+  touzhen: {
+    id: 'touzhen',
+    name: '透阵',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-touzhen',
+    text: '造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，获得 5 点护甲。',
+    effects: [
+      { kind: 'damage', amount: 5 },
+      { kind: 'conditional', when: { c: 'attacksAtLeast', n: 2 }, then: [{ kind: 'block', amount: 5 }] },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 7 },
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 2 },
+          then: [{ kind: 'block', amount: 5 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 穰山夜战，护着败军杀开一条路——人越多，枪越密。6 伤是基线原价；4 甲挂在
+   * 「敌 ≥2」之后，孤 boss 房拿不到，付账方式是条件本身。全池第一张读
+   * `enemyCountAtLeast` 的卡，多人房恰是 74 血条最疼的地方。
+   */
+  rangshantuwei: {
+    id: 'rangshantuwei',
+    name: '穰山突围',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-rangshantuwei',
+    text: '造成 {D} 点伤害。\n若敌人不少于 2 名，获得 4 点护甲。',
+    effects: [
+      { kind: 'damage', amount: 6 },
+      { kind: 'conditional', when: { c: 'enemyCountAtLeast', n: 2 }, then: [{ kind: 'block', amount: 4 }] },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若敌人不少于 2 名，获得 5 点护甲。',
+      effects: [
+        { kind: 'damage', amount: 8 },
+        {
+          kind: 'conditional',
+          when: { c: 'enemyCountAtLeast', n: 2 },
+          then: [{ kind: 'block', amount: 5 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 白马义从（0费 4伤）的护甲位。0 费 3 甲在基线下，先出枪再披袍升到 5——
+   * 进攻回合不再自动等于裸奔，与亮银甲宝物同一句话的卡牌版，也是据枪阈值
+   * 的第二条供给线（掠马之外）。
+   */
+  baipao: {
+    id: 'baipao',
+    name: '白袍',
+    type: 'skill',
+    rarity: 'common',
+    cost: 0,
+    target: 'self',
+    art: 'card-baipao',
+    text: '获得 {B} 点护甲。\n若本回合已打出【攻】牌，改为 5 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attackPlayedThisTurn' },
+        then: [{ kind: 'block', amount: 5 }],
+        otherwise: [{ kind: 'block', amount: 3 }],
+      },
+    ],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n若本回合已打出【攻】牌，改为 8 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attackPlayedThisTurn' },
+          then: [{ kind: 'block', amount: 8 }],
+          otherwise: [{ kind: 'block', amount: 5 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 陷马坑里红光一罩，照夜玉狮子平空跃出——绝境处马救主。0 费 3 甲在票面
+   * 之下，半血以下 7 甲在铁壁之上，付账的是「牌面在你最不想要它的时候最
+   * 大」：单骑救主的防御面，把 74 血条的下半段明码标价。
+   */
+  yushiyuekeng: {
+    id: 'yushiyuekeng',
+    name: '玉狮跃坑',
+    type: 'skill',
+    rarity: 'common',
+    cost: 0,
+    target: 'self',
+    art: 'card-yushiyuekeng',
+    text: '获得 {B} 点护甲。\n若你的体力低于一半，改为 7 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'hpBelow', percent: 50 },
+        then: [{ kind: 'block', amount: 7 }],
+        otherwise: [{ kind: 'block', amount: 3 }],
+      },
+    ],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n若你的体力低于一半，改为 10 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'hpBelow', percent: 50 },
+          then: [{ kind: 'block', amount: 10 }],
+          otherwise: [{ kind: 'block', amount: 5 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 本传原文：「敛众固守，不至大败」。结营（2气 15甲）的赵云版收两点——
+   * 收的理由与掠马对铁壁同源：他的防守从截江/空营计那类反直觉卡买，直板
+   * 大甲只做池底的兜底。升级照结营惯用形，只降费。
+   */
+  lianzhonggushou: {
+    id: 'lianzhonggushou',
+    name: '敛众固守',
+    type: 'skill',
+    rarity: 'common',
+    cost: 2,
+    target: 'self',
+    art: 'card-lianzhonggushou',
+    text: '获得 {B} 点护甲。',
+    effects: [{ kind: 'block', amount: 13 }],
+    upgrade: { cost: 1 },
+  },
+
+  // --- uncommon (扩) -------------------------------------------------------
+
+  /**
+   * 防反引擎的主发动机。每挨一击回 3 甲、挨完那击才回——对多段是软墙，对
+   * 单发巨伤一文不值，那是天佑的地盘，两张互不越界（时序见 statuses.ts 的
+   * 回枪行）。对照重甲 4（2费）：便宜一费、上限更高、下限更低（敌不挥拳就
+   * 是零）——方差就是罕见价。势牌消耗离场，每场一台。
+   */
+  huimaqiang: {
+    id: 'huimaqiang',
+    name: '回马枪',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-huimaqiang',
+    text: '获得 3 层【回枪】。',
+    effects: [{ kind: 'status', status: 'riposte', amount: 3, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 4 层【回枪】。',
+      effects: [{ kind: 'status', status: 'riposte', amount: 4, to: 'self' }],
+    },
+  },
+
+  /**
+   * 赵云的结营位。结营 15 甲；这张 12，割 3 甲换 2 层永久反刺——墙矮一头，
+   * 但墙上有刺。给拒马/枪出如龙的阈值一步到位，给蒺藜宝物垫燃料。长战斗里
+   * 反刺的复利是它压着 15 不放的原因。
+   */
+  jianbi: {
+    id: 'jianbi',
+    name: '坚壁',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 2,
+    target: 'self',
+    art: 'card-jianbi',
+    text: '获得 {B} 点护甲。\n获得 2 层【反刺】。',
+    effects: [
+      { kind: 'block', amount: 12 },
+      { kind: 'status', status: 'thorns', amount: 2, to: 'self' },
+    ],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n获得 3 层【反刺】。',
+      effects: [
+        { kind: 'block', amount: 15 },
+        { kind: 'status', status: 'thorns', amount: 3, to: 'self' },
+      ],
+    },
+  },
+
+  /**
+   * 防守构筑的宽房答案，与横扫千军精确分工：同一张 AoE，一边问「出了几杆
+   * 枪」，一边问「立了多高的墙」。热 6/敌 @1 气贴着万人敌的费率，由阈值 8
+   * （约两张牌的甲）支付；拒马桩立稳了才扎人。
+   */
+  juma: {
+    id: 'juma',
+    name: '拒马',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'all',
+    art: 'card-juma',
+    text: '对所有敌人造成 {D} 点伤害。\n若你有至少 8 点护甲，改为 6 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'blockAtLeast', n: 8 },
+        then: [{ kind: 'damageAll', amount: 6 }],
+        otherwise: [{ kind: 'damageAll', amount: 4 }],
+      },
+    ],
+    upgrade: {
+      text: '对所有敌人造成 {D} 点伤害。\n若你有至少 8 点护甲，改为 8 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'blockAtLeast', n: 8 },
+          then: [{ kind: 'damageAll', amount: 8 }],
+          otherwise: [{ kind: 'damageAll', amount: 6 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 疾刺的防守孪生：疾刺拿两杆枪换气，这张拿一面墙换牌。0 费 3 伤在白马
+   * 义从之下，cantrip 只付给立稳了甲的回合。防反组自己的连击计数器——墙后
+   * 的枪不是不出，是挑缝出。
+   */
+  chengxi: {
+    id: 'chengxi',
+    name: '乘隙',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 0,
+    target: 'enemy',
+    art: 'card-chengxi',
+    text: '造成 {D} 点伤害。\n若你有至少 5 点护甲，抽 1 张牌。',
+    effects: [
+      { kind: 'damage', amount: 3 },
+      { kind: 'conditional', when: { c: 'blockAtLeast', n: 5 }, then: [{ kind: 'draw', amount: 1 }] },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 5 },
+        {
+          kind: 'conditional',
+          when: { c: 'blockAtLeast', n: 5 },
+          then: [{ kind: 'draw', amount: 1 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 磐河首阵，少年赵云挺枪救公孙瓒于坡下——一枪之威，先夺其胆。温酒斩
+   * （7伤+1破绽）的刻度矮半头换读数方向：1 层怯战替 74 血条挡下一记 -25%。
+   * 全池首个单体怯战源，给博望擒兰/力退张郃的怯战读数立上游；与偃旗息鼓
+   * 分工为点与面。
+   */
+  panhejiugong: {
+    id: 'panhejiugong',
+    name: '磐河救公孙',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-panhejiugong',
+    text: '造成 {D} 点伤害，并施加 1 层【怯战】。',
+    effects: [
+      { kind: 'damage', amount: 7 },
+      { kind: 'status', status: 'weak', amount: 1, to: 'target' },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害，并施加 2 层【怯战】。',
+      effects: [
+        { kind: 'damage', amount: 9 },
+        { kind: 'status', status: 'weak', amount: 2, to: 'target' },
+      ],
+    },
+  },
+
+  /**
+   * 博望坡生擒夏侯兰——擒的是已经胆寒的人；擒而不杀，荐为军正，是赵云的
+   * 分寸。斩颜良（破绽→气）的赵云镜像，读自家怯战线。得气永不白给的第三条
+   * 供给线：这 1 点气的铺垫是「上游先施加过怯战」。7 伤低于斩颜良的 9——
+   * 条件产出同价时，身板让位。
+   */
+  bowangqinlan: {
+    id: 'bowangqinlan',
+    name: '博望擒兰',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-bowangqinlan',
+    text: '造成 {D} 点伤害。\n若目标有【怯战】，获得 1 点气。',
+    effects: [
+      { kind: 'damage', amount: 7 },
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [{ kind: 'energy', amount: 1 }],
+      },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 9 },
+        {
+          kind: 'conditional',
+          when: { c: 'targetHasStatus', status: 'weak' },
+          then: [{ kind: 'energy', amount: 1 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 偃旗息鼓的后半场：大开营门，追兵自己撞上来。5 甲是铁壁基线，反刺是
+   * 加在「今回合不出枪」之上的溢价——本池第二张（也是最后一张）空营计式
+   * 反连击卡，配额用满。与无色鹿角分工：那张平铺 3 层裸签，这张要你放弃
+   * 连击回合才给 2。
+   */
+  hanshuijushou: {
+    id: 'hanshuijushou',
+    name: '汉水据守',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-hanshuijushou',
+    text: '获得 {B} 点护甲。\n若本回合尚未打出【攻】牌，获得 2 层【反刺】。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attackPlayedThisTurn' },
+        then: [{ kind: 'block', amount: 5 }],
+        otherwise: [
+          { kind: 'block', amount: 5 },
+          { kind: 'status', status: 'thorns', amount: 2, to: 'self' },
+        ],
+      },
+    ],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n若本回合尚未打出【攻】牌，获得 3 层【反刺】。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attackPlayedThisTurn' },
+          then: [{ kind: 'block', amount: 7 }],
+          otherwise: [
+            { kind: 'block', amount: 7 },
+            { kind: 'status', status: 'thorns', amount: 3, to: 'self' },
+          ],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 糜夫人投井托孤，解下护主的那一抱——怀里有主，这条命就不许丢。一身是胆
+   * 的零售装：拆掉神力、降一费、挂消耗防循环囤积。护甲垫底是天佑的保险丝
+   * （天佑结算在护甲之后，4 点甲挡住「被 1 点余伤吃掉一层」的亏账）。
+   * 下游：护主冲阵读这层天佑。
+   */
+  huaibaoyoudou: {
+    id: 'huaibaoyoudou',
+    name: '怀抱幼主',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-huaibaoyoudou',
+    text: '获得 1 层【天佑】与 {B} 点护甲。',
+    effects: [
+      { kind: 'status', status: 'buffer', amount: 1, to: 'self' },
+      { kind: 'block', amount: 4 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      effects: [
+        { kind: 'status', status: 'buffer', amount: 1, to: 'self' },
+        { kind: 'block', amount: 7 },
+      ],
+    },
+  },
+
+  /**
+   * 「那枪浑身上下，若舞梨花；遍体纷纷，如飘瑞雪」——不是一面盾，是三百个
+   * 枪花。裸卡 6 甲在铁壁带宽内；写成三次独立获得是全部技术含量：身法按次
+   * 平加，2 层虎威下这张是 12。身法支线从此有了专职兑现件。{B} 照截江先例
+   * 印三段总和。
+   */
+  qiangwulihua: {
+    id: 'qiangwulihua',
+    name: '枪舞梨花',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-qiangwulihua',
+    text: '连拨三下，共获得 {B} 点护甲。',
+    effects: [
+      { kind: 'block', amount: 2 },
+      { kind: 'block', amount: 2 },
+      { kind: 'block', amount: 2 },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'block', amount: 3 },
+        { kind: 'block', amount: 3 },
+        { kind: 'block', amount: 3 },
+      ],
+    },
+  },
+
+  /**
+   * 血染征袍/龙骧整条体力代价轴的回款窗口。4 层总回 10，比刮骨疗毒（-3
+   * 换 5 层=净 12）少两点、不掏血——赵云的续航签不该再往血条上加账。消耗
+   * 照旧：池里唯一的主动回复不许循环。升级买幅度不买次数。
+   */
+  guochuang: {
+    id: 'guochuang',
+    name: '裹创',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-guochuang',
+    text: '获得 4 层【调息】。',
+    effects: [{ kind: 'status', status: 'regen', amount: 4, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 5 层【调息】。',
+      effects: [{ kind: 'status', status: 'regen', amount: 5, to: 'self' }],
+    },
+  },
+
+  /**
+   * 杀进去是本事，杀出来才是长坂坡。7 伤略超基线，回 2 体力锁在两攻之后
+   * ——全池第一次把续航接在连击轴上，专偿血染征袍欠下的血债。回复量钉死 2
+   * 且升级不动它（只加伤）：循环收益不翻倍，粮道畅通立的规矩。
+   */
+  shatouchongwei: {
+    id: 'shatouchongwei',
+    name: '杀透重围',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-shatouchongwei',
+    text: '造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，回复 2 点体力。',
+    effects: [
+      { kind: 'damage', amount: 7 },
+      { kind: 'conditional', when: { c: 'attacksAtLeast', n: 2 }, then: [{ kind: 'heal', amount: 2 }] },
+    ],
+    upgrade: {
+      effects: [
+        { kind: 'damage', amount: 10 },
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 2 },
+          then: [{ kind: 'heal', amount: 2 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 身法支线的第二签（虎威之外），固有让引擎首回合点火——势牌越早落越值，
+   * 固有就是把「晚抽到的势牌是死牌」的方差买断。只给 1 层，虎威的 2 层仍是
+   * 主力；3 甲垫的是第一回合据枪的阈值。产出低于虎威，付账的是 innate。
+   * 护甲效果排在身法之前，牌面 {B} 印的才是实收（自家身法不给自家甲加成）。
+   */
+  yimadangxian: {
+    id: 'yimadangxian',
+    name: '一马当先',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-yimadangxian',
+    text: '获得 {B} 点护甲与 1 层【身法】。',
+    effects: [
+      { kind: 'block', amount: 3 },
+      { kind: 'status', status: 'dexterity', amount: 1, to: 'self' },
+    ],
+    keywords: ['innate', 'exhaust'],
+    upgrade: {
+      text: '获得 {B} 点护甲与 1 层【身法】。',
+      effects: [
+        { kind: 'block', amount: 7 },
+        { kind: 'status', status: 'dexterity', amount: 1, to: 'self' },
+      ],
+    },
+  },
+
+  // --- rare (扩) -----------------------------------------------------------
+
+  /**
+   * 据守反击轴的收刀。冷 10 @2 在基线下；热 20 看似 10/气，但阈值 10 要这
+   * 回合先押约 2 气 2 卡进墙里——整包 4 气 = 20伤+10甲，恰回到基线费率，
+   * 只是甲这半没有浪费（这正是 blockAtLeast 与 handEmpty/连击门的价差
+   * 来源，热值压在古城会 24 之下）。墙立到最高的那一枪才叫如龙。
+   */
+  qiangchurulong: {
+    id: 'qiangchurulong',
+    name: '枪出如龙',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-qiangchurulong',
+    text: '造成 {D} 点伤害。\n若你有至少 10 点护甲，改为 20 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'blockAtLeast', n: 10 },
+        then: [{ kind: 'damage', amount: 20 }],
+        otherwise: [{ kind: 'damage', amount: 10 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若你有至少 10 点护甲，改为 24 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'blockAtLeast', n: 10 },
+          then: [{ kind: 'damage', amount: 24 }],
+          otherwise: [{ kind: 'damage', amount: 13 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 「前后枪刺剑砍，杀死曹营名将五十余员」——不数招式，只数人头。全池第一
+   * 张 X 费。费率照虎牢关钉在 6/气——灵活性不重复收费，死牌性就是它付的价
+   * ——但劈成每气两段：3 气就是六个实例，破绽逐段收、每段吃借来的神力。
+   * 与力斩五将分工：那张付整回合换固定五段，这张把「今晚花多少」交还玩家。
+   */
+  qiangcijiankan: {
+    id: 'qiangcijiankan',
+    name: '枪刺剑砍',
+    type: 'attack',
+    rarity: 'rare',
+    // X_COST. `playCard` drains 气 and `scaleWithEnergy` reads back what it spent.
+    cost: -1,
+    target: 'enemy',
+    art: 'card-qiangcijiankan',
+    text: '消耗全部气。\n每 1 点气连刺 2 次，每次造成 {D} 点伤害。',
+    effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 3, times: 2 }] }],
+    upgrade: {
+      effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'damage', amount: 4, times: 2 }] }],
+    },
+  },
+
+  /**
+   * 报名号的那一嗓子，做成群体收尾：冷面 10 全体在万人敌下一点，三攻之后
+   * 16 全体 + 全场怯战——付的是整整三张前置与 2 费整块。怯战只 1 层：吼完
+   * 敌人腿软的是下一刀，不是永久的；层数挂在三攻门后，所以不必照勒马横刀
+   * 挂消耗。「吾乃常山赵子龙也！」
+   */
+  changshanzhaozilong: {
+    id: 'changshanzhaozilong',
+    name: '常山赵子龙',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'all',
+    art: 'card-changshanzhaozilong',
+    text: '对所有敌人造成 {D} 点伤害。\n若本回合已打出 3 张【攻】牌，改为 16 点并施加 1 层【怯战】。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 3 },
+        then: [
+          { kind: 'damageAll', amount: 16 },
+          { kind: 'status', status: 'weak', amount: 1, to: 'allEnemies' },
+        ],
+        otherwise: [{ kind: 'damageAll', amount: 10 }],
+      },
+    ],
+    upgrade: {
+      text: '对所有敌人造成 {D} 点伤害。\n若本回合已打出 3 张【攻】牌，改为 20 点并施加 1 层【怯战】。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 3 },
+          then: [
+            { kind: 'damageAll', amount: 20 },
+            { kind: 'status', status: 'weak', amount: 1, to: 'allEnemies' },
+          ],
+          otherwise: [{ kind: 'damageAll', amount: 13 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 长坂坡三十余合逼退张郃——对面先怯了，这一枪才有三十合的余裕。白马解围
+   * （双减益双倍付账）的赵云单读版：只读怯战、双倍付账（伤害抬档且给甲）。
+   * 上游链条齐整：磐河救公孙、偃旗息鼓、砍倒大旗之外还有龙吟震军。裸卡 14
+   * @2 略超基线半步、低于同费稀有纯爆发线，价差由追击链补。
+   */
+  lituizhanghe: {
+    id: 'lituizhanghe',
+    name: '力退张郃',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-lituizhanghe',
+    text: '造成 {D} 点伤害。\n若目标有【怯战】，改为 20 点并获得 5 点护甲。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'targetHasStatus', status: 'weak' },
+        then: [
+          { kind: 'damage', amount: 20 },
+          { kind: 'block', amount: 5 },
+        ],
+        otherwise: [{ kind: 'damage', amount: 14 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若目标有【怯战】，改为 24 点并获得 6 点护甲。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'targetHasStatus', status: 'weak' },
+          then: [
+            { kind: 'damage', amount: 24 },
+            { kind: 'block', amount: 6 },
+          ],
+          otherwise: [{ kind: 'damage', amount: 17 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 怀中幼主尚在，杀气便不许竭——护着人打，反而打得更狠。全池第一张读
+   * `selfHasStatus` 的卡，把天佑从纯保险变成进攻许可证：一身是胆/照夜破阵/
+   * 怀抱幼主铺的每一层从此都有第二重身份。8 @1 是基线原价；13+4甲 的超率由
+   * 「天佑是稀有资源、每挨一记大的就少一层」支付——条件会被敌人打没，这是
+   * 全游戏唯一会被对面拆的加成条件。
+   */
+  huzhuchongzhen: {
+    id: 'huzhuchongzhen',
+    name: '护主冲阵',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-huzhuchongzhen',
+    text: '造成 {D} 点伤害。\n若你有【天佑】，改为 13 点并获得 4 点护甲。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'selfHasStatus', status: 'buffer' },
+        then: [
+          { kind: 'damage', amount: 13 },
+          { kind: 'block', amount: 4 },
+        ],
+        otherwise: [{ kind: 'damage', amount: 8 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若你有【天佑】，改为 16 点并获得 5 点护甲。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'selfHasStatus', status: 'buffer' },
+          then: [
+            { kind: 'damage', amount: 16 },
+            { kind: 'block', amount: 5 },
+          ],
+          otherwise: [{ kind: 'damage', amount: 8 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 谥号——柔贤慈惠曰顺，执事有班曰平。防反构筑的稀有轴心：一张卡把两台
+   * 引擎同时上线，主动获甲吃身法、被动挨打吃回枪，两条产线互不塑形、不复
+   * 利（回枪的甲是 'power' 源）。产出为零的势牌敢给足——义薄云天的论式。
+   */
+  shunpinghou: {
+    id: 'shunpinghou',
+    name: '顺平侯',
+    type: 'power',
+    rarity: 'rare',
+    cost: 2,
+    target: 'self',
+    art: 'card-shunpinghou',
+    text: '获得 2 层【回枪】与 2 层【身法】。',
+    effects: [
+      { kind: 'status', status: 'riposte', amount: 2, to: 'self' },
+      { kind: 'status', status: 'dexterity', amount: 2, to: 'self' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 3 层【回枪】与 2 层【身法】。',
+      effects: [
+        { kind: 'status', status: 'riposte', amount: 3, to: 'self' },
+        { kind: 'status', status: 'dexterity', amount: 2, to: 'self' },
+      ],
+    },
+  },
+
+  /**
+   * 已经杀出来了，勒转马头，再进去一趟。千里走单骑（+2气抽2 无条件）的连击
+   * 税版：产出改为 +1气抽3——气恰好返还本卡、牌多看一张——但要先付两张攻
+   * 的铺垫，同费率稀有的差异全落在前置条件上（论证照汉兵再兴）。消耗 =
+   * 每场一趟，绝不成循环。得气第四例：铺垫是两张攻。
+   */
+  zairuchongwei: {
+    id: 'zairuchongwei',
+    name: '再入重围',
+    type: 'skill',
+    rarity: 'rare',
+    cost: 1,
+    target: 'self',
+    art: 'card-zairuchongwei',
+    text: '若本回合已打出 2 张【攻】牌：获得 1 点气，抽 3 张牌。\n否则抽 1 张牌。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 2 },
+        then: [
+          { kind: 'energy', amount: 1 },
+          { kind: 'draw', amount: 3 },
+        ],
+        otherwise: [{ kind: 'draw', amount: 1 }],
+      },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '若本回合已打出 2 张【攻】牌：获得 1 点气，抽 4 张牌。\n否则抽 2 张牌。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 2 },
+          then: [
+            { kind: 'energy', amount: 1 },
+            { kind: 'draw', amount: 4 },
+          ],
+          otherwise: [{ kind: 'draw', amount: 2 }],
+        },
+      ],
+    },
+  },
+
+  /**
+   * 全池缺的那记单点重锤，用赵云的语法印：偃月斩 3 费 18 无条件，这张冷面
+   * 只有 15、热面 30——10/气的溢价全部由「3 攻 + 3 费同回合凑齐」支付，
+   * 实际上要一个满手回合才挥得出来。单实例、神力只吃一次、{D} 印实话。
+   * 典出穰山：高览方斩后卫，云一枪刺于马下——之前七缠八斗都是铺垫，杀招
+   * 只有一下。
+   */
+  qiangtiaogaolan: {
+    id: 'qiangtiaogaolan',
+    name: '枪挑高览',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 3,
+    target: 'enemy',
+    art: 'card-qiangtiaogaolan',
+    text: '造成 {D} 点伤害。\n若本回合已打出 3 张【攻】牌，改为 30 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'attacksAtLeast', n: 3 },
+        then: [{ kind: 'damage', amount: 30 }],
+        otherwise: [{ kind: 'damage', amount: 15 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若本回合已打出 3 张【攻】牌，改为 36 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'attacksAtLeast', n: 3 },
+          then: [{ kind: 'damage', amount: 36 }],
+          otherwise: [{ kind: 'damage', amount: 18 }],
+        },
       ],
     },
   },

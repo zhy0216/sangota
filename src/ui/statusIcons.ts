@@ -38,7 +38,8 @@ type Glyph =
   | 'rows'
   | 'hammer'
   | 'cart'
-  | 'crescent';
+  | 'crescent'
+  | 'hook';
 
 /** One glyph per status, grouped so a family reads at a glance. */
 const GLYPH: Record<StatusId, Glyph> = {
@@ -61,6 +62,7 @@ const GLYPH: Record<StatusId, Glyph> = {
   armory: 'hammer',
   supply: 'cart',
   warSaint: 'crescent',
+  riposte: 'hook',
   noDraw: 'ban',
   entangled: 'chain',
   curlUp: 'spiral',
@@ -273,6 +275,20 @@ function drawGlyph(ctx: CanvasRenderingContext2D, glyph: Glyph): void {
       ctx.beginPath();
       ctx.arc(10, 16, 2, 0, Math.PI * 2);
       ctx.fill();
+      break;
+    case 'hook':
+      // 回马枪 — the shaft doubles back on itself and returns point-first.
+      ctx.beginPath();
+      ctx.moveTo(14, 3);
+      ctx.lineTo(14, 11);
+      ctx.arc(10, 11, 4, 0, Math.PI);
+      ctx.lineTo(6, 5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(3, 8);
+      ctx.lineTo(6, 4);
+      ctx.lineTo(9, 8);
+      ctx.stroke();
       break;
     case 'blade':
       // A dagger, point down: the only glyph in the set that reads as a weapon,

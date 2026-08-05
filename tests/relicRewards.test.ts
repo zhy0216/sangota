@@ -873,9 +873,12 @@ describe('todos/17 · 武将专属遗物只归其主', () => {
     for (const def of Object.values(RELICS)) {
       if (!def.hero && def.tier !== 'starter') addRelic(r, def.id);
     }
+    // 2026-08 扩充前他的专属恰是亮银甲与青釭剑两件，可以逐字点名；扩到十二
+    // 件后确定的是成员资格本身——开放档的每个货位卖的都只能是他的专属。
     const ids = generateStock(r, new Rng('shelf')).relics.map((o) => o.id);
-    expect(ids).toContain('liangyinjia');
-    expect(ids).toContain('qinggangjian');
+    const open = ids.filter((id) => RELICS[id].tier !== 'shop');
+    expect(open.length).toBeGreaterThanOrEqual(2);
+    for (const id of open) expect(RELICS[id].hero, id).toBe('zhaoyun');
   });
 });
 
