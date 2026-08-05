@@ -107,6 +107,27 @@ export function showDevSceneBrowser(scene: Phaser.Scene, requestedKey: string | 
   const totalHeight = rows * height + (rows - 1) * gapY;
   const top = 150 + Math.max(0, (GAME_HEIGHT - 180 - totalHeight) / 2);
 
+  // Once the grid outgrows the screen the list scrolls; the header stays put.
+  const listTop = 140;
+  const list = scene.add.container(0, 0);
+  const overflow = Math.max(0, top + totalHeight + 30 - GAME_HEIGHT);
+  if (overflow > 0) {
+    const maskShape = scene.make.graphics({}, false);
+    maskShape.fillRect(0, listTop, GAME_WIDTH, GAME_HEIGHT - listTop);
+    list.setMask(maskShape.createGeometryMask());
+    let scrollY = 0;
+    scene.input.on(
+      'wheel',
+      (_pointer: Phaser.Input.Pointer, _over: unknown, _dx: number, dy: number) => {
+        scrollY = Math.min(overflow, Math.max(0, scrollY + dy * 0.5));
+        list.y = -scrollY;
+      },
+    );
+    scene.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 12, '滚轮翻看更多场景', bodyStyle(13, C.paperDim))
+      .setOrigin(0.5, 1);
+  }
+
   entries.forEach((entry, index) => {
     const row = Math.floor(index / columns);
     const col = index % columns;
@@ -148,8 +169,11 @@ export function showDevSceneBrowser(scene: Phaser.Scene, requestedKey: string | 
       scene.tweens.add({ targets: card, scale: 1, duration: 110, ease: 'Quad.easeOut' });
       title.setColor(`#${C.paper.toString(16).padStart(6, '0')}`);
     });
-    hit.on('pointerdown', () => {
+    hit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (launching) return;
+      // A scrolled-away card is masked out but its hit zone still lives
+      // under the header; ignore clicks that land up there.
+      if (overflow > 0 && pointer.y < listTop) return;
       launching = true;
       audio.unlock();
       audio.play('ui-click', { pitchJitter: 0 });
@@ -157,6 +181,7 @@ export function showDevSceneBrowser(scene: Phaser.Scene, requestedKey: string | 
     });
 
     card.add([panel, key, title, description, enter, hit]);
+    list.add(card);
     card.setAlpha(0);
     scene.tweens.add({
       targets: card,

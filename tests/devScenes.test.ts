@@ -7,15 +7,25 @@ import qinglong from '../src/devScenes/scenes/guanyu-qinglong';
 import wusheng from '../src/devScenes/scenes/guanyu-wusheng';
 import yijue from '../src/devScenes/scenes/guanyu-yijue';
 import scene1 from '../src/devScenes/scenes/scene1';
+import zhaoyunJiuzhu from '../src/devScenes/scenes/zhaoyun-jiuzhu';
+import zhaoyunJushou from '../src/devScenes/scenes/zhaoyun-jushou';
+import zhaoyunLegendary from '../src/devScenes/scenes/zhaoyun-legendary';
+import zhaoyunQitan from '../src/devScenes/scenes/zhaoyun-qitan';
+import zhaoyunRelics from '../src/devScenes/scenes/zhaoyun-relics';
 
 describe('dev combat scenes', () => {
-  it('lists the comprehensive scene first, followed by focused Guan Yu scenes', () => {
+  it('lists the comprehensive scene first, followed by focused hero scenes', () => {
     expect(devSceneEntries().map((entry) => entry.key)).toEqual([
       'scene1',
       'guanyu-qinglong',
       'guanyu-wusheng',
       'guanyu-yijue',
       'guanyu-exhaust',
+      'zhaoyun-legendary',
+      'zhaoyun-qitan',
+      'zhaoyun-jushou',
+      'zhaoyun-relics',
+      'zhaoyun-jiuzhu',
     ]);
   });
 
@@ -68,15 +78,20 @@ describe('dev combat scenes', () => {
   });
 
   it.each([
-    ['guanyu-qinglong', qinglong, 2],
-    ['guanyu-wusheng', wusheng, 1],
-    ['guanyu-yijue', yijue, 1],
-    ['guanyu-exhaust', exhaust, 1],
-  ] as const)('prepares focused scene %s', (key, definition, enemyCount) => {
+    ['guanyu-qinglong', qinglong, 'guanyu', 2],
+    ['guanyu-wusheng', wusheng, 'guanyu', 1],
+    ['guanyu-yijue', yijue, 'guanyu', 1],
+    ['guanyu-exhaust', exhaust, 'guanyu', 1],
+    ['zhaoyun-legendary', zhaoyunLegendary, 'zhaoyun', 3],
+    ['zhaoyun-qitan', zhaoyunQitan, 'zhaoyun', 1],
+    ['zhaoyun-jushou', zhaoyunJushou, 'zhaoyun', 2],
+    ['zhaoyun-relics', zhaoyunRelics, 'zhaoyun', 1],
+    ['zhaoyun-jiuzhu', zhaoyunJiuzhu, 'zhaoyun', 1],
+  ] as const)('prepares focused scene %s', (key, definition, hero, enemyCount) => {
     const { run, combat } = prepareDevScene(key, definition);
     const state = restoreCombat(combat, run.mods);
 
-    expect(run.hero.id).toBe('guanyu');
+    expect(run.hero.id).toBe(hero);
     expect(state.enemies).toHaveLength(enemyCount);
     expect(state.hand).toHaveLength(5);
     expect(state.energy).toBeGreaterThanOrEqual(5);
