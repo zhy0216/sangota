@@ -102,6 +102,14 @@ export class RelicBar {
     this.rows = Math.max(1, Math.ceil(this.icons.size / this.perRow));
   }
 
+  /**
+   * Re-anchor the whole bar. The root is the *centre* of the first icon, not a
+   * corner. Tooltips follow, since `showTip` reads `root` live.
+   */
+  moveTo(x: number, y: number): void {
+    this.root.setPosition(x, y);
+  }
+
   /** Punch the icon and ring it in gold — a relic just did something. */
   flash(id: string): void {
     const icon = this.icons.get(id);

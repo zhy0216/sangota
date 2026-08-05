@@ -176,6 +176,17 @@ interface PileCounter {
   value: number;
 }
 
+/**
+ * One 战罢 receipt row, as the shared column layout sees it: `iconW` is the
+ * icon's footprint, `label` is measured live for the block width, and `place`
+ * moves the row onto the common icon-centre / caption-left pair.
+ */
+interface SpoilReceipt {
+  iconW: number;
+  label: Phaser.GameObjects.Text;
+  place(iconX: number, textX: number): void;
+}
+
 export class CombatScene extends Phaser.Scene {
   private run!: RunState;
   private state!: CombatState;
@@ -3640,15 +3651,31 @@ export class CombatScene extends Phaser.Scene {
     // Each receipt owns a full row. The potion is 45px tall and the relic 28px;
     // the old 30px centre gap made the two icons and captions occupy each
     // other's space. Advance a cursor by the actual furniture each row needs.
+    //
+    // Horizontally the rows share one column pair — icons centred in one,
+    // captions flush-left in the other — and the block sits centred on its
+    // widest row. Each row centring itself put the flask, the sigil and the
+    // two captions on four different verticals. Re-run whenever a caption
+    // changes width: the potion's does, after a full-belt swap.
+    const receipts: SpoilReceipt[] = [];
+    const align = (): void => {
+      if (receipts.length === 0) return;
+      const iconW = Math.max(...receipts.map((r) => r.iconW));
+      const textW = Math.max(...receipts.map((r) => r.label.width));
+      const left = (GAME_WIDTH - (iconW + 14 + textW)) / 2;
+      for (const r of receipts) r.place(left + iconW / 2, left + iconW + 14);
+    };
     let receiptY = 184;
     if (drop) {
-      this.buildPotionDrop(layer, drop, receiptY);
+      receipts.push(this.buildPotionDrop(layer, drop, receiptY, align));
       receiptY += 54;
     }
     if (relic) {
-      this.buildRelicDrop(layer, relic, receiptY);
+      const row = this.buildRelicDrop(layer, relic, receiptY);
+      if (row) receipts.push(row);
       receiptY += 40;
     }
+    align();
     const captionY = drop || relic ? receiptY : 184;
     layer.add(
       this.add
@@ -3732,33 +3759,43 @@ export class CombatScene extends Phaser.Scene {
     layer: Phaser.GameObjects.Container,
     relic: VictoryRelic,
     y: number,
-  ): void {
+  ): SpoilReceipt | null {
     if (relic.relicId) {
       this.audio.play('relic-gain');
       const def = getRelic(relic.relicId);
+      // RelicBar's root is the *centre* of its first icon, not a corner.
       const bar = new RelicBar(this, {
-        x: GAME_WIDTH / 2 - 14,
-        y: y - 14,
+        x: GAME_WIDTH / 2,
+        y,
         depth: DEPTH.overlay + 1,
         tooltipDepth: DEPTH.overlay + 2,
         size: 28,
         perRow: 1,
       });
       bar.setRelics([relic.relicId]);
-      layer.add(
-        this.add
-          .text(GAME_WIDTH / 2 + 28, y, `得宝物「${def?.name ?? relic.relicId}」`, bodyStyle(16, C.goldBright))
-          .setOrigin(0, 0.5),
-      );
+      const label = this.add
+        .text(GAME_WIDTH / 2 + 28, y, `得宝物「${def?.name ?? relic.relicId}」`, bodyStyle(16, C.goldBright))
+        .setOrigin(0, 0.5);
+      layer.add(label);
       this.relicBar.setRelics(this.run.relics);
       this.relicBar.flash(relic.relicId);
-      return;
+      return {
+        iconW: 28,
+        label,
+        place: (iconX, textX) => {
+          bar.moveTo(iconX, y);
+          label.setX(textX);
+        },
+      };
     }
+    // A full-sentence notice, not an icon receipt — it centres on its own and
+    // stays out of the shared column block.
     layer.add(
       this.add
         .text(GAME_WIDTH / 2, y, `库中已无可取之物，折作资财 ${relic.gold}`, bodyStyle(16, C.paperDim))
         .setOrigin(0.5),
     );
+    return null;
   }
 
   // ------------------------------------------------------------- 丹药 drops
@@ -3776,7 +3813,8 @@ export class CombatScene extends Phaser.Scene {
     layer: Phaser.GameObjects.Container,
     potionId: string,
     y: number,
-  ): void {
+    onRelabel: () => void,
+  ): SpoilReceipt {
     const def = getPotion(potionId);
     const taken = takePotionDrop(this.run, this.nodeId, potionId);
 
@@ -3786,10 +3824,13 @@ export class CombatScene extends Phaser.Scene {
     layer.add(label);
 
     const belt = new PotionBelt(this, {
-      x: GAME_WIDTH / 2 - 10,
+      x: GAME_WIDTH / 2,
       y,
       depth: DEPTH.overlay + 1,
       tooltipDepth: DEPTH.overlay + 2,
+      // Pinned rather than defaulted: the receipt block's `iconW` below must
+      // stay the width the flask is actually drawn at.
+      size: 34,
       onUse: () => {
         if (this.run.potions.includes(potionId)) return;
         this.askPotionSwap(potionId, () => {
@@ -3805,13 +3846,19 @@ export class CombatScene extends Phaser.Scene {
       label
         .setText(held ? `得【${def.name}】` : '行囊已满 · 点击此瓶取舍')
         .setColor(css(held ? C.gold : C.cinnabarBright));
-      // Centre the flask-plus-caption pair as one unit.
-      const width = 36 + label.width;
-      belt.moveTo(GAME_WIDTH / 2 - width / 2 + 18, y);
-      label.setX(GAME_WIDTH / 2 - width / 2 + 42);
+      // The caption just changed width; the shared block re-centres on it.
+      onRelabel();
     };
     settle();
     if (taken) this.potionBelt.setPotions(this.run.potions);
+    return {
+      iconW: 34,
+      label,
+      place: (iconX, textX) => {
+        belt.moveTo(iconX, y);
+        label.setX(textX);
+      },
+    };
   }
 
   /** Replace one of the bottles already on the belt, or leave the new one. */

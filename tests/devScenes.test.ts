@@ -26,6 +26,7 @@ describe('dev combat scenes', () => {
       'zhaoyun-jushou',
       'zhaoyun-relics',
       'zhaoyun-jiuzhu',
+      'spoils-double-drop',
     ]);
   });
 
