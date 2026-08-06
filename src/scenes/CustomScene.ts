@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { ASCENSION_STEP_DESC, MAX_ASCENSION, ascensionLabel } from '../data/ascension';
-import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../data/heroes';
+import { DEFAULT_HERO, HEROES_IN_ORDER, WIP_NOTE, type HeroDef } from '../data/heroes';
 import { startCustomRun, normaliseSeed, type CustomRunConfig } from '../state/customRun';
 import { markRunStart } from '../state/history';
 import { isUnlocked } from '../state/unlocks';
@@ -126,18 +126,21 @@ export class CustomScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------ 选将
 
-  /** 标题页瓦片的横排版；未解锁的压暗且不可点——自定义局也不发新将。 */
+  /**
+   * 标题页瓦片的横排版；未解锁的压暗且不可点——自定义局也不发新将。制作中的
+   * 同样关在门外：不计分的局也仍是玩家在玩，`hero.wip` 两处一视同仁。
+   */
   private buildTiles(): void {
     for (const [i, hero] of HEROES_IN_ORDER.entries()) {
       const x = TILE.x + i * (TILE.w + TILE.gap);
       const tile = this.add.container(x, TILE.y);
-      const locked = !isUnlocked('hero', hero.id);
+      const locked = hero.wip === true || !isUnlocked('hero', hero.id);
 
       const bg = this.add.graphics();
       const glyph = this.add.text(0, -14, hero.seal, brushStyle(44, C.paperDim)).setOrigin(0.5);
-      const name = this.add
-        .text(0, 30, locked ? '未解锁' : hero.name, bodyStyle(15, C.paperDim))
-        .setOrigin(0.5);
+      // 名字这一格兼作理由牌——横排瓦片下面没有标题页那行小字的位置。
+      const label = hero.wip ? WIP_NOTE : locked ? '未解锁' : hero.name;
+      const name = this.add.text(0, 30, label, bodyStyle(15, C.paperDim)).setOrigin(0.5);
 
       const paint = (picked: boolean): void => {
         bg.clear();

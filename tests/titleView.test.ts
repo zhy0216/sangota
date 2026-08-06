@@ -176,6 +176,10 @@ describe('the seven entries are wired into the title screen', () => {
   it('gates the 选将 tiles on isUnlocked and prints the reason', () => {
     expect(title).toContain("isUnlocked('hero', hero.id)");
     expect(title).toContain('heroLockReason(hero.id)');
+    // 制作中是并排的第二道门,压在同一个 `locked` 上——键盘选将、命中区、
+    // 压暗三样全挂在它身上,分开算就漏。
+    expect(title).toContain("hero.wip === true || !isUnlocked('hero', hero.id)");
+    expect(title).toContain('hero.wip ? WIP_NOTE');
     // 锁着的瓦片没有命中区——交互只发给解锁的那支。
     const tiles = title.slice(title.indexOf('private buildTiles(): void'));
     const build = tiles.slice(0, tiles.indexOf('\n  }'));

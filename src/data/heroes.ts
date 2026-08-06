@@ -6,6 +6,17 @@ export interface HeroDef {
   /** Honorific / epithet shown under the name. */
   title: string;
   faction: Faction;
+  /**
+   * 制作中：牌池还没调完、不该发到玩家手里的武将。两处选将界面（标题页与
+   * 自定义局）都把他压暗且不可点，`applyRunUnlocks` 也跳过他的解锁门——
+   * 结算界面许出去的人，选将界面必须点得开。
+   *
+   * 这道门与 `isUnlocked` 那本账无关：解锁账只在存得下账的浏览器里立着
+   * （见 `unlocks.ts` 的「无存储即全开」），制作中是无条件的。武将本身仍是
+   * 一行完整数据——sim、dev 场景、既有存档照旧能拿他开局，摘掉这一行就是
+   * 上架。
+   */
+  wip?: true;
   maxHp: number;
   startingGold: number;
   /** Texture keys registered in BootScene. */
@@ -109,6 +120,8 @@ export const HEROES: Record<string, HeroDef> = {
     name: '诸葛亮',
     title: '卧龙 · 孔明',
     faction: '蜀',
+    // 锦囊那套还没调完——牌池上架前先关着门，见 `HeroDef.wip`。
+    wip: true,
     // The thinnest bar in the game, and the price of the extra 气. He is the
     // only hero who cannot pay 体力 for anything.
     maxHp: 68,
@@ -133,6 +146,9 @@ export const HEROES: Record<string, HeroDef> = {
     ],
   },
 };
+
+/** 制作中的武将在选将瓦片上印的那行字。两处选将界面共用，见 `HeroDef.wip`。 */
+export const WIP_NOTE = '制作中';
 
 /**
  * Pick order on the 选将 screen, and the order every test that walks the roster

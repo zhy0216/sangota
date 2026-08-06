@@ -228,6 +228,16 @@ describe('scene wiring', () => {
     expect(summarySceneSource).toContain('自定义 · 不计分');
   });
 
+  it('CustomScene shuts the same two 选将 doors the title screen does', () => {
+    // 不计分的局也仍是玩家在玩:未解锁的不发,制作中的不发。
+    expect(customSceneSource).toContain("hero.wip === true || !isUnlocked('hero', hero.id)");
+    expect(customSceneSource).toContain('hero.wip ? WIP_NOTE');
+    // 锁着的瓦片没有命中区——标题页同款,交互只发给能选的那支。
+    const tiles = customSceneSource.slice(customSceneSource.indexOf('private buildTiles(): void'));
+    const build = tiles.slice(0, tiles.indexOf('\n  }'));
+    expect(build.indexOf('if (!locked) {')).toBeLessThan(build.indexOf('setInteractive'));
+  });
+
   it('CustomScene starts the run through startCustomRun and is registered', () => {
     expect(customSceneSource).toContain('startCustomRun(this.picked, config)');
     expect(customSceneSource).toContain("super('Custom')");

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getAudio } from '../audio/sfx';
 import { C, css, FONT_BRUSH, GAME_HEIGHT, GAME_WIDTH, RENDER_SCALE } from '../config';
 import { ASCENSION_STEP_DESC, MAX_ASCENSION, ascensionLabel } from '../data/ascension';
-import { DEFAULT_HERO, HEROES_IN_ORDER, type HeroDef } from '../data/heroes';
+import { DEFAULT_HERO, HEROES_IN_ORDER, WIP_NOTE, type HeroDef } from '../data/heroes';
 import { maxSelectableAscension } from '../state/ascension';
 import { markRunStart } from '../state/history';
 import { startRun } from '../state/run';
@@ -456,7 +456,8 @@ export class TitleScene extends Phaser.Scene {
 
       // 解锁门 (todos/23 u6)：`isUnlocked` 无存储时全放行，浏览器里按账收口。
       // `CustomScene` 的同款——锁着的压暗且不可点，这里再多印一行理由。
-      const locked = !isUnlocked('hero', hero.id);
+      // 制作中 (`hero.wip`) 是并排的另一道门，无条件，无存储时照样立着。
+      const locked = hero.wip === true || !isUnlocked('hero', hero.id);
 
       const bg = this.add.graphics();
       const glyph = this.add
@@ -489,8 +490,9 @@ export class TitleScene extends Phaser.Scene {
       tile.add([bg, glyph, name]);
 
       if (locked) {
-        // 理由 (u6)：`HERO_UNLOCKS` 的门槛译成人话，压在名字底下。
-        const reason = heroLockReason(hero.id) ?? '未解锁';
+        // 理由 (u6)：`HERO_UNLOCKS` 的门槛译成人话，压在名字底下。制作中的
+        // 不印门槛——那扇门他还没走到，先说清是没做完。
+        const reason = hero.wip ? WIP_NOTE : (heroLockReason(hero.id) ?? '未解锁');
         tile.add(this.add.text(0, 45, reason, bodyStyle(10, 0x554d40)).setOrigin(0.5));
       } else {
         const hit = this.add.zone(0, 0, TILE.w, TILE.h).setInteractive({ useHandCursor: true });

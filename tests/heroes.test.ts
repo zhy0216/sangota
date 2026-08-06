@@ -38,6 +38,16 @@ describe('武将名册', () => {
     for (const [key, hero] of Object.entries(HEROES)) expect(hero.id, key).toBe(key);
   });
 
+  it('ships 关羽 and 赵云, holds 诸葛亮 back as 制作中', () => {
+    expect(HEROES.guanyu.wip).toBeUndefined();
+    expect(HEROES.zhaoyun.wip).toBeUndefined();
+    expect(HEROES.zhugeliang.wip).toBe(true);
+    // 默认武将永远选得上——他是标题页开屏就站着的那个。
+    expect(DEFAULT_HERO.wip).toBeUndefined();
+    // 至少留一个能选，否则选将界面无门可开。
+    expect(HEROES_IN_ORDER.some((h) => !h.wip)).toBe(true);
+  });
+
   it('gives every hero the copy the 选将 screen prints', () => {
     for (const hero of HEROES_IN_ORDER) {
       // One traditional glyph — the watermark and the placeholder plate both

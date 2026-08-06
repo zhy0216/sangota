@@ -265,19 +265,38 @@ describe('applyRunUnlocks', () => {
     for (const id of gated) expect(isUnlocked('card', id)).toBe(true);
   });
 
-  it('unlocks 赵云 on the first victory and 诸葛亮 on the second, any hero', () => {
+  it('unlocks 赵云 on the first victory, any hero — and holds 制作中 诸葛亮 back', () => {
     withStorage();
     expect(applyRunUnlocks(record({ victory: true, killedBy: null })).newHeroes).toEqual([
       'zhaoyun',
     ]);
     expect(isUnlocked('hero', 'zhaoyun')).toBe(true);
     expect(isUnlocked('hero', 'zhugeliang')).toBe(false);
-    // 第二次通关换赵云上——「任意武将」。
+    // 第二次通关换赵云上——「任意武将」——但诸葛亮制作中：门跨过了也不发，
+    // 结算界面不许一个选将界面点不开的人。
     const out = applyRunUnlocks(record({ heroId: 'zhaoyun', victory: true, killedBy: null }));
-    expect(out.newHeroes).toEqual(['zhugeliang']);
+    expect(out.newHeroes).toEqual([]);
+    expect(getUnlocks().heroes).toEqual(['zhaoyun']);
     // 第三次没有周瑜可发（他还不在 HEROES 里），不多发也不炸。
     expect(applyRunUnlocks(record({ victory: true, killedBy: null })).newHeroes).toEqual([]);
     expect(getUnlocks().victories).toBe(3);
+  });
+
+  it('发的是那面旗，不是通关数——摘掉 wip，下一次入账当场补发', () => {
+    withStorage();
+    for (let i = 0; i < 2; i++) applyRunUnlocks(record({ victory: true, killedBy: null }));
+    expect(getUnlocks().victories).toBe(2);
+    expect(getUnlocks().heroes).not.toContain('zhugeliang');
+
+    // 上架的那一刻：通关数早就够了，账上还欠着他。
+    delete HEROES.zhugeliang.wip;
+    try {
+      const out = applyRunUnlocks(record({ score: 0 }));
+      expect(out.newHeroes).toEqual(['zhugeliang']);
+      expect(isUnlocked('hero', 'zhugeliang')).toBe(true);
+    } finally {
+      HEROES.zhugeliang.wip = true;
+    }
   });
 
   it('a defeat counts score but never a victory', () => {
