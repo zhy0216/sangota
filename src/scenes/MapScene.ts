@@ -33,12 +33,51 @@ interface NodeView {
   ring: Phaser.GameObjects.Graphics;
   icon: Phaser.GameObjects.Image;
   glow: Phaser.GameObjects.Image;
+  /** State ornament: the available node's 光圈, the current node's 罗盘. */
+  marker: Phaser.GameObjects.Graphics;
   /** Zone carries the hit area — Containers have no origin, so their own
    *  hit-area coordinates are unreliable. */
   hit: Phaser.GameObjects.Zone;
   radius: number;
   pulse?: Phaser.Tweens.Tween;
+  markerTween?: Phaser.Tweens.Tween;
 }
+
+/** The `glow` sprite is 256px square; this is what fits it to a node. */
+const glowScaleFor = (radius: number): number => (radius * 5.2) / 256;
+
+/**
+ * The paper each node state is printed on. These are the whole readability
+ * budget of the map: the backdrop is a dark painting and every room icon is a
+ * dark ink drawing, so this is the one value in the stack that can separate
+ * them. Keep `locked` well clear of the silk behind it — it is what ~90% of
+ * the map is wearing at any moment.
+ */
+const NODE_PAPER = {
+  current: 0xf4ead2,
+  available: C.paper,
+  visited: 0x6f685a,
+  locked: 0x9d9379,
+} as const;
+
+/**
+ * How far each state's paper is pulled toward the room's own accent, so the
+ * plate says what room it is and not only the ring around it. Weakest on
+ * `visited`: a spent room should read as spent before it reads as a shop.
+ */
+const NODE_TINT = {
+  current: 0.16,
+  available: 0.24,
+  visited: 0.1,
+  locked: 0.28,
+} as const;
+
+/** Packed-RGB lerp, `t` measured from `a` toward `b`. */
+const mixRgb = (a: number, b: number, t: number): number => {
+  const chan = (shift: number): number =>
+    Math.round(((a >> shift) & 0xff) + ((((b >> shift) & 0xff) - ((a >> shift) & 0xff)) * t));
+  return (chan(16) << 16) | (chan(8) << 8) | chan(0);
+};
 
 const DEPTH = {
   bg: 0,
@@ -189,10 +228,12 @@ export class MapScene extends Phaser.Scene {
     bg.setScale(scale);
     bg.setPosition((map.width - bg.displayWidth) / 2, (map.height - bg.displayHeight) / 2);
 
-    // The plate is a fairly bright painting; knock it back so the ink discs and
-    // lit rings stay the highest-contrast thing on screen.
+    // The painting is a dark 绢本 to begin with; a heavy scrim on top used to
+    // take it to mud and drag the nodes down with it. Keep it light — the
+    // nodes now carry their own paper plate and no longer need the backdrop
+    // held down to be the brightest thing on screen.
     this.add
-      .rectangle(0, 0, map.width, map.height, C.inkDeep, 0.46)
+      .rectangle(0, 0, map.width, map.height, C.inkDeep, 0.28)
       .setOrigin(0, 0)
       .setDepth(DEPTH.overlay);
 
@@ -216,19 +257,26 @@ export class MapScene extends Phaser.Scene {
 
     const glow = this.add
       .image(0, 0, 'glow')
-      .setScale((radius * 5.2) / 256)
+      .setScale(glowScaleFor(radius))
       .setTint(meta.accent)
       .setAlpha(0)
       .setBlendMode(Phaser.BlendModes.ADD);
 
     const disc = this.add.graphics();
-    this.paintBlob(disc, radius, node.id, C.inkDeep, 0.9);
+    this.paintNodePlate(
+      disc,
+      radius,
+      node.id,
+      mixRgb(NODE_PAPER.locked, meta.accent, NODE_TINT.locked),
+      0.72,
+    );
 
     const icon = this.add.image(0, 0, meta.icon);
     const fit = radius * (isBoss ? 1.95 : 1.72);
     icon.setScale(fit / Math.max(icon.width, icon.height));
 
     const ring = this.add.graphics();
+    const marker = this.add.graphics();
 
     // Hit target: a Zone sized to 2×hitR so its default origin (0.5) puts the
     // circle's centre exactly on the node.
@@ -236,10 +284,10 @@ export class MapScene extends Phaser.Scene {
     const hit = this.add.zone(0, 0, hitR * 2, hitR * 2);
     hit.setInteractive(new Phaser.Geom.Circle(hitR, hitR, hitR), Phaser.Geom.Circle.Contains);
 
-    container.add([glow, disc, icon, ring, hit]);
+    container.add([glow, disc, icon, ring, marker, hit]);
     container.setSize(radius * 2, radius * 2);
 
-    const view: NodeView = { node, container, disc, ring, icon, glow, hit, radius };
+    const view: NodeView = { node, container, disc, ring, icon, glow, marker, hit, radius };
     this.views.set(node.id, view);
 
     hit.on('pointerover', () => this.onNodeOver(view));
@@ -252,15 +300,10 @@ export class MapScene extends Phaser.Scene {
 
   /**
    * Hand-inked blob: a circle whose radius wobbles per vertex, seeded off the
-   * node id so the shape is stable between redraws.
+   * node id so the shape is stable between redraws. Re-seeded per call, so two
+   * radii from the same id come out concentric rather than independently wobbly.
    */
-  private paintBlob(
-    g: Phaser.GameObjects.Graphics,
-    radius: number,
-    seed: string,
-    color: number,
-    alpha: number,
-  ): Phaser.Math.Vector2[] {
+  private blobPoints(radius: number, seed: string): Phaser.Math.Vector2[] {
     const rng = new Rng(`blob:${seed}`);
     const steps = 28;
     const points: Phaser.Math.Vector2[] = [];
@@ -269,10 +312,33 @@ export class MapScene extends Phaser.Scene {
       const rr = radius * (0.94 + rng.next() * 0.13);
       points.push(new Phaser.Math.Vector2(Math.cos(a) * rr, Math.sin(a) * rr));
     }
-    g.clear();
-    g.fillStyle(color, alpha);
-    g.fillPoints(points, true);
     return points;
+  }
+
+  /**
+   * A node's plate: a wash of ink with a torn square of paper pressed into it.
+   *
+   * The paper is the whole point. Every room icon is a **dark** ink drawing,
+   * and they used to sit on a near-black disc over a near-black painting —
+   * three values within a hair of each other, so the only thing separating a
+   * node from the silk behind it was its ring. Ink on paper is the reading the
+   * art was drawn for, and it survives whatever the backdrop is doing.
+   */
+  private paintNodePlate(
+    g: Phaser.GameObjects.Graphics,
+    radius: number,
+    seed: string,
+    paper: number,
+    alpha: number,
+  ): void {
+    g.clear();
+    // 墨晕 first, a shade wider than the paper: a dark rim is what lifts a light
+    // plate off a light patch of the painting (mist, river) — without it the
+    // node dissolves wherever the silk happens to be pale.
+    g.fillStyle(C.inkDeep, Math.min(0.92, alpha + 0.1));
+    g.fillPoints(this.blobPoints(radius * 1.12, seed), true);
+    g.fillStyle(paper, alpha);
+    g.fillPoints(this.blobPoints(radius, seed), true);
   }
 
   private nodeState(view: NodeView): NodeState {
@@ -296,23 +362,52 @@ export class MapScene extends Phaser.Scene {
 
     view.pulse?.stop();
     view.pulse = undefined;
+    view.markerTween?.stop();
+    view.markerTween = undefined;
 
     const ring = view.ring;
     ring.clear();
+    view.marker.clear().setAngle(0).setScale(1).setAlpha(1);
+    // The available pulse leaves the halo mid-swell; a node that stops being
+    // available would otherwise keep whatever size the tween died at.
+    view.glow.setScale(glowScaleFor(r));
+
+    const paper = mixRgb(NODE_PAPER[state], meta.accent, NODE_TINT[state]);
 
     switch (state) {
       case 'available': {
         view.container.setAlpha(1);
-        view.icon.clearTint();
-        this.paintBlob(view.disc, r, view.node.id, C.inkDeep, 0.9);
-        ring.lineStyle(2.5, meta.accent, 0.95);
+        view.icon.clearTint().setAlpha(1);
+        this.paintNodePlate(view.disc, r, view.node.id, paper, 0.95);
+        ring.lineStyle(4.5, meta.accent, 0.95);
         ring.strokeCircle(0, 0, r + 4);
-        ring.lineStyle(1, C.goldBright, 0.5);
-        ring.strokeCircle(0, 0, r + 10);
-        view.glow.setTint(meta.accent);
+
+        // 光圈: the ring that grows and shrinks, and the thing actually doing
+        // the beckoning. The soft halo below can't do it on its own — the
+        // `glow` sprite is a radial gradient whose bright core lands *under*
+        // the opaque plate, leaving only its faintest outer falloff visible.
+        view.marker.lineStyle(2.5, mixRgb(meta.accent, 0xffffff, 0.35), 0.9);
+        view.marker.strokeCircle(0, 0, r + 13);
+        view.markerTween = this.tweens.add({
+          targets: view.marker,
+          scale: { from: 0.93, to: 1.2 },
+          alpha: { from: 0.95, to: 0.28 },
+          duration: 1100,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+
+        // Halo underneath, breathing in step: atmosphere, not the signal.
+        // Tinted with the accent pulled toward white because this is an ADD
+        // blend and half the accents are dark — 奇遇's 玉 is 0x4a7c6f, which
+        // adds almost no light at all as-is.
+        const base = glowScaleFor(r);
+        view.glow.setTint(mixRgb(meta.accent, 0xffffff, 0.45));
         view.pulse = this.tweens.add({
           targets: view.glow,
-          alpha: { from: 0.14, to: 0.42 },
+          alpha: { from: 0.14, to: 0.55 },
+          scale: { from: base * 0.82, to: base * 1.18 },
           duration: 1100,
           yoyo: true,
           repeat: -1,
@@ -322,36 +417,46 @@ export class MapScene extends Phaser.Scene {
       }
       case 'current': {
         view.container.setAlpha(1);
-        view.icon.clearTint();
-        this.paintBlob(view.disc, r, view.node.id, C.blood, 0.75);
-        ring.lineStyle(3, C.goldBright, 1);
+        view.icon.clearTint().setAlpha(1);
+        this.paintNodePlate(view.disc, r, view.node.id, paper, 0.98);
+        // Double rim, and the only node that holds still: available nodes
+        // pulse, so 「我在这儿」 and 「可以去这儿」 read apart by motion before
+        // colour or size have to do any work.
+        ring.lineStyle(5, C.cinnabar, 1);
         ring.strokeCircle(0, 0, r + 4);
-        ring.lineStyle(1.5, C.cinnabarBright, 0.8);
-        ring.strokeCircle(0, 0, r + 11);
-        view.glow.setTint(C.goldBright).setAlpha(0.3);
+        ring.lineStyle(2.5, C.goldBright, 0.9);
+        ring.strokeCircle(0, 0, r + 12);
+        view.glow.setTint(C.goldBright).setAlpha(0.4);
         break;
       }
       case 'visited': {
-        view.container.setAlpha(0.62);
-        view.icon.setTint(0x8a8378);
-        this.paintBlob(view.disc, r, view.node.id, C.inkDeep, 0.85);
-        ring.lineStyle(1.5, C.cinnabar, 0.45);
+        // Spent, so the paper goes grey and the ink with it: a visited room
+        // has to be *recognisable*, not readable — the cinnabar ring and the
+        // travelled trail are what name it now.
+        view.container.setAlpha(1);
+        view.icon.setTint(0x5a5346).setAlpha(0.85);
+        this.paintNodePlate(view.disc, r, view.node.id, paper, 0.8);
+        ring.lineStyle(3, C.cinnabar, 0.55);
         ring.strokeCircle(0, 0, r + 4);
         view.glow.setAlpha(0);
         break;
       }
       case 'locked': {
-        view.container.setAlpha(0.46);
-        view.icon.setTint(0x6e6a60);
-        this.paintBlob(view.disc, r, view.node.id, C.inkDeep, 0.8);
-        ring.lineStyle(1, C.paperFaint, 0.3);
+        // The resting state of nearly the whole map. Dim enough to sit behind
+        // the lit route, bright enough to plan three floors ahead against.
+        view.container.setAlpha(1);
+        view.icon.clearTint().setAlpha(0.92);
+        this.paintNodePlate(view.disc, r, view.node.id, paper, 0.72);
+        // Accent, not a neutral hairline: at this weight the ring colour is
+        // legible three floors ahead, which is half of what route planning is.
+        ring.lineStyle(3, meta.accent, 0.5);
         ring.strokeCircle(0, 0, r + 4);
         view.glow.setAlpha(0);
         break;
       }
     }
 
-    view.container.setScale(state === 'current' ? 1.08 : 1);
+    view.container.setScale(state === 'current' ? 1.16 : 1);
     if (view.hit.input) {
       view.hit.input.cursor = state === 'available' ? 'pointer' : 'default';
     }
