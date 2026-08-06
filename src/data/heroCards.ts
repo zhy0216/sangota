@@ -1630,6 +1630,9 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
       },
     ],
     upgrade: {
+      // 保底 8 → 11（2026-08）。原先升级只动条件分支，于是这张**稀有**在没有
+      // 【天佑】时精进的收益恰好是 0——同池的普通 单刀赴会 保底都从 6 涨到 8。
+      // 条件牌的条件分支是它的上限，不该是它唯一会动的数字。
       text: '造成 {D} 点伤害。\n若你有【天佑】，改为 16 点并获得 5 点护甲。',
       effects: [
         {
@@ -1639,7 +1642,7 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
             { kind: 'damage', amount: 16 },
             { kind: 'block', amount: 5 },
           ],
-          otherwise: [{ kind: 'damage', amount: 8 }],
+          otherwise: [{ kind: 'damage', amount: 11 }],
         },
       ],
     },
@@ -2538,6 +2541,484 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
         { kind: 'heal', amount: 16 },
         { kind: 'status', status: 'buffer', amount: 2, to: 'self' },
         { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
+      ],
+    },
+  },
+
+  // ======================================================================
+  // 2026-08 扩池 23 → 41 draftable
+  //
+  // Appended in one block rather than filed into the rarity sections above,
+  // because `HERO_CARD_POOLS` is built from this table **in declaration
+  // order** and a shelf roll indexes into those arrays: slotting a card into
+  // the middle of 常见 re-deals every reward in every save that already
+  // exists. Append-only is the whole contract.
+  //
+  // What the block is for. 诸葛亮 shipped with 23 draftable cards against
+  // 关羽/赵云's 51, and 7 攻 against their 19/30 — of his 4 稀有 exactly one
+  // could kill anything. That is not a lean pool, it is half a hero: the
+  // balance sim's one standing abort (诸葛亮 vs 张宝, turnLimit) is a deck
+  // that cannot close, not a bad seed.
+  //
+  // Three threads, all of them already his and none of them borrowed:
+  //
+  // 1. **锦囊** — the minting he is built on. More ways to turn 气 into
+  //    cards, since his hand is one short every turn.
+  // 2. **消耗堆** — `exhaustedAtLeast` is a counter only he can turn on
+  //    reliably, and it had two payoffs. Now it has six.
+  // 3. **火攻与瘴疠** — the control axis, and where the two orphaned status
+  //    words go. 力竭 had *no* card in the game applying it (only 天命 used
+  //    it, on the player, in the last fight of a run) and 中毒 hung off one
+  //    無色 uncommon. Both are 诸葛亮's by theme — burning stores and southern
+  //    miasma are how he wins fights he does not fight — so both become a
+  //    small chain here instead of a definition nothing reaches.
+  //
+  // Kept off him deliberately: 连击 (赵云's `attacksAtLeast`) and stacked
+  // 神力 (关羽's). `tests/heroes.test.ts` 「武将机制互不串味」 is the guard.
+
+  // --- common ---------------------------------------------------------
+
+  /** 借箭之计's mirror on the attack side: the workhorse 攻 he did not have. */
+  huoshi: {
+    id: 'huoshi',
+    name: '火矢',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-huoshi',
+    text: '造成 {D} 点伤害。\n将 1 张「锦囊」置入手牌。',
+    effects: [
+      { kind: 'damage', amount: 7 },
+      { kind: 'addCard', defId: 'jinnang', count: 1, to: 'hand' },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n将 1 张「锦囊」置入手牌。',
+      effects: [
+        { kind: 'damage', amount: 10 },
+        { kind: 'addCard', defId: 'jinnang', count: 1, to: 'hand' },
+      ],
+    },
+  },
+
+  /**
+   * 力竭 enters the game here. It cuts the 护甲 a body *gains* by a quarter,
+   * which is aimed at exactly the enemies that turtle — 董卓亲兵's 龟缩, 华雄's
+   * 蓄势, every 守 move in the tables — and does nothing at all against a pure
+   * attacker. A conditional answer, not a stat stick.
+   */
+  duandao: {
+    id: 'duandao',
+    name: '断道',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-duandao',
+    text: '施加 2 层【力竭】。\n获得 {B} 点护甲。',
+    effects: [
+      { kind: 'status', status: 'frail', amount: 2, to: 'target' },
+      { kind: 'block', amount: 5 },
+    ],
+    upgrade: {
+      text: '施加 3 层【力竭】。\n获得 {B} 点护甲。',
+      effects: [
+        { kind: 'status', status: 'frail', amount: 3, to: 'target' },
+        { kind: 'block', amount: 7 },
+      ],
+    },
+  },
+
+  /** 南征. 中毒 stops being a one-card curiosity and becomes a line to draft. */
+  zhangqi: {
+    id: 'zhangqi',
+    name: '瘴气',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-zhangqi',
+    text: '施加 4 层【中毒】。',
+    effects: [{ kind: 'status', status: 'poison', amount: 4, to: 'target' }],
+    upgrade: {
+      text: '施加 6 层【中毒】。',
+      effects: [{ kind: 'status', status: 'poison', amount: 6, to: 'target' }],
+    },
+  },
+
+  /** 消耗堆 payoff at the cheapest rung, so the counter matters from 第一幕. */
+  tuntian: {
+    id: 'tuntian',
+    name: '屯田',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    target: 'self',
+    art: 'card-tuntian',
+    text: '获得 {B} 点护甲。\n若消耗堆不少于 3 张，改为 12 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 3 },
+        then: [{ kind: 'block', amount: 12 }],
+        otherwise: [{ kind: 'block', amount: 6 }],
+      },
+    ],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n若消耗堆不少于 3 张，改为 16 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'exhaustedAtLeast', n: 3 },
+          then: [{ kind: 'block', amount: 16 }],
+          otherwise: [{ kind: 'block', amount: 8 }],
+        },
+      ],
+    },
+  },
+
+  /** 0 气 filler that feeds the 消耗堆 rather than the hand. */
+  caolu: {
+    id: 'caolu',
+    name: '草庐',
+    type: 'skill',
+    rarity: 'common',
+    cost: 0,
+    target: 'self',
+    art: 'card-caolu',
+    text: '抽 1 张牌。\n将 1 张「锦囊」置入手牌。',
+    effects: [
+      { kind: 'draw', amount: 1 },
+      { kind: 'addCard', defId: 'jinnang', count: 1, to: 'hand' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '抽 2 张牌。\n将 1 张「锦囊」置入手牌。',
+      effects: [
+        { kind: 'draw', amount: 2 },
+        { kind: 'addCard', defId: 'jinnang', count: 1, to: 'hand' },
+      ],
+    },
+  },
+
+  /** A plain 攻 with a debuff rider — the common shelf needed a second one. */
+  jimu: {
+    id: 'jimu',
+    name: '疑冢',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-jimu',
+    text: '造成 {D} 点伤害。\n施加 1 层【破绽】。',
+    effects: [
+      { kind: 'damage', amount: 6 },
+      { kind: 'status', status: 'vulnerable', amount: 1, to: 'target' },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n施加 2 层【破绽】。',
+      effects: [
+        { kind: 'damage', amount: 9 },
+        { kind: 'status', status: 'vulnerable', amount: 2, to: 'target' },
+      ],
+    },
+  },
+
+  // --- uncommon -------------------------------------------------------
+
+  /** The 中毒 multiplier. Alone it is weak; behind 瘴气 it is the line's spine. */
+  wuxilu: {
+    id: 'wuxilu',
+    name: '五溪',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'all',
+    art: 'card-wuxilu',
+    text: '对所有敌人施加 3 层【中毒】。',
+    effects: [{ kind: 'status', status: 'poison', amount: 3, to: 'allEnemies' }],
+    upgrade: {
+      text: '对所有敌人施加 5 层【中毒】。',
+      effects: [{ kind: 'status', status: 'poison', amount: 5, to: 'allEnemies' }],
+    },
+  },
+
+  /** 力竭 in the round shape, for the rooms that field three shields. */
+  jueying: {
+    id: 'jueying',
+    name: '绝营',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'all',
+    art: 'card-jueying',
+    text: '对所有敌人施加 2 层【力竭】。',
+    effects: [{ kind: 'status', status: 'frail', amount: 2, to: 'allEnemies' }],
+    upgrade: {
+      text: '对所有敌人施加 3 层【力竭】。',
+      effects: [{ kind: 'status', status: 'frail', amount: 3, to: 'allEnemies' }],
+    },
+  },
+
+  /** 消耗堆 as damage. The 攻 the 消耗 line was missing below 稀有. */
+  fenju: {
+    id: 'fenju',
+    name: '焚聚',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 2,
+    target: 'enemy',
+    art: 'card-fenju',
+    text: '造成 {D} 点伤害。\n若消耗堆不少于 5 张，改为 20 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 5 },
+        then: [{ kind: 'damage', amount: 20 }],
+        otherwise: [{ kind: 'damage', amount: 11 }],
+      },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若消耗堆不少于 5 张，改为 26 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'exhaustedAtLeast', n: 5 },
+          then: [{ kind: 'damage', amount: 26 }],
+          otherwise: [{ kind: 'damage', amount: 14 }],
+        },
+      ],
+    },
+  },
+
+  /** 气 into cards, the trade his 纶巾 exists to make. */
+  tuizhen: {
+    id: 'tuizhen',
+    name: '推演',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-tuizhen',
+    text: '将 2 张「锦囊」置入手牌。\n抽 1 张牌。',
+    effects: [
+      { kind: 'addCard', defId: 'jinnang', count: 2, to: 'hand' },
+      { kind: 'draw', amount: 1 },
+    ],
+    upgrade: {
+      text: '将 3 张「锦囊」置入手牌。\n抽 1 张牌。',
+      effects: [
+        { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
+        { kind: 'draw', amount: 1 },
+      ],
+    },
+  },
+
+  /** A second 破绽 opener, priced for the turn it sets up rather than its own. */
+  qiaoshe: {
+    id: 'qiaoshe',
+    name: '巧舌',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'all',
+    art: 'card-qiaoshe',
+    text: '对所有敌人施加 2 层【破绽】。',
+    effects: [{ kind: 'status', status: 'vulnerable', amount: 2, to: 'allEnemies' }],
+    upgrade: {
+      text: '对所有敌人施加 3 层【破绽】。',
+      effects: [{ kind: 'status', status: 'vulnerable', amount: 3, to: 'allEnemies' }],
+    },
+  },
+
+  /** 硬 攻 with no rider, because a pool of riders cannot close a fight. */
+  liaoyuan: {
+    id: 'liaoyuan',
+    name: '燎原',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 2,
+    target: 'all',
+    art: 'card-liaoyuan',
+    text: '对所有敌人造成 {D} 点伤害。',
+    effects: [{ kind: 'damageAll', amount: 10 }],
+    upgrade: {
+      text: '对所有敌人造成 {D} 点伤害。',
+      effects: [{ kind: 'damageAll', amount: 14 }],
+    },
+  },
+
+  /** Cheap 攻 that pays the 消耗 line without needing it. */
+  jiefeng: {
+    id: 'jiefeng',
+    name: '借风',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'enemy',
+    art: 'card-jiefeng',
+    text: '造成 {D} 点伤害。\n消耗手牌中 1 张牌。',
+    effects: [
+      { kind: 'damage', amount: 11 },
+      { kind: 'exhaustCards', amount: 1 },
+    ],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n消耗手牌中 1 张牌。',
+      effects: [
+        { kind: 'damage', amount: 15 },
+        { kind: 'exhaustCards', amount: 1 },
+      ],
+    },
+  },
+
+  /** 回复 on the hero who cannot trade 体力 for anything. */
+  yangsheng: {
+    id: 'yangsheng',
+    name: '养生',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-yangsheng',
+    text: '获得 {B} 点护甲。\n回复 4 点体力。',
+    effects: [
+      { kind: 'block', amount: 6 },
+      { kind: 'heal', amount: 4 },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '获得 {B} 点护甲。\n回复 7 点体力。',
+      effects: [
+        { kind: 'block', amount: 9 },
+        { kind: 'heal', amount: 7 },
+      ],
+    },
+  },
+
+  /** 势 that turns the 锦囊 stream into a defensive engine. */
+  jingtianfa: {
+    id: 'jingtianfa',
+    name: '井田法',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    art: 'card-jingtianfa',
+    text: '每消耗一张非【势】牌，获得等量护甲。',
+    effects: [{ kind: 'status', status: 'armory', amount: 2, to: 'self' }],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '每消耗一张非【势】牌，获得等量护甲。',
+      effects: [{ kind: 'status', status: 'armory', amount: 3, to: 'self' }],
+    },
+  },
+
+  // --- rare -----------------------------------------------------------
+
+  /**
+   * 稀有 攻 #2. 诸葛亮 had exactly one 稀有 that could kill anything, which is
+   * why a deck of his could reach 张宝 and then fail to finish him.
+   */
+  huoshaoxinye: {
+    id: 'huoshaoxinye',
+    name: '火烧新野',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'all',
+    art: 'card-huoshaoxinye',
+    text: '对所有敌人造成 {D} 点伤害。\n再对所有敌人施加 3 层【中毒】。',
+    effects: [
+      { kind: 'damageAll', amount: 14 },
+      { kind: 'status', status: 'poison', amount: 3, to: 'allEnemies' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '对所有敌人造成 {D} 点伤害。\n再对所有敌人施加 5 层【中毒】。',
+      effects: [
+        { kind: 'damageAll', amount: 18 },
+        { kind: 'status', status: 'poison', amount: 5, to: 'allEnemies' },
+      ],
+    },
+  },
+
+  /** 稀有 攻 #3 — the single-target finisher the pool had none of. */
+  shangfanggu: {
+    id: 'shangfanggu',
+    name: '上方谷',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 3,
+    target: 'enemy',
+    art: 'card-shangfanggu',
+    text: '造成 {D} 点伤害。\n若消耗堆不少于 8 张，改为 42 点。',
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 8 },
+        then: [{ kind: 'damage', amount: 42 }],
+        otherwise: [{ kind: 'damage', amount: 24 }],
+      },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '造成 {D} 点伤害。\n若消耗堆不少于 8 张，改为 52 点。',
+      effects: [
+        {
+          kind: 'conditional',
+          when: { c: 'exhaustedAtLeast', n: 8 },
+          then: [{ kind: 'damage', amount: 52 }],
+          otherwise: [{ kind: 'damage', amount: 30 }],
+        },
+      ],
+    },
+  },
+
+  /** 稀有 攻 #4, and the 力竭 line's ceiling. */
+  bawangzhen: {
+    id: 'bawangzhen',
+    name: '八望阵',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    target: 'all',
+    art: 'card-bawangzhen',
+    text: '对所有敌人造成 {D} 点伤害。\n再对所有敌人施加 2 层【力竭】与 2 层【怯战】。',
+    effects: [
+      { kind: 'damageAll', amount: 12 },
+      { kind: 'status', status: 'frail', amount: 2, to: 'allEnemies' },
+      { kind: 'status', status: 'weak', amount: 2, to: 'allEnemies' },
+    ],
+    upgrade: {
+      text: '对所有敌人造成 {D} 点伤害。\n再对所有敌人施加 3 层【力竭】与 3 层【怯战】。',
+      effects: [
+        { kind: 'damageAll', amount: 16 },
+        { kind: 'status', status: 'frail', amount: 3, to: 'allEnemies' },
+        { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+      ],
+    },
+  },
+
+  /** 势 that makes the 中毒 line a build rather than a pair of cards. */
+  liufulong: {
+    id: 'liufulong',
+    name: '六出祁山',
+    type: 'power',
+    rarity: 'rare',
+    cost: 2,
+    target: 'self',
+    art: 'card-liufulong',
+    text: '将 4 张「锦囊」置入手牌。\n获得 2 点【神力】。',
+    effects: [
+      { kind: 'addCard', defId: 'jinnang', count: 4, to: 'hand' },
+      { kind: 'status', status: 'strength', amount: 2, to: 'self' },
+    ],
+    keywords: ['exhaust'],
+    upgrade: {
+      text: '将 5 张「锦囊」置入手牌。\n获得 3 点【神力】。',
+      effects: [
+        { kind: 'addCard', defId: 'jinnang', count: 5, to: 'hand' },
+        { kind: 'status', status: 'strength', amount: 3, to: 'self' },
       ],
     },
   },

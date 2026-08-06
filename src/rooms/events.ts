@@ -305,9 +305,17 @@ export function applyOutcome(run: RunState, outcome: EventOutcome, rng: Rng): Ou
 
   // -- 体力. Losses are summed and applied once so that a flat wound and a
   // percentage wound in the same outcome both bite the pre-wound total.
+  //
+  // `hpLossPercent` bites 体力**上限**, not the current bar. Reading the bar
+  // made the price collapse exactly when the player could most afford to pay
+  // it: 首领战后回满（`healAfterBossVictory`）means a run arrives at each act's
+  // tail with a full bar and a wounded one is a *choice*, so 玉玺沉江 and
+  // 汉中栈道 could both be walked into at 12 体力 for a 3-体力 toll and a 稀有
+  // 宝物. Off the ceiling it is a fixed, honest price that 体力上限 relics
+  // scale but tactics cannot dodge.
   let damage = 0;
   if (o.hp && o.hp < 0) damage += -o.hp;
-  if (o.hpLossPercent) damage += Math.ceil(run.hp * o.hpLossPercent);
+  if (o.hpLossPercent) damage += Math.ceil(run.maxHp * o.hpLossPercent);
   if (o.hp && o.hp > 0) heal(run, o.hp);
   if (damage > 0) {
     report.lethal = run.hp - damage <= 0;

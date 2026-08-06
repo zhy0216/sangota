@@ -14,6 +14,7 @@ import {
   upgradeCard,
   type DeckCard,
 } from '../src/state/run';
+import { DRAFT_POLICIES, type DraftPolicy, type DraftPolicyName } from './draft';
 import { POLICIES, type Policy, type PolicyName } from './policy';
 import { simulateCombat, type SimResult } from './runCombat';
 
@@ -401,19 +402,26 @@ function buildKit(
   p: ActProfile,
   hero: HeroDef = DEFAULT_HERO,
   ascension = 0,
+  draft: DraftPolicy = DRAFT_POLICIES.uniform,
 ): Kit {
   const run = startRun(hero, seed, ascension);
   const rng = new Rng(`${seed}:kit`);
   for (let i = 0; i < p.rewards; i++) {
     // Every fourth reward is an 精英's, which is roughly the real ratio.
     const picks = rollCardReward({ tier: i % 4 === 3 ? 'elite' : 'monster', run, rng });
-    if (picks.length > 0) addCard(run, rng.pick(picks));
+    // `uniform` is the shipped default and pulls the stream exactly as before;
+    // a policy that refuses returns null and the reward is simply not taken —
+    // which is the point, 弃权 is the drafting decision this file never had.
+    if (picks.length > 0) {
+      const chosen = draft.pick(run, picks, rng);
+      if (chosen !== null) addCard(run, chosen);
+    }
   }
   for (let i = 0; i < p.colorless; i++) addCard(run, COLORLESS_POOL[i % COLORLESS_POOL.length]);
   for (let i = 0; i < p.forge; i++) {
     const open = upgradableCards(run);
     if (open.length === 0) break;
-    upgradeCard(run, rng.pick(open).uid);
+    upgradeCard(run, draft.forge(run, open, rng).uid);
   }
   const relics = [hero.starterRelic];
   for (let i = 0; i < p.relics; i++) {
@@ -581,8 +589,9 @@ test(`per-hero balance: ${HERO_N} fights per row, every 武将`, () => {
   console.log(`\n### 三将逐场 — ${HERO_N} fights per row, greedy, act-appropriate kit\n`);
   console.log(
     '每格是该 tier 的 band 指标（首领看胜率，精英看体力消耗）。⚠ = 落在带外。\n' +
-      '关羽 48 张、赵云 2026-08 扩到 48 张（枪胆防反批）；诸葛亮池仍是 20 张，\n' +
-      '在补齐之前不对他那列调参 —— 池子一变，调出来的数就作废。\n',
+      '关羽 48 张、赵云 2026-08 扩到 48 张（枪胆防反批）；诸葛亮 2026-08-06 由 20 张\n' +
+      '扩到 39 张可抽（rare 4→8、攻 7→15），「补齐之前不对他那列调参」的封条到此\n' +
+      '解除——他现在有收尾牌了，长期存在的 诸葛亮/boss 张宝 turnLimit 中止随之消失。\n',
   );
   console.log(out.join('\n') + '\n');
 
@@ -813,8 +822,23 @@ const RUN_N = 500;
  * 营帐上调后落在 24%；2026-08-05 首领战后回满（`healAfterBossVictory`，
  * 同批废掉 30% 门回血）量得 27%，带随之重钉在它两侧。两端都保留，防止
  * 为了追一个整数百分点把单张牌或单件宝物反向过拟合。
+ *
+ * **2026-08-06 内容轮 + 定向抬难度后重钉为 15-25%（实测 20%）。**
+ * 零重 threat 由 57% 回到 53%、greedy 由 49% 到 45%——57% 本身是回满那一批
+ * 带上来的漂移，53% 落回 52-55% 那条手调过的目标带。这一轮动的：
+ *
+ * - 二三幕精英与终章精英各 +13~17% 期望伤（李傕 14.2→16.3、郭汜 12.2→14.3、
+ *   许褚 13.2→15.8、庞德 15.2→17.3、司马懿 14.4→16.3）；
+ * - 董卓「焚都」、张辽「逍遥津」两张新的二阶段换招表，且都是**升压**——
+ *   董卓 14.1→17.5、张辽 17.0→19.25；
+ * - 一幕开局 m3 ↔ m8 换档（这条是**降**方差、抬下限，不是抬难度）。
+ *
+ * 增量刻意避开 b8：0-15 重的「最常阵亡处」本来就恒是它，往那堵墙上再加高
+ * 只会让整局难度更集中于一点。抬的是二三幕——gauntlet 那几行原本 73-82%，
+ * 是整程最松的一段。高天命掉得比零重多（27→20、7→4）是倍率叠乘的必然，
+ * 不是另外加的料。
  */
-const A10_BAND = { lo: 0.22, hi: 0.32 };
+const A10_BAND = { lo: 0.15, hi: 0.25 };
 /**
  * gauntlet 的两瓶再带一瓶续命汤。它是每场重置的「真人资源补偿」，不是
  * 按跑团库存逐瓶消耗的腰带；因此十一重的两槽不在这里机械砍成两瓶——那会
@@ -849,11 +873,14 @@ function walkRun(
   ascension: number,
   policy: PolicyName,
   seed: string,
-): { cleared: boolean; hpLeft: number; diedAt: string | null } {
+  draft: DraftPolicy = DRAFT_POLICIES.uniform,
+): { cleared: boolean; hpLeft: number; diedAt: string | null; deckSize: number } {
   const mods = modsFor(ascension);
   // 十四重再次压上限；与 `startRun` 同样先乘后四舍五入。
   const maxHp = Math.round(DEFAULT_HERO.maxHp * mods.maxHpMult);
   let hp = maxHp;
+  // 终章那套装备的牌数——「宁缺毋滥」到底裁掉了多少，是这条维度的自证。
+  let lastDeckSize = 0;
 
   for (const act of [1, 2, 3, 4] as const satisfies readonly ActIndex[]) {
     if (act > 1) {
@@ -892,7 +919,8 @@ function walkRun(
       if (mods.extraElites > 0 && rng.int(2) === 0) path[7] = pick(t.elite);
     }
 
-    const kit = buildKit(`${seed}:${act}`, ACT_PROFILES[act - 1], DEFAULT_HERO, ascension);
+    const kit = buildKit(`${seed}:${act}`, ACT_PROFILES[act - 1], DEFAULT_HERO, ascension, draft);
+    lastDeckSize = kit.deck.length;
     // 与 gauntlet 的 cull 同款：先裁烂牌，永不低于 MIN_DECK_SIZE。
     for (let i = 0; i < 5; i++) {
       if (kit.deck.length <= MIN_DECK_SIZE) break;
@@ -917,7 +945,9 @@ function walkRun(
         policy: runBelt(policy),
         ascension,
       });
-      if (!r.won) return { cleared: false, hpLeft: 0, diedAt: `${act}幕 ${step}` };
+      if (!r.won) {
+        return { cleared: false, hpLeft: 0, diedAt: `${act}幕 ${step}`, deckSize: lastDeckSize };
+      }
       hp = r.hpLeft;
       // 首领战后回满（healAfterBossVictory）——含二十重第三幕两战之间。
       // 终章首领除外：不是规则不同，是「median hp at run end」量的是走出
@@ -925,7 +955,7 @@ function walkRun(
       if (act < 4 && t.boss.some((b) => b.id === step)) hp = maxHp;
     }
   }
-  return { cleared: true, hpLeft: hp, diedAt: null };
+  return { cleared: true, hpLeft: hp, diedAt: null, deckSize: lastDeckSize };
 }
 
 test(`天命连场: ${RUN_N} full runs per level per policy`, () => {
@@ -936,7 +966,9 @@ test(`天命连场: ${RUN_N} full runs per level per policy`, () => {
   let a10Threat = -1;
   let a20Threat = -1;
   for (const level of ASCENSION_LEVELS) {
-    for (const policy of ['greedy', 'threat'] as PolicyName[]) {
+    // adaptive 是 2026-08-06 加的诊断行（见 `sim/policy.ts` 上的注释）：种子里
+    // 含策略名，所以 greedy/threat 两行逐字不动，下面的验收断言也只认 threat。
+    for (const policy of ['greedy', 'threat', 'adaptive'] as PolicyName[]) {
       const survivors: number[] = [];
       const deaths: Record<string, number> = {};
       for (let i = 0; i < RUN_N; i++) {
@@ -969,4 +1001,86 @@ test(`天命连场: ${RUN_N} full runs per level per policy`, () => {
   expect(a10Threat).toBeLessThanOrEqual(A10_BAND.hi);
   expect(a20Threat).toBeGreaterThan(0);
   expect(a20Threat).toBeLessThan(a10Threat);
+});
+
+/**
+ * 会打牌 vs 会选牌 — the two halves of this game's skill, crossed.
+ *
+ * Why this table exists. Everything above measures a run whose deck was
+ * *scripted*: `buildKit` took a uniform pick from every reward, so a run's
+ * outcome was decided by the kit the seed happened to roll, and the 出牌 policy
+ * could only play it out. Measured 2026-08-06, that made the policy column
+ * nearly inert — greedy / threat / adaptive came in at 22 / 20 / 23% on 十重,
+ * differences of z < 1.2 against a ±2.6pp standard error, i.e. noise. It is
+ * hard to read that as 「play does not matter」 when the sim was never allowed
+ * to vary the thing that decides a deckbuilder.
+ *
+ * So the draft is a policy now (`sim/draft.ts`) and this crosses the two.
+ * `uniform` is the shipped behaviour — take one of the three at random, always
+ * take *something*. `curated` changes exactly one habit: it takes the best of
+ * the three and **refuses the reward** when the best of them is below what the
+ * deck already averages. No synergy, no archetype, no lookahead.
+ *
+ * Read the two margins, not the cells:
+ *
+ * - **选牌边际** = curated − uniform at a fixed 出牌 policy.
+ * - **出牌边际** = threat − greedy at a fixed draft policy.
+ *
+ * Whichever is larger is where this game's skill actually lives, and it is
+ * also where a difficulty knob will be felt. `RUN_N` is 500, so the standard
+ * error on a difference near 50% is ~3.2pp and near 20% is ~2.6pp — a margin
+ * under ~5pp is not a finding, it is the dice.
+ */
+const DRAFT_LEVELS = [0, 5, 10];
+const DRAFT_NAMES: DraftPolicyName[] = ['uniform', 'curated'];
+
+test(`选牌维度: 出牌 × 选牌 crossed, ${RUN_N} runs per cell`, () => {
+  const out = [
+    '| 天命 | 出牌 | 选牌 | 通关率 | 终章牌数 | 最常阵亡处 |',
+    '|---|---|---|---|---|---|',
+  ];
+  const cell: Record<string, number> = {};
+  for (const level of DRAFT_LEVELS) {
+    for (const policy of ['greedy', 'threat'] as PolicyName[]) {
+      for (const name of DRAFT_NAMES) {
+        let cleared = 0;
+        let deckTotal = 0;
+        const deaths: Record<string, number> = {};
+        for (let i = 0; i < RUN_N; i++) {
+          // 种子含选牌策略名，所以既有的 天命连场 两行一个数都不动。
+          const r = walkRun(level, policy, `draft-run-${level}-${policy}-${name}-${i}`, DRAFT_POLICIES[name]);
+          deckTotal += r.deckSize;
+          if (r.cleared) cleared += 1;
+          else deaths[r.diedAt!] = (deaths[r.diedAt!] ?? 0) + 1;
+        }
+        const rate = cleared / RUN_N;
+        cell[`${level}:${policy}:${name}`] = rate;
+        const worst = Object.entries(deaths).sort((a, b) => b[1] - a[1])[0];
+        out.push(
+          `| ${level} | ${policy} | ${name} | ${pct(rate)} | ` +
+            `${(deckTotal / RUN_N).toFixed(1)} | ${worst ? `${worst[0]} ×${worst[1]}` : '—'} |`,
+        );
+      }
+    }
+  }
+  console.log('\n### 选牌维度 — 会打牌 × 会选牌，四幕连走\n');
+  console.log(out.join('\n') + '\n');
+
+  const margins = ['| 天命 | 选牌边际 (curated−uniform) | 出牌边际 (threat−greedy) |', '|---|---|---|'];
+  for (const level of DRAFT_LEVELS) {
+    const draftEdge =
+      (cell[`${level}:greedy:curated`] - cell[`${level}:greedy:uniform`] +
+        (cell[`${level}:threat:curated`] - cell[`${level}:threat:uniform`])) / 2;
+    const playEdge =
+      (cell[`${level}:threat:uniform`] - cell[`${level}:greedy:uniform`] +
+        (cell[`${level}:threat:curated`] - cell[`${level}:greedy:curated`])) / 2;
+    margins.push(`| ${level} | ${(draftEdge * 100).toFixed(1)}pp | ${(playEdge * 100).toFixed(1)}pp |`);
+  }
+  console.log(margins.join('\n') + '\n');
+  console.log('两条边际都是另一维取平均后的差值；±5pp 以内不算发现（n=500）。\n');
+
+  // 断言只守一条，而且是结构性的：两个维度都必须**能被量到**。一个恒为零的
+  // 维度说明这条测量本身坏了（策略没接上、种子没分开），那比数值漂移更该炸。
+  const spread = Object.values(cell);
+  expect(Math.max(...spread) - Math.min(...spread)).toBeGreaterThan(0.05);
 });

@@ -523,16 +523,26 @@ const ZHAOYUN = {
   legendary: ['qiruchangban', 'longyinzhenjun', 'zhaoyepozhen'],
 };
 
+// 2026-08 扩池 23 → 42 draftable. The new ids are appended within each rarity
+// rather than filed alphabetically, because that is the order they are declared
+// in — and declaration order is what `HERO_CARD_POOLS` deals off, so this list
+// is a mirror of the table, not a set.
 const ZHUGELIANG = {
   common: [
     'jiejianzhiji', 'jiedongfeng', 'huoji',
     'youdi', 'shengdongjixi', 'miaosuan', 'fubing', 'jijiangfa',
+    'huoshi', 'duandao', 'zhangqi', 'tuntian', 'caolu', 'jimu',
   ],
   uncommon: [
     'kongchengji', 'qixingdeng', 'muniuliuma',
     'guanxing', 'huoshaobowang', 'jianbingzengzao', 'shenjimiaosuan', 'anjupingwulu',
+    'wuxilu', 'jueying', 'fenju', 'tuizhen', 'qiaoshe', 'liaoyuan', 'jiefeng',
+    'yangsheng', 'jingtianfa',
   ],
-  rare: ['wolongchushan', 'chushibiao', 'qiqinqizong', 'huoshaotengjia'],
+  rare: [
+    'wolongchushan', 'chushibiao', 'qiqinqizong', 'huoshaotengjia',
+    'huoshaoxinye', 'shangfanggu', 'bawangzhen', 'liufulong',
+  ],
   legendary: ['qimenbazhen', 'dongfengjitian', 'qixingxuming'],
 };
 
@@ -651,9 +661,11 @@ describe('专属卡的表面', () => {
 
   it('gives 赵云 and 诸葛亮 a full pool plus their starters', () => {
     // 赵云: 3 起手 + 51 draftable（2026-08 扩池后与关羽持平）。
-    // 诸葛亮: 3 起手 + 23 draftable，另有一张战斗内生成的锦囊。
+    // 诸葛亮: 3 起手 + 42 draftable，另有一张战斗内生成的锦囊。他仍比另两人
+    // 少 9 张，那是刻意的——但 23 张、4 张稀有、7 张攻不是「精简」，是半个
+    // 武将，balance sim 那条 张宝 turnLimit 中止就是收不了尾的牌组。
     expect(heroCards('zhaoyun')).toHaveLength(54);
-    expect(heroCards('zhugeliang')).toHaveLength(27);
+    expect(heroCards('zhugeliang')).toHaveLength(46);
     expect(
       ZHAOYUN.common.length + ZHAOYUN.uncommon.length + ZHAOYUN.rare.length + ZHAOYUN.legendary.length,
     ).toBeGreaterThanOrEqual(20);
@@ -710,9 +722,11 @@ describe('武将机制互不串味', () => {
     const readers = Object.keys(CARDS).filter((id) =>
       JSON.stringify(CARDS[id].effects).includes('exhaustedAtLeast'),
     );
+    // 2026-08 扩池后 消耗堆 从 2 个 payoff 长到 6 个——这条线本来只有 火计 和
+    // 出师表 读得到它，一个只有两张牌兑现的计数器不成其为流派。
     expect(readers.sort()).toEqual([
-      'baizhanhuifeng', 'chushibiao', 'fubing', 'huoji', 'huoshaobowang',
-      'huoshaotengjia', 'muniuliuma',
+      'baizhanhuifeng', 'chushibiao', 'fenju', 'fubing', 'huoji', 'huoshaobowang',
+      'huoshaotengjia', 'muniuliuma', 'shangfanggu', 'tuntian',
     ]);
     expect(CARDS.baizhanhuifeng.hero).toBe('guanyu');
     for (const id of readers.filter((id) => id !== 'baizhanhuifeng')) {

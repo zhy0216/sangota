@@ -539,11 +539,11 @@ export const ENEMIES: Record<string, EnemyDef> = {
     height: 302,
     thresholds: [{ percent: 50, gain: { strength: 2 }, shout: '「大军在此，谁敢当锋！」' }],
     moves: [
-      { id: 'drive', label: '长驱', damage: 19, weight: 3, maxRepeat: 2 },
+      { id: 'drive', label: '长驱', damage: 22, weight: 3, maxRepeat: 2 },
       {
         id: 'pillage',
         label: '纵兵',
-        damage: 7,
+        damage: 8,
         hits: 2,
         addCards: { defId: 'chuangshang', count: 1, to: 'discard' },
         weight: 2,
@@ -572,11 +572,11 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: [100, 110],
     height: 298,
     moves: [
-      { id: 'raid', label: '掠阵', damage: 7, hits: 3, weight: 3, maxRepeat: 2 },
+      { id: 'raid', label: '掠阵', damage: 8, hits: 3, weight: 3, maxRepeat: 2 },
       {
         id: 'poison',
         label: '毒计',
-        loseHp: 5,
+        loseHp: 7,
         addCards: { defId: 'nining', count: 1, to: 'draw' },
         weight: 2,
         maxRepeat: 1,
@@ -699,6 +699,44 @@ export const ENEMIES: Record<string, EnemyDef> = {
         maxRepeat: 1,
       },
     ],
+    // 2026-08 补二阶段. 八个首领里四个有换招表（张梁/李儒/夏侯渊/天命），四个
+    // 没有——没有的那四个是六拍加权掷骰，背熟即无变数。吕布与张宝的数值由
+    // 黄金快照持有（`tests/balance.test.ts` 的 FROZEN），动不得；董卓与张辽在
+    // TUNABLE 表里，这两个先补上。
+    //
+    // 「焚都」不是把数字调大，是换一道题：默认表是加权掷骰，这张表是**定序
+    // 脚本**，四拍循环——焚洛塞创伤、暴虐一记重击、劫掠上破绽、迁都回墙。
+    // 玩家从「猜下一手」切到「数拍子」，压力来自于知道重击一定会来。
+    thresholds: [{ percent: 50, phase: 'fendu', shout: '「悉烧宫庙官府居家！」' }],
+    phases: {
+      fendu: {
+        moves: [
+          // 开场拍恒为纯 debuff，与另外四位换招首领同一约定：阈值是在打出那
+          // 一击的**内部**触发的，二阶段在玩家的下一张牌之前就已生效，所以第
+          // 一拍若是重击，等于凭空白挨一记没有读牌窗口的伤害。
+          {
+            id: 'feidi',
+            label: '废立',
+            status: { status: 'weak', amount: 2, to: 'player' },
+          },
+          {
+            id: 'fenluo',
+            label: '焚洛',
+            damage: 18,
+            addCards: { defId: 'chuangshang', count: 1, to: 'draw' },
+          },
+          { id: 'baonue', label: '暴虐', damage: 30 },
+          {
+            id: 'jielue',
+            label: '劫掠',
+            damage: 11,
+            hits: 2,
+            status: { status: 'vulnerable', amount: 2, to: 'player' },
+          },
+        ],
+        script: { order: ['feidi', 'fenluo', 'baonue', 'jielue'], loopFrom: 0 },
+      },
+    },
   },
 
   // ------------------------------------------------------- 三 · 征汉中（新增）
@@ -867,12 +905,16 @@ export const ENEMIES: Record<string, EnemyDef> = {
     height: 308,
     passives: { angry: 1 },
     thresholds: [{ percent: 50, gain: { strength: 1 }, shout: '「痴儿在此！」' }],
+    // 2026-08 上调 14→17 / 6×2→7×2（期望 13.2 → 15.8）。三幕的精英曾比同幕
+    // 的普通房还软：许褚 13.2、庞德 15.2，而 m27 青州蜂聚 25.8、m20 军师督阵
+    // 23.5。多敌房的伤害随尸体倒下而衰减、单体精英不会，所以两者不该按同一
+    // 把尺子对齐——但差到普通房的一半，「精英」就只剩体力这一个含义了。
     moves: [
-      { id: 'tiger', label: '虎痴', damage: 14, weight: 3, maxRepeat: 2 },
+      { id: 'tiger', label: '虎痴', damage: 17, weight: 3, maxRepeat: 2 },
       {
         id: 'bare',
         label: '裸衣',
-        damage: 6,
+        damage: 7,
         hits: 2,
         status: { status: 'strength', amount: 2, to: 'self' },
         weight: 2,
@@ -892,12 +934,13 @@ export const ENEMIES: Record<string, EnemyDef> = {
     art: 'enemy-pangde',
     hp: [130, 140],
     height: 302,
+    // 2026-08 上调 21→24 / 7×2→8×2（期望 15.2 → 17.3）。同 许褚 的理由。
     moves: [
-      { id: 'coffin', label: '抬榇', damage: 21, weight: 3, maxRepeat: 2 },
+      { id: 'coffin', label: '抬榇', damage: 24, weight: 3, maxRepeat: 2 },
       {
         id: 'arrow',
         label: '射戟',
-        damage: 7,
+        damage: 8,
         hits: 2,
         status: { status: 'weak', amount: 2, to: 'player' },
         weight: 2,
@@ -1016,6 +1059,32 @@ export const ENEMIES: Record<string, EnemyDef> = {
         maxRepeat: 1,
       },
     ],
+    // 2026-08 补二阶段，同 董卓 的理由。「逍遥津」是三拍——比董卓的四拍短一
+    // 拍，所以那记 28 点的突围来得更密：张辽的默认表已经是全游戏首领里最痛的
+    // 一张（期望 17.0），二阶段不再加伤，只把它压成一个数得出来的节奏。
+    thresholds: [{ percent: 50, phase: 'xiaoyaojin', shout: '「张辽在此！」' }],
+    phases: {
+      xiaoyaojin: {
+        moves: [
+          // 同 董卓「废立」，开场拍是读牌窗口而非伤害。
+          {
+            id: 'jiaozhan',
+            label: '邀战',
+            status: { status: 'weak', amount: 2, to: 'player' },
+          },
+          { id: 'tuwei', label: '突围', damage: 32 },
+          { id: 'duanqiao', label: '断桥', damage: 11, hits: 3 },
+          {
+            id: 'zhenwei',
+            label: '震威',
+            damage: 12,
+            block: 12,
+            status: { status: 'strength', amount: 3, to: 'self' },
+          },
+        ],
+        script: { order: ['jiaozhan', 'tuwei', 'duanqiao', 'zhenwei'], loopFrom: 0 },
+      },
+    },
   },
 
   // -------------------------------------------------------- 终 · 五丈原（新增）
@@ -1034,7 +1103,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     height: 308,
     thresholds: [{ percent: 50, gain: { strength: 4 }, shout: '「天下英雄，唯忍者存。」' }],
     moves: [
-      { id: 'hawk', label: '鹰视', damage: 23, weight: 3, maxRepeat: 2 },
+      { id: 'hawk', label: '鹰视', damage: 26, weight: 3, maxRepeat: 2 },
       {
         id: 'endure',
         label: '隐忍',
@@ -1046,7 +1115,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
       {
         id: 'bite',
         label: '反噬',
-        damage: 8,
+        damage: 9,
         hits: 2,
         addCards: { defId: 'nining', count: 1, to: 'draw' },
         weight: 2,
@@ -1164,25 +1233,52 @@ export interface EncounterTable {
  * whole balance table (`sim/balance.sim.ts`) is calibrated against him as a
  * 第一幕 首领.
  */
+/**
+ * 2026-08: m3 ↔ m8 对调档位。
+ *
+ * `weakCount: 3` 是硬承诺——每局第一幕的头三间房必从 `weak` 里掷，那三掷是
+ * 新玩家对这个游戏难度的全部第一印象。而 weak 三行的每回合期望伤害曾是
+ * 6.2 / 9.0 / **15.2**：山道劫掠（双山贼，峰伤 20）比六间 strong 里的四间还
+ * 狠，82 体力的开局第一掷就是「掉两成血还是掉半成」的硬币。
+ *
+ * 换进来的 m8 祭酒督阵是 strong 里最温和的一行（期望 10.3、峰 17、体力 65），
+ * 开局带宽从 6.2–15.2 收到 6.2–10.3；m3 落进 strong（带宽 10.3–20.0）正好在
+ * 档内，而它那间三敌房还顺手把「先杀谁」这道题提前到第一幕。
+ *
+ * 两张表的 `normals` 并集一行没动，所以 `tests/acts.test.ts` 里的体力总和
+ * 594 与峰伤总和 155 逐字不变——挪的是档位，不是数值。
+ */
 export const ACT1: EncounterTable = {
   weakCount: 3,
   weak: [
     { id: 'm1', name: '黄巾散兵', enemies: ['yellowturban'], goldReward: [10, 18] },
-    { id: 'm3', name: '山道劫掠', enemies: ['bandit', 'bandit'], goldReward: [12, 20] },
     { id: 'm5', name: '蚁聚之众', enemies: ['luanmin', 'luanmin', 'luanmin'], goldReward: [10, 18] },
+    { id: 'm8', name: '祭酒督阵', enemies: ['jijiu', 'luanmin', 'luanmin'], goldReward: [15, 23] },
   ],
   strong: [
     { id: 'm2', name: '黄巾游骑', enemies: ['yellowturban', 'yellowturban'], goldReward: [14, 22] },
+    { id: 'm3', name: '山道劫掠', enemies: ['bandit', 'bandit'], goldReward: [12, 20] },
     { id: 'm4', name: '乱军', enemies: ['bandit', 'yellowturban'], goldReward: [14, 22] },
     { id: 'm6', name: '设坛作法', enemies: ['jijiu', 'yellowturban'], goldReward: [15, 23] },
     { id: 'm7', name: '白波马队', enemies: ['qishou', 'qishou'], goldReward: [16, 24] },
-    { id: 'm8', name: '祭酒督阵', enemies: ['jijiu', 'luanmin', 'luanmin'], goldReward: [15, 23] },
     { id: 'm9', name: '劫粮流寇', enemies: ['liukou', 'bandit'], goldReward: [12, 20] },
   ],
   elite: [
     { id: 'e1', name: '关下骁将 · 华雄', enemies: ['huaxiong'], goldReward: [28, 42] },
     { id: 'e2', name: '黄巾渠帅 · 管亥', enemies: ['guanhai'], goldReward: [28, 42] },
-    { id: 'e3', name: '神上使 · 张曼成', enemies: ['zhangmancheng'], goldReward: [28, 42] },
+    // 2026-08 下调上沿 28-42 → 28-34。三间一幕精英的强度差 4.8 倍——华雄 期望
+    // 14.5/体力 92、管亥 10.7/80、张曼成 **3.0/42**（本体比最弱的普通房 m1 的
+    // 46 还轻，召唤的力士补不平）——奖励却分文不差。
+    //
+    // 本该调的是张曼成本人，但他的数值归黄金快照所有（`tests/balance.test.ts`
+    // 的 `FROZEN`，那张表的注释写明：撞上了就把数字改回去，而不是更新表并
+    // 重录）。所以这里只动奖励：`goldReward` 不进 `statLine`，也不进战斗事件
+    // 流，改它一张快照都不动。精英宝物那一掷仍按档位走，这只补上了差价的
+    // 一部分——而且只有上沿能动：下沿 28 被「精英永远比普通房给得多」那条
+    // 跨幕不变量钉死（三幕普通房上沿 27）。把身体本身拉到 e2 那一档，仍是一
+    // 次单独的、要重录 e3 快照的内容提交（约定 3 的口子），不是一次调参顺手
+    // 做掉的事。
+    { id: 'e3', name: '神上使 · 张曼成', enemies: ['zhangmancheng'], goldReward: [28, 34] },
   ],
   boss: [
     { id: 'b1', name: '虎牢关 · 吕布', enemies: ['lubu'], goldReward: [80, 110] },

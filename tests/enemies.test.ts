@@ -464,6 +464,16 @@ describe('脚本化意图', () => {
   };
 
   const PHASE_LOOPS: Record<string, { phase: string; beats: string }> = {
+    // 2026-08 新增 董卓「焚都」四拍 与 张辽「逍遥津」三拍。八个首领里原本只有
+    // 四个会换招；吕布与张宝仍是加权掷骰，他们的数值归黄金快照所有。
+    dongzhuo: {
+      phase: 'fendu',
+      beats: 'feidi,fenluo,baonue,jielue,feidi,fenluo,baonue,jielue,feidi',
+    },
+    zhangliao: {
+      phase: 'xiaoyaojin',
+      beats: 'jiaozhan,tuwei,duanqiao,zhenwei,jiaozhan,tuwei,duanqiao,zhenwei,jiaozhan',
+    },
     zhangliang: {
       phase: 'huangtian',
       beats: 'fushen,yaofeng,zhouhuo,jiangshi,fushen,yaofeng,zhouhuo,jiangshi,fushen',
@@ -880,7 +890,8 @@ describe('pickEncounter', () => {
   it('never repeats an id until the pool is spent, then re-opens', () => {
     const seen = new Set<string>();
     for (let s = 0; s < 200; s++) {
-      const picked = pickEncounter(new Rng(`fresh-${s}`), ACT1, 'monster', opts(0, ['m1', 'm3']));
+      // 2026-08: 第一幕's weak table is m1/m5/m8 since the m3 ↔ m8 swap.
+      const picked = pickEncounter(new Rng(`fresh-${s}`), ACT1, 'monster', opts(0, ['m1', 'm8']));
       expect(picked.id).toBe('m5');
       seen.add(picked.id);
     }
@@ -1015,7 +1026,10 @@ describe('goldReward', () => {
     m27: [22, 27],
     e1: [28, 42],
     e2: [28, 42],
-    e3: [28, 42],
+    // 2026-08 下调上沿 28-42 → 28-34：张曼成 是 e1/e2 强度的五分之一（期望伤
+    // 3.0 vs 14.5/10.7），本体体力 42 比最弱的普通房还轻。下沿动不了——下面
+    // 「精英永远比普通房给得多」是跨幕断言，三幕普通房上沿 27 把它钉在 28。
+    e3: [28, 34],
     e4: [40, 56],
     e5: [38, 54],
     e6: [50, 68],

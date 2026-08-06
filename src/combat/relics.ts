@@ -1542,6 +1542,195 @@ export const RELICS: Record<string, RelicDef> = {
     text: '每回合第 5 次打出的【攻】牌，其效果额外结算一次。',
     playCopies: ({ state, def }) => (def.type === 'attack' && state.attacksThisTurn === 4 ? 1 : 0),
   },
+
+  // ------------------------------------------- 2026-08 诸葛亮宝物扩充
+  //
+  // 关羽有 16 件专属宝物，赵云 12，诸葛亮 **2**（孔明灯、奇门遁甲）。宝物按
+  // `RelicDef.hero` 分池，所以那不是「他的宝物少」，是他这一路的货架上有
+  // 十四个格子填的是通用件——而通用常见那一层十件里六件是「某条件下给护甲」。
+  // 一个抽牌少一张、体力最低、靠 锦囊 与 消耗堆 运转的武将，在那十四格里
+  // 读不到自己的任何一条线。
+  //
+  // 七件补进来，两条线各三件加一件收尾，都用现成原语——`RelicHooks` 够不到
+  // 铸牌（引擎没把 addCard 开给宝物层），所以 锦囊 那一支由卡表承担，宝物
+  // 只押 消耗堆 与【谋】。
+
+  // --- 常见 -----------------------------------------------------------------
+
+  /**
+   * 孔明灯付的是「每 3 张消耗回 2 体力」，这件付的是每回合第一张的护甲——同
+   * 一个动作的两种货币，一个跨回合攒、一个每回合到手，凑一副牌时是两种打法。
+   */
+  bagualu: {
+    id: 'bagualu',
+    name: '八卦炉',
+    tier: 'common',
+    hero: 'zhugeliang',
+    art: 'relic-bagualu',
+    text: '每回合首次有牌被消耗时，获得 {N} 点护甲。',
+    value: 5,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      cardExhausted: ({ state, counter, value, trigger }) => {
+        if (counter.value > 0) return;
+        counter.value = 1;
+        trigger();
+        gainBlock(state, state.player, value, 'power');
+      },
+    },
+  },
+
+  /**
+   * 68 体力是全场最低，而他没有一张牌能拿体力换东西。这件把【谋】——他打得
+   * 最多的牌型——接到体力上，是他唯一一条不靠营帐的续航。
+   */
+  qingnangyaojuan: {
+    id: 'qingnangyaojuan',
+    name: '青囊药卷',
+    tier: 'common',
+    hero: 'zhugeliang',
+    art: 'relic-qingnangyaojuan',
+    text: '回合结束时，若本回合打出过【谋】牌，回复 {N} 点体力。',
+    value: 2,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      cardPlayed: ({ payload, counter }) => {
+        if ((payload as CardDef | undefined)?.type === 'skill') counter.value = 1;
+      },
+      turnEnd: ({ state, counter, value, trigger }) => {
+        if (counter.value === 0) return;
+        trigger();
+        healCombatant(state, state.player, value);
+      },
+    },
+  },
+
+  // --- 罕见 -----------------------------------------------------------------
+
+  /**
+   * 他的【势】几乎张张自带消耗，打出去就没了，所以「首张势」是一个每场恰好
+   * 触发一次的干净锚点——不是每回合，那会让 井田法 这类开局势牌变成过牌引擎。
+   */
+  sanguzhili: {
+    id: 'sanguzhili',
+    name: '三顾之礼',
+    tier: 'uncommon',
+    hero: 'zhugeliang',
+    art: 'relic-sanguzhili',
+    text: '每场战斗首次打出【势】牌时，抽 {N} 张牌。',
+    value: 2,
+    hooks: {
+      cardPlayed: ({ state, payload, counter, value, trigger }) => {
+        if ((payload as CardDef | undefined)?.type !== 'power' || counter.value > 0) return;
+        counter.value = 1;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  /**
+   * 【力竭】这条线 2026-08 才落到卡表上（断道 / 绝营 / 八望阵）。这件是它的
+   * 开场白：削的是敌人**获得**的护甲，所以对龟缩、蓄势、守阵那批身体是实打
+   * 实的解，对纯输出的身体一点用没有——一件有条件的宝物，不是数值棒。
+   */
+  chibitufu: {
+    id: 'chibitufu',
+    name: '赤壁图符',
+    tier: 'uncommon',
+    hero: 'zhugeliang',
+    art: 'relic-chibitufu',
+    text: '战斗开始时，所有敌人添 {N} 层【力竭】。',
+    value: 2,
+    hooks: {
+      combatStart: ({ state, value, trigger }) => {
+        trigger();
+        for (const enemy of aliveEnemies(state)) addStatus(state, enemy, 'frail', value);
+      },
+    },
+  },
+
+  /**
+   * 黄石公书付第一张【谋】，这件付第二张。两件叠起来是一回合两张过牌，但也
+   * 要求这一回合真打两张谋——对一副四张手牌的构筑，那是个实价。
+   */
+  jiangyuantu: {
+    id: 'jiangyuantu',
+    name: '江源图',
+    tier: 'uncommon',
+    hero: 'zhugeliang',
+    art: 'relic-jiangyuantu',
+    text: '每回合第 2 次打出【谋】牌时，抽 {N} 张牌。',
+    value: 1,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      cardPlayed: ({ state, payload, counter, value, trigger }) => {
+        if ((payload as CardDef | undefined)?.type !== 'skill') return;
+        counter.value += 1;
+        if (counter.value !== 2) return;
+        trigger();
+        drawCards(state, value);
+      },
+    },
+  },
+
+  // --- 稀有 -----------------------------------------------------------------
+
+  /**
+   * 消耗堆那条线到此为止都只换护甲、体力和过牌——没有一件把它换成伤害。这件
+   * 是它的输出口，也是 上方谷 / 焚聚 那些读消耗堆张数的牌真正想要的东西：
+   * 堆越高，每一张的收益越大。
+   */
+  wuhouci: {
+    id: 'wuhouci',
+    name: '武侯祠',
+    tier: 'rare',
+    hero: 'zhugeliang',
+    art: 'relic-wuhouci',
+    text: '每 3 张牌被消耗，获得 {N} 点【神力】。',
+    value: 1,
+    hooks: {
+      cardExhausted: ({ state, counter, value, trigger }) => {
+        counter.value += 1;
+        if (counter.value < 3) return;
+        counter.value = 0;
+        trigger();
+        addStatus(state, state.player, 'strength', value);
+      },
+    },
+  },
+
+  /**
+   * 青龙刀谱的诸葛亮化：那件贴关羽的「费 2+ 的攻」，这件贴他打得最多的
+   * 【谋】。每回合一次，所以它买的是一张牌的节奏，不是一整回合的气。
+   */
+  tianwenpan: {
+    id: 'tianwenpan',
+    name: '天文盘',
+    tier: 'rare',
+    hero: 'zhugeliang',
+    art: 'relic-tianwenpan',
+    text: '每回合首次打出【谋】牌时，少耗 {N} 点气。',
+    value: 1,
+    costDelta: ({ def, counter, value }) =>
+      def.type === 'skill' && counter === 0 ? -value : 0,
+    hooks: {
+      turnStart: ({ counter }) => {
+        counter.value = 0;
+      },
+      cardPlayed: ({ payload, counter }) => {
+        if ((payload as CardDef | undefined)?.type === 'skill' && counter.value === 0) {
+          counter.value = 1;
+        }
+      },
+    },
+  },
 };
 
 // -------------------------------------------------------------- 掉落档位数据

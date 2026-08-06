@@ -168,6 +168,17 @@ const phaseSurface = (def: EnemyDef): string =>
     .join(' || ');
 
 const PHASE_SURFACES: Record<string, string> = {
+  // 2026-08: 董卓 与 张辽 补上二阶段。八个首领里原本只有四个换招，另外四个是
+  // 六拍加权掷骰、背熟即无变数；吕布与张宝的数值归黄金快照所有（`FROZEN`），
+  // 动不得，所以这一轮只补 TUNABLE 表里的这两位。
+  dongzhuo:
+    'fendu[feidi>fenluo>baonue>jielue@0] ' +
+    'feidi:0x1+0/b0/weak2->player/- · fenluo:18x1+0/b0/-/chuangshang1->draw · ' +
+    'baonue:30x1+0/b0/-/- · jielue:11x2+0/b0/vulnerable2->player/-',
+  zhangliao:
+    'xiaoyaojin[jiaozhan>tuwei>duanqiao>zhenwei@0] ' +
+    'jiaozhan:0x1+0/b0/weak2->player/- · tuwei:32x1+0/b0/-/- · ' +
+    'duanqiao:11x3+0/b0/-/- · zhenwei:12x1+0/b12/strength3->self/-',
   zhangliang:
     'huangtian[fushen>yaofeng>zhouhuo>jiangshi@0] ' +
     'fushen:0x1+0/b0/entangled1->player/- · yaofeng:7x3+0/b0/-/- · ' +
@@ -205,20 +216,23 @@ const PHASE_SURFACES: Record<string, string> = {
  */
 const TUNABLE_DAMAGE: Record<string, string> = {
   // 第二幕 · 战虎牢
-  licui: 'drive 19x1+0@3 · pillage 7x2+0@2 · hold 0x1+0@1 · @50 {"strength":2}',
-  guosi: 'raid 7x3+0@3 · poison 0x1+5@2 · camp 0x1+0@1',
+  licui: 'drive 22x1+0@3 · pillage 8x2+0@2 · hold 0x1+0@1 · @50 {"strength":2}',
+  guosi: 'raid 8x3+0@3 · poison 0x1+7@2 · camp 0x1+0@1',
   dongzhuo:
-    'might 19x1+0@3 · trample 6x3+0@2 · burn 10x1+0@2 · fortress 0x1+0@1 · passive {"metallicize":3}',
+    'might 19x1+0@3 · trample 6x3+0@2 · burn 10x1+0@2 · fortress 0x1+0@1 · passive {"metallicize":3} · @50 phase fendu',
   liru:
     'jiaozhao 10x1+0@0 · luanzheng 7x2+0@0 · chenmou 0x1+0@0 · zhenjiu 0x1+8@0 · fenjing 26x1+0@0 · @50 phase duji',
   // 第三幕 · 定中原
-  xuchu: 'tiger 14x1+0@3 · bare 6x2+0@2 · passive {"angry":1} · @50 {"strength":1}',
-  pangde: 'coffin 21x1+0@3 · arrow 7x2+0@2 · laststand 0x1+0@1',
+  // 2026-08 三幕精英上调：许褚 期望 13.2 → 15.8，庞德 15.2 → 17.3。两人都比
+  // 同幕的普通房软（m27 25.8 / m20 23.5），「精英」曾只在体力上成立。
+  xuchu: 'tiger 17x1+0@3 · bare 7x2+0@2 · passive {"angry":1} · @50 {"strength":1}',
+  pangde: 'coffin 24x1+0@3 · arrow 8x2+0@2 · laststand 0x1+0@1',
   xiahouyuan:
     'gallop 8x2+0@0 · raid 26x1+0@0 · banner 0x1+0@0 · strike 13x1+0@0 · deluge 8x1+0@0 · @50 phase shensu',
-  zhangliao: 'raid 20x1+0@3 · eighthundred 7x4+0@2 · awe 10x1+0@2 · regroup 0x1+0@1',
+  zhangliao:
+    'raid 20x1+0@3 · eighthundred 7x4+0@2 · awe 10x1+0@2 · regroup 0x1+0@1 · @50 phase xiaoyaojin',
   // 终 · 五丈原
-  simayi: 'hawk 23x1+0@3 · endure 0x1+0@2 · bite 8x2+0@2 · @50 {"strength":4}',
+  simayi: 'hawk 26x1+0@3 · endure 0x1+0@2 · bite 9x2+0@2 · @50 {"strength":4}',
   tianming:
     'autumnwind 5x3+0@0 · lifespan 0x1+6@0 · wuzhang 0x1+0@0 · defy 12x1+0@0 · starfall 22x1+0@0 · dust 9x1+0@0 · passive {"metallicize":3} · @50 phase tianshu',
 };

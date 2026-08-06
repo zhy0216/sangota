@@ -72,10 +72,15 @@ describe('the event table', () => {
     expect(EVENTS.some((d) => d.id === FALLBACK_EVENT.id)).toBe(false);
   });
 
-  it('offers eleven global events and six exclusive events per act', () => {
-    expect(EVENTS.filter((def) => !def.acts)).toHaveLength(11);
+  // 2026-08: 江东赴宴 moved from the global shelf to `acts: [2, 3]` — it was
+  // handing out a 稀有 relic for one 第一幕 精英 — so the globals fell 11 → 10
+  // and 第二/三幕 gained one exclusive each. 卢植囚车 was written to put
+  // 第一幕 back to 7 so that the per-act pool of 17 survives the move; that
+  // total is the number this test actually guards.
+  it('offers ten global events and seven exclusive events per act', () => {
+    expect(EVENTS.filter((def) => !def.acts)).toHaveLength(10);
     for (const act of [1, 2, 3] as const) {
-      expect(EVENTS.filter((def) => def.acts?.includes(act)), `act ${act}`).toHaveLength(6);
+      expect(EVENTS.filter((def) => def.acts?.includes(act)), `act ${act}`).toHaveLength(7);
       expect(EVENTS.filter((def) => !def.acts || def.acts.includes(act)), `pool ${act}`).toHaveLength(
         17,
       );
@@ -503,19 +508,19 @@ describe('chooseOption', () => {
     const run = fresh();
     const id = eventNode(run);
     pin(run, id, 'wuzhangyuan');
-    run.gold = 74;
+    run.gold = 149;
     run.hp = 10;
 
     const views = eventOptions(run, id);
     expect(views[0].disabled).toBe(true);
-    expect(views[0].disabledReason).toBe('需 75 资财');
+    expect(views[0].disabledReason).toBe('需 150 资财');
     expect(chooseOption(run, id, 0)).toBeNull();
-    expect(run.gold).toBe(74);
+    expect(run.gold).toBe(149);
     expect(run.hp).toBe(10);
     expect(isResolved(run, id)).toBe(false);
 
     // One coin more and the same option opens.
-    run.gold = 75;
+    run.gold = 150;
     expect(eventOptions(run, id)[0].disabled).toBeUndefined();
   });
 
@@ -548,16 +553,20 @@ describe('chooseOption', () => {
     expect(report.lines).toContain('伤重不治，命陨于此。');
   });
 
-  it('takes two tenths of current 体力 for the 玉玺, rounded up', () => {
+  // 2026-08: the toll is two tenths of the **ceiling**, not of the bar. Off the
+  // bar it shrank exactly when the player could best afford it — 首领战后回满
+  // means a wounded bar late in an act is a choice, so 玉玺 was a 稀有 relic for
+  // a 3-体力 toll to anyone who walked in at 12 体力.
+  it('takes two tenths of 体力上限 for the 玉玺, rounded up', () => {
     const run = fresh();
     const id = eventNode(run);
     pin(run, id, 'yuxichenjiang');
     run.hp = 71;
 
     const report = chooseOption(run, id, 0)!;
-    // ceil(71 * 0.2) = 15
-    expect(run.hp).toBe(56);
-    expect(report.hp).toBe(-15);
+    // ceil(82 * 0.2) = 17 — the same toll whatever the bar reads.
+    expect(run.hp).toBe(54);
+    expect(report.hp).toBe(-17);
     expect(report.lethal).toBe(false);
     // The ladder starts at 稀有 and a fresh run owns none of them, so it must
     // land there — which id is todo 10's business, not this test's.
@@ -1411,7 +1420,15 @@ describe('the eight events of the wider pool', () => {
     for (const uid of uids) expect(run.deck.map((c) => c.uid)).not.toContain(uid);
   });
 
-  it('呼卢喝雉 bars the table below 50 資財 and settles ±50 at house odds', () => {
+  // 2026-08 重做. The old table was 45/55 for ±50 — EV −5 — with the weights
+  // printed in the hint, so the correct play was always 「袖手旁观」 and the row
+  // was a decorated empty room. The hint no longer prints odds (see
+  // `EventOption.hint`), and a negative-EV bet whose rake is invisible is a
+  // trap rather than a choice, so the odds moved with it: 15/35/50 paying
+  // +120/+50/−50, EV ≈ +10. Small enough not to bend the 資財 curve at one or
+  // two rolls a run, swingy enough to be worth taking when a shelf is one
+  // purchase out of reach.
+  it('呼卢喝雉 bars the table below 50 資財 and pays 120/50/−50 on a positive edge', () => {
     const broke = fresh('hlz-broke');
     const bid = eventNode(broke);
     pin(broke, bid, 'huluhezhi');
@@ -1420,15 +1437,18 @@ describe('the eight events of the wider pool', () => {
     expect(eventOptions(broke, bid)[0].disabledReason).toBe('需 50 资财');
     expect(chooseOption(broke, bid, 0)).toBeNull();
 
+    let total = 0;
     let wins = 0;
     for (let i = 0; i < 400; i++) {
       const { report } = take('huluhezhi', 0, `hlz-${i}`);
-      expect(Math.abs(report!.gold)).toBe(50);
+      expect([120, 50, -50]).toContain(report!.gold);
+      total += report!.gold;
       if (report!.gold > 0) wins += 1;
     }
-    // 45% 的胜面，55% 的庄家——EV −5，抽头明码。
-    expect(wins / 400).toBeGreaterThan(0.35);
-    expect(wins / 400).toBeLessThan(0.55);
+    // 半数赌局归庄家，但赢面里有一档大胜把期望拉过零线。
+    expect(wins / 400).toBeGreaterThan(0.4);
+    expect(wins / 400).toBeLessThan(0.6);
+    expect(total / 400).toBeGreaterThan(0);
   });
 
   it('青梅煮酒 pours two bottles or plants 疑心, at roughly 65/35', () => {

@@ -690,6 +690,108 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
     ],
   },
 
+  // --- 2026-08 诸葛亮 · 扩池 23 → 42 draftable ------------------------------
+  // 火矢/疑冢 是他缺的普通【攻】；断道/绝营/八望阵 把【力竭】从一条无人施加的
+  // 状态定义变成一条线；瘴气/五溪/火烧新野 同样对【中毒】；屯天/焚聚/上方谷
+  // 让【消耗堆】计数器有六个兑现口而不是两个。
+  huoshi: {
+    effects: [
+      { kind: 'damage', amount: 10 },
+      { kind: 'addCard', defId: 'jinnang', count: 1, to: 'hand' },
+    ],
+  },
+  duandao: {
+    effects: [
+      { kind: 'status', status: 'frail', amount: 3, to: 'target' },
+      { kind: 'block', amount: 7 },
+    ],
+  },
+  zhangqi: { effects: [{ kind: 'status', status: 'poison', amount: 6, to: 'target' }] },
+  tuntian: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 3 },
+        then: [{ kind: 'block', amount: 16 }],
+        otherwise: [{ kind: 'block', amount: 8 }],
+      },
+    ],
+  },
+  caolu: {
+    effects: [
+      { kind: 'draw', amount: 2 },
+      { kind: 'addCard', defId: 'jinnang', count: 1, to: 'hand' },
+    ],
+  },
+  jimu: {
+    effects: [
+      { kind: 'damage', amount: 9 },
+      { kind: 'status', status: 'vulnerable', amount: 2, to: 'target' },
+    ],
+  },
+  wuxilu: { effects: [{ kind: 'status', status: 'poison', amount: 5, to: 'allEnemies' }] },
+  jueying: { effects: [{ kind: 'status', status: 'frail', amount: 3, to: 'allEnemies' }] },
+  fenju: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 5 },
+        then: [{ kind: 'damage', amount: 26 }],
+        otherwise: [{ kind: 'damage', amount: 14 }],
+      },
+    ],
+  },
+  tuizhen: {
+    effects: [
+      { kind: 'addCard', defId: 'jinnang', count: 3, to: 'hand' },
+      { kind: 'draw', amount: 1 },
+    ],
+  },
+  qiaoshe: { effects: [{ kind: 'status', status: 'vulnerable', amount: 3, to: 'allEnemies' }] },
+  liaoyuan: { effects: [{ kind: 'damageAll', amount: 14 }] },
+  jiefeng: {
+    effects: [
+      { kind: 'damage', amount: 15 },
+      { kind: 'exhaustCards', amount: 1 },
+    ],
+  },
+  yangsheng: {
+    effects: [
+      { kind: 'block', amount: 9 },
+      { kind: 'heal', amount: 7 },
+    ],
+  },
+  jingtianfa: { effects: [{ kind: 'status', status: 'armory', amount: 3, to: 'self' }] },
+  huoshaoxinye: {
+    effects: [
+      { kind: 'damageAll', amount: 18 },
+      { kind: 'status', status: 'poison', amount: 5, to: 'allEnemies' },
+    ],
+  },
+  shangfanggu: {
+    effects: [
+      {
+        kind: 'conditional',
+        when: { c: 'exhaustedAtLeast', n: 8 },
+        then: [{ kind: 'damage', amount: 52 }],
+        otherwise: [{ kind: 'damage', amount: 30 }],
+      },
+    ],
+  },
+  bawangzhen: {
+    effects: [
+      { kind: 'damageAll', amount: 16 },
+      { kind: 'status', status: 'frail', amount: 3, to: 'allEnemies' },
+      { kind: 'status', status: 'weak', amount: 3, to: 'allEnemies' },
+    ],
+  },
+  liufulong: {
+    effects: [
+      { kind: 'addCard', defId: 'jinnang', count: 5, to: 'hand' },
+      { kind: 'status', status: 'strength', amount: 3, to: 'self' },
+    ],
+  },
+
   // --- 2026-08 赵云 · 枪胆防反 ----------------------------------------------
   qingweixianfeng: {
     effects: [
@@ -891,7 +993,8 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
           { kind: 'damage', amount: 16 },
           { kind: 'block', amount: 5 },
         ],
-        otherwise: [{ kind: 'damage', amount: 8 }],
+        // 2026-08: 8 → 11. 精进这张稀有牌在没有【天佑】时曾经毫无收益。
+        otherwise: [{ kind: 'damage', amount: 11 }],
       },
     ],
   },

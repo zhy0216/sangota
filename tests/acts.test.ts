@@ -114,8 +114,10 @@ describe('每幕的遭遇表', () => {
   });
 
   it('spells out which fight belongs to which act', () => {
-    expect(ids(ACT1.weak)).toEqual(['m1', 'm3', 'm5']);
-    expect(ids(ACT1.strong)).toEqual(['m2', 'm4', 'm6', 'm7', 'm8', 'm9']);
+    // 2026-08: m3 ↔ m8. 山道劫掠 was the hardest room in the game's opening
+    // three-room guarantee — see the note above `ACT1` for the numbers.
+    expect(ids(ACT1.weak)).toEqual(['m1', 'm5', 'm8']);
+    expect(ids(ACT1.strong)).toEqual(['m2', 'm3', 'm4', 'm6', 'm7', 'm9']);
     expect(ids(ACT1.elite)).toEqual(['e1', 'e2', 'e3']);
     expect(ids(ACT1.boss)).toEqual(['b1', 'b2', 'b3']);
 

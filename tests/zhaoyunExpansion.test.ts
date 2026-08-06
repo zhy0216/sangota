@@ -251,10 +251,16 @@ describe('连击 payoffs', () => {
 
 describe('赵云宝物扩充', () => {
   it('appends ten hero-tagged definitions and reaches 15/14/7 for 赵云', () => {
+    // 2026-08: 诸葛亮 got a batch of his own appended *after* this one, so 赵云's
+    // ids are no longer the tail of their tiers. What still has to hold — and
+    // what this actually guards — is that they sit **contiguously, in order**:
+    // a shelf roll indexes into `relicsOfTier`, so inserting into the middle
+    // re-deals every save that exists, while appending past them is free.
     for (const [tier, ids] of Object.entries(ZHAOYUN_RELICS)) {
-      expect(
-        relicsOfTier(tier as keyof typeof ZHAOYUN_RELICS).slice(-ids.length).map((r) => r.id),
-      ).toEqual(ids);
+      const order = relicsOfTier(tier as keyof typeof ZHAOYUN_RELICS).map((r) => r.id);
+      const at = order.indexOf(ids[0]);
+      expect(at, `${tier}: 赵云 block missing`).toBeGreaterThanOrEqual(0);
+      expect(order.slice(at, at + ids.length)).toEqual(ids);
       for (const id of ids) expect(RELICS[id].hero, id).toBe('zhaoyun');
     }
 

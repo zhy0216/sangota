@@ -16,7 +16,7 @@ import type { CardDef, CombatState, EnemyState, PendingChoice } from '../src/com
  * seed replays a whole fight including the policy's own coin flips.
  */
 
-export type PolicyName = 'random' | 'greedy' | 'threat';
+export type PolicyName = 'random' | 'greedy' | 'threat' | 'adaptive';
 
 export interface SimAction {
   uid: string;
@@ -209,4 +209,59 @@ const threat: Policy = {
   resolveChoice: shedWorst,
 };
 
-export const POLICIES: Record<PolicyName, Policy> = { random, greedy, threat };
+/**
+ * 诊断用策略（2026-08-06）。**不参与任何黄金快照**——`sim/golden.test.ts` 的
+ * CASES 只引用 random/greedy/threat，新增一个名字不动任何既有文件。
+ *
+ * 存在的理由：`threat` 与 `greedy` 的差值被当作「会读意图值多少分」在看，
+ * 但那个差值在五重以上塌到 0、十重甚至倒挂（greedy 22% vs threat 20%）。
+ * 更聪明的策略不该打得更差，所以嫌疑先落在尺子上而不是游戏上：`threat` 的
+ * 挡刀条件是「威胁 ≥ 剩余体力 × 0.9」这个**固定比例**，而天命把敌人伤害整体
+ * 乘上去之后，这个条件在高天命下几乎每回合都成立——于是它一路龟缩，打不出
+ * 输出，被消耗死。0.9 是照零重调的。
+ *
+ * `adaptive` 换掉的只有这一条判据：**只在挡得住的时候挡**。
+ *
+ * - 这一击不致命 → 不挡，血是资源；
+ * - 这一击致命，且手里最厚的一张护甲能把它挡成不致命 → 挡，这一手救命；
+ * - 这一击致命，且怎么挡都还是致命 → **不挡，去抢血**。龟缩救不了的回合，
+ *   把气花在护甲上是纯亏——赢面只剩在敌人倒下这一边。
+ *
+ * 斩杀优先那一条与 `threat` 逐字相同，所以两者的差值干净地只反映挡刀判据。
+ */
+const adaptive: Policy = {
+  name: 'adaptive',
+  chooseAction(state) {
+    const options = playable(state);
+    const alive = aliveEnemies(state);
+    if (options.length === 0 || alive.length === 0) return null;
+
+    // 1. 与 threat 同：能斩杀就斩杀，死人不出意图。
+    for (const uid of options) {
+      const def = defOf(state, uid);
+      if (def.type !== 'attack') continue;
+      for (const enemy of alive) {
+        if (previewValues(state, def, enemy).D >= enemy.hp + enemy.block) {
+          return aim(state, uid, enemy);
+        }
+      }
+    }
+
+    // 2. 只在挡刀能改变结局时挡刀。
+    const exposure = totalIncomingDamage(state) - state.player.block;
+    if (exposure >= state.player.hp) {
+      const guard = bestGuard(state, options, weakest(alive));
+      if (guard) {
+        const gained = previewValues(state, defOf(state, guard.uid)).B;
+        if (exposure - gained < state.player.hp) return guard;
+      }
+      // 挡不住：这一手护甲救不了命，不如把它换成伤害。
+    }
+
+    // 3. 其余照 greedy。
+    return greedy.chooseAction(state);
+  },
+  resolveChoice: shedWorst,
+};
+
+export const POLICIES: Record<PolicyName, Policy> = { random, greedy, threat, adaptive };

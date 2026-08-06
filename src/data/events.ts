@@ -60,7 +60,13 @@ export interface EventOutcome {
   spendAllGold?: boolean;
   /** Flat 体力. Negative is a wound; see the clamp note on `applyOutcome`. */
   hp?: number;
-  /** A fraction of *current* 体力 lost, rounded up. 0.2 = 两成. */
+  /**
+   * A fraction of 体力**上限** lost, rounded up. 0.2 = 两成.
+   *
+   * Off the ceiling rather than off the bar, since 2026-08 — see the note in
+   * `applyOutcome`. A percentage of the *current* bar is a price that shrinks
+   * precisely when the player is best placed to pay it.
+   */
   hpLossPercent?: number;
   /** Capacity. A gain heals for what it grants, the way a relic's does. */
   maxHp?: number;
@@ -94,7 +100,20 @@ export interface EventOutcome {
 
 export interface EventOption {
   label: string;
-  /** The grey line under the button. Spell the price out; never make them guess. */
+  /**
+   * The grey line under the button. **Spell the stakes out; never spell the
+   * odds out.**
+   *
+   * The price half of that rule is old and unchanged: a player must know what
+   * they are paying and what they stand to win, in numbers, before they click —
+   * an option whose cost is a surprise is a trap, not a choice.
+   *
+   * The odds half is 2026-08. Four hints used to print the weights of their own
+   * `branches`（「七成…三成…」）, which turned every gamble into arithmetic: the
+   * hundredth time you met 青梅煮酒 you knew exactly as much as the first, and
+   * there was nothing left to learn, remember or dread. Naming both outcomes
+   * without their weights keeps the decision informed and keeps the roll a roll.
+   */
   hint: string;
   /** Unmet options are shown greyed with `requiresText`, never hidden. */
   requires?: (run: RunState) => boolean;
@@ -258,6 +277,11 @@ export const EVENTS: EventDef[] = [
     id: 'jiangdongfuyan',
     name: '江东赴宴',
     sub: '陆口 · 单刀一口',
+    // 2026-08 收进二三幕。`minRow: 5` 一个人拦不住它：它无幕限制时，第一幕
+    // 第五层就能用一场一幕精英换一件 **稀有** 宝物，而一幕精英池里坐着
+    // e3 神上使（42 体力），抽中即等于白送。同结构的 虎牢残骑 限二幕、只给
+    // 罕见——这一条本来就该跟它一档。
+    acts: [2, 3],
     minRow: 5,
     body: '子敬设宴相邀，帖上写的是叙旧，\n帐后立的是刀斧手。案上先摆了一件重礼——\n收下，这顿饭就非吃不可了。',
     options: [
@@ -281,6 +305,50 @@ export const EVENTS: EventDef[] = [
     ],
   },
 
+  /**
+   * 2026-08. 江东赴宴 moved to `acts: [2, 3]` and took 第一幕's pool from 17
+   * down to 16 with it; this is the row that puts it back, and 第一幕 is the
+   * act that could least afford to lose one — it is where a new player forms
+   * their first impression of what an 奇遇 even is.
+   *
+   * Both options cost and both pay, with no 「毫无所得」 third: 20/29 rows in
+   * this table already carry a decline button, and a decline button is a safety
+   * valve, not a decision. Here the decision is the whole room — 資財 against
+   * 体力, two 精 against one 罕见 — and 第一幕 is exactly where the purse and
+   * the 体力 bar are tight enough for that to hurt either way.
+   */
+  {
+    id: 'luzhiqiuche',
+    name: '卢植囚车',
+    sub: '广宗 · 槛车北去',
+    acts: [1],
+    minRow: 2,
+    body: '槛车停在道边，车里坐的是刚破了黄巾主力的中郎将。\n押送的宦官嫌你碍事，挥手要你让路。\n车里那人却隔着木栅看了你一眼，像是有话要说。',
+    options: [
+      {
+        label: '上书鸣冤',
+        hint: '费 40 资财打点，精进两张牌',
+        requires: (run) => run.gold >= 40,
+        requiresText: '需 40 资财',
+        outcome: {
+          text: '文书递上去石沉大海，倒是押送的老卒收了钱，\n把车里传出的两卷批注塞进了你怀里。',
+          gold: -40,
+          upgradeCards: 2,
+        },
+      },
+      {
+        label: '随车问学',
+        hint: '失 8 体力，得一张随机罕见牌',
+        tone: 'danger',
+        outcome: {
+          text: '你徒步随车走了三十里，靴底磨穿，人也脱了形。\n三十里路换来的东西，写在一张纸上，只有半页。',
+          hp: -8,
+          gainCards: { count: 1, rarity: 'uncommon' },
+        },
+      },
+    ],
+  },
+
   {
     id: 'huatuo',
     name: '华佗行医',
@@ -296,7 +364,7 @@ export const EVENTS: EventDef[] = [
       },
       {
         label: '开颅去疾',
-        hint: '七成 体力上限 +15；三成 失 20 体力',
+        hint: '刀下搏命：或体力上限 +15，或失 20 体力',
         tone: 'danger',
         outcome: {
           text: '',
@@ -364,8 +432,10 @@ export const EVENTS: EventDef[] = [
     options: [
       {
         label: '秘而私藏',
-        hint: '得一件稀有宝物，失去两成体力',
+        hint: '得一件稀有宝物，失去两成体力上限之数',
         tone: 'danger',
+        requires: RISK_FLOOR,
+        requiresText: RISK_FLOOR_TEXT,
         outcome: {
           text: '玉玺贴身藏了。此后夜夜梦见有人在帐外磨刀。',
           gainRelic: { tier: 'rare' },
@@ -446,8 +516,12 @@ export const EVENTS: EventDef[] = [
       {
         label: '设坛祈禳',
         hint: '散尽资财，体力回满并精进一张牌',
-        requires: (run) => run.gold >= 75,
-        requiresText: '需 75 资财',
+        // 门槛 75 → 150（2026-08）。`spendAllGold` 收多少全看进门时钱袋有
+        // 多鼓，所以门槛就是这一格的**真实底价**：三幕普通房均金 24.6、精英
+        // 58、首领 130，走到 minRow 8 时 75 已是零头，先绕去坊市花空再进来
+        // 几乎白拿。150 让「散尽」重新是一句实话。
+        requires: (run) => run.gold >= 150,
+        requiresText: '需 150 资财',
         outcome: {
           text: '灯焰稳住了。军资尽入香案，帐中人重新握得住笔。',
           spendAllGold: true,
@@ -472,7 +546,7 @@ export const EVENTS: EventDef[] = [
     options: [
       {
         label: '继续搜寻',
-        hint: '每搜一处 失 5 体力；四分之一遇伏，否则 资财 +30',
+        hint: '每搜一处 失 5 体力：或得 资财 +30，或撞上埋伏',
         tone: 'danger',
         repeatable: true,
         requires: RISK_FLOOR,
@@ -541,11 +615,18 @@ export const EVENTS: EventDef[] = [
     body: '军市尽头围得水泄不通，五木掷得山响，呼卢喝雉之声不绝。\n庄家抬眼，把一把五铢推到你面前：\n「客官印堂发亮，是要发财的面相。来一把？」',
     options: [
       {
-        // 全表唯一的纯赌局，点缀而非主菜：赔率印在 hint 上（EV −5，庄家
-        // 抽头明摆着），一注即散——绝不 repeatable，赢面分支无血价，repeat
-        // 即水龙头。负 gold 依约定以 requires 把守，钱袋见底赌不了。
+        // 全表唯一的纯赌局，点缀而非主菜。一注即散——绝不 repeatable，赢面
+        // 分支无血价，repeat 即水龙头。负 gold 依约定以 requires 把守，钱袋
+        // 见底赌不了。
+        //
+        // 2026-08 重做：原版是 45/55 赔一赔一，EV −5，赔率还印在 hint 上，
+        // 于是它不是个赌局，是一道算术题——答案永远是「别赌」，这一格内容
+        // 等同空房间。现在赔率不再明示（见 `EventOption.hint`），所以 EV 也
+        // 不能再是负的：一个看不见抽头的负期望赌局是陷阱，不是选择。
+        // 15/35/50 配 +120/+50/−50，EV ≈ +10——够低，一局至多见一两次不会
+        // 冲垮资财曲线；方差够大，「差一把就够买那件宝物」时值得赌一手。
         label: '押五十金',
-        hint: '四成半 资财 +50；五成半 资财 -50',
+        hint: '押上 50 资财：或倍收，或大胜，或尽没',
         tone: 'gold',
         requires: (run) => run.gold >= 50,
         requiresText: '需 50 资财',
@@ -553,12 +634,22 @@ export const EVENTS: EventDef[] = [
           text: '',
           branches: [
             {
-              weight: 45,
-              outcome: { text: '五木齐黑，一掷成卢，满场哄然。庄家脸色发青，如数赔付。', gold: 50 },
+              weight: 15,
+              outcome: {
+                text: '五木齐黑，一掷成卢！满场哄然。庄家脸色由青转白，连本带利推了过来。',
+                gold: 120,
+              },
             },
             {
-              weight: 55,
-              outcome: { text: '差一子成卢。钱进了庄家袖中，围观的人替你叹了一声。', gold: -50 },
+              weight: 35,
+              outcome: { text: '雉采压过庄家一头。钱推回来时，那只手抖了一下。', gold: 50 },
+            },
+            {
+              weight: 50,
+              outcome: {
+                text: '差一子成卢。钱进了庄家袖中，围观的人替你叹了一声。',
+                gold: -50,
+              },
             },
           ],
         },
@@ -580,7 +671,7 @@ export const EVENTS: EventDef[] = [
     options: [
       {
         label: '从容对答',
-        hint: '六成半 得两瓶丹药；三成半 牌组混入诅咒【疑心】',
+        hint: '或得两瓶丹药，或牌组混入诅咒【疑心】',
         tone: 'danger',
         outcome: {
           text: '',
@@ -1004,8 +1095,11 @@ export const EVENTS: EventDef[] = [
       {
         label: '散财转运',
         hint: '散尽资财，得一件罕见宝物',
-        requires: (run) => run.gold >= 60,
-        requiresText: '需至少 60 资财',
+        // 门槛 60 → 120（2026-08），与 五丈原 同理：`spendAllGold` 的底价就是
+        // 它的门槛，60 在三幕买不下一件罕见宝物的一半（RELIC_PRICE.uncommon
+        // 140-165），于是这一格成了绕开坊市定价的后门。
+        requires: (run) => run.gold >= 120,
+        requiresText: '需至少 120 资财',
         outcome: {
           text: '钱袋尽数挂上车辕，军械则入了你的营。木轮重新转动，没有一声吱响。',
           spendAllGold: true,
@@ -1030,8 +1124,10 @@ export const EVENTS: EventDef[] = [
     options: [
       {
         label: '负伤走险',
-        hint: '失去两成当前体力，精进两张牌',
+        hint: '失去两成体力上限之数，精进两张牌',
         tone: 'danger',
+        requires: RISK_FLOOR,
+        requiresText: RISK_FLOOR_TEXT,
         outcome: {
           text: '木板在身后断了三处。人过了山，兵册也在十日险路上改定。',
           hpLossPercent: 0.2,
