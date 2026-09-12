@@ -38,7 +38,7 @@
     {
       "t": "damage",
       "targetId": "lubu-0",
-      "amount": 14,
+      "amount": 18,
       "blocked": 0,
       "lethal": false
     },
@@ -597,7 +597,7 @@
     {
       "t": "damage",
       "targetId": "lubu-0",
-      "amount": 24,
+      "amount": 30,
       "blocked": 0,
       "lethal": true
     },

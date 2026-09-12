@@ -11,8 +11,8 @@
   ],
   "result": {
     "won": true,
-    "turns": 6,
-    "hpLeft": 30,
+    "turns": 5,
+    "hpLeft": 42,
     "hpMax": 82,
     "aborted": null
   },
@@ -230,7 +230,7 @@
     {
       "t": "damage",
       "targetId": "lubu-0",
-      "amount": 16,
+      "amount": 20,
       "blocked": 0,
       "lethal": false
     },
@@ -431,59 +431,6 @@
       "t": "damage",
       "targetId": "lubu-0",
       "amount": 6,
-      "blocked": 0,
-      "lethal": false
-    },
-    {
-      "t": "discard",
-      "uid": "d13"
-    },
-    {
-      "t": "discard",
-      "uid": "d24"
-    },
-    {
-      "t": "enemyMove",
-      "enemyId": "lubu-0",
-      "label": "破军"
-    },
-    {
-      "t": "damage",
-      "targetId": "player",
-      "amount": 12,
-      "blocked": 0,
-      "lethal": false
-    },
-    {
-      "t": "status",
-      "targetId": "player",
-      "status": "vulnerable",
-      "amount": 2
-    },
-    {
-      "t": "draw",
-      "uid": "d20"
-    },
-    {
-      "t": "draw",
-      "uid": "d17"
-    },
-    {
-      "t": "draw",
-      "uid": "d15"
-    },
-    {
-      "t": "draw",
-      "uid": "d10"
-    },
-    {
-      "t": "passive",
-      "label": "青龙偃月"
-    },
-    {
-      "t": "damage",
-      "targetId": "lubu-0",
-      "amount": 16,
       "blocked": 0,
       "lethal": true
     },

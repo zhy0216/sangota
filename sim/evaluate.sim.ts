@@ -150,10 +150,14 @@ function emit(section: string): void {
  * +2 张而不是 +1：单张在 16 张牌组里抽到率太低，Δ 会淹在噪声里；两张是
  * 手工扫描用过并证明能把 +21…+42 的超模拉出水面的剂量。
  */
-function measureCardRow(hero: HeroDef, cardId: string | null): { winRate: number; aborted: number } {
+function measureCardRow(hero: HeroDef, cardId: string | null): {
+  winRate: number | null; aborted: number;
+  abortExamples: { seed: string; encounter: string; reason: string; turns: number }[];
+} {
   const bosses = ACT_TABLES[0].boss.map((b) => b.id);
   let wins = 0;
   let aborted = 0;
+  const abortExamples: { seed: string; encounter: string; reason: string; turns: number }[] = [];
   for (let i = 0; i < SWEEP_N; i++) {
     const seed = `evalcard-${hero.id}-${i}`;
     const kit = buildKit(seed, ACT_PROFILES[0], hero);
@@ -171,9 +175,12 @@ function measureCardRow(hero: HeroDef, cardId: string | null): { winRate: number
       policy: POLICIES.greedy,
     });
     if (r.won) wins += 1;
-    if (r.aborted) aborted += 1;
+    if (r.aborted) {
+      aborted += 1;
+      abortExamples.push({ seed, encounter: bosses[i % bosses.length], reason: r.aborted, turns: r.turns });
+    }
   }
-  return { winRate: wins / SWEEP_N, aborted };
+  return { winRate: aborted ? null : wins / SWEEP_N, aborted, abortExamples };
 }
 
 test(`卡牌边际价值: 每卡 +2 对一幕首领, ${SWEEP_N} fights per row`, () => {
@@ -182,6 +189,7 @@ test(`卡牌边际价值: 每卡 +2 对一幕首领, ${SWEEP_N} fights per row`,
     '',
     `Δ 为对同种子基线的胜率差（百分点）。⚠ = |Δ| ≥ ${FLAG * 100}。`,
     'Δ 量的是政策打得出的价值：X 费与长线引擎牌被 greedy 低估属于已知盲区。',
+    '任一保护退出使该行无效；不按失败计入胜率，也不进入池均值。退出种子保存在 JSON。',
     '',
   ];
 
@@ -199,9 +207,10 @@ test(`卡牌边际价值: 每卡 +2 对一幕首领, ${SWEEP_N} fights per row`,
       name: string;
       pool: string;
       cost: number;
-      winRate: number;
-      dWin: number;
+      winRate: number | null;
+      dWin: number | null;
       aborted: number;
+      abortExamples: { seed: string; encounter: string; reason: string; turns: number }[];
     }[] = [];
     for (const { pool, ids } of pools) {
       for (const id of ids) {
@@ -213,28 +222,30 @@ test(`卡牌边际价值: 每卡 +2 对一幕首领, ${SWEEP_N} fights per row`,
           pool,
           cost: def.cost,
           winRate: m.winRate,
-          dWin: m.winRate - base.winRate,
+          dWin: m.winRate === null || base.winRate === null ? null : m.winRate - base.winRate,
           aborted: m.aborted,
+          abortExamples: m.abortExamples,
         });
       }
     }
-    rows.sort((a, b) => b.dWin - a.dWin);
-    REPORT.cards.push({ hero: hero.name, baseline: base.winRate, rows });
+    rows.sort((a, b) => (b.dWin ?? -Infinity) - (a.dWin ?? -Infinity));
+    REPORT.cards.push({ hero: hero.name, baseline: base.winRate, baselineAborts: base.abortExamples, rows });
 
-    lines.push(`**${hero.name}** — 基线胜率 ${pct(base.winRate)}`, '');
+    lines.push(`**${hero.name}** — 基线胜率 ${base.winRate === null ? '无效' : pct(base.winRate)}`, '');
     lines.push('| 卡 | 池 | 费 | 胜率 | Δ | |', '|---|---|---|---|---|---|');
     for (const r of rows) {
-      const flag = Math.abs(r.dWin) >= FLAG ? '⚠' : '';
+      const flag = r.dWin !== null && Math.abs(r.dWin) >= FLAG ? '⚠' : '';
       const abort = r.aborted > 0 ? ` ✕${r.aborted}` : '';
       lines.push(
-        `| ${r.name} | ${r.pool} | ${r.cost < 0 ? 'X' : r.cost} | ${pct(r.winRate)} | ${spct(r.dWin)}${abort} | ${flag} |`,
+        `| ${r.name} | ${r.pool} | ${r.cost < 0 ? 'X' : r.cost} | ${r.winRate === null ? '无效' : pct(r.winRate)} | ${r.dWin === null ? '无效' : spct(r.dWin)}${abort} | ${flag} |`,
       );
     }
     const byPool = pools
       .filter((p) => p.ids.length > 0)
       .map((p) => {
-        const sub = rows.filter((r) => r.pool === p.pool);
-        return `${p.pool} ${spct(mean(sub.map((r) => r.dWin)))}（${sub.length} 张）`;
+        const sub = rows.filter((r) => r.pool === p.pool && r.dWin !== null);
+        const invalid = p.ids.length - sub.length;
+        return `${p.pool} ${sub.length ? spct(mean(sub.map((r) => r.dWin!))) : '无效'}（${sub.length} 张有效${invalid ? `，${invalid} 张无效` : ''}）`;
       });
     lines.push('', `池均 Δ：${byPool.join('　·　')}`, '');
   }

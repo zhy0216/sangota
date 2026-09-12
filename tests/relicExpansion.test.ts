@@ -269,14 +269,14 @@ describe('稀有规则改写器', () => {
 
     playCard(state, first, enemy.id);
 
-    expect(hp - enemy.hp).toBe(22);
+    expect(hp - enemy.hp).toBe(30);
     expect(state.attacksThisTurn).toBe(1);
     expect(state.cardsPlayedThisTurn).toBe(1);
     expect(state.discardPile.filter((uid) => uid === first)).toHaveLength(1);
 
     const hp2 = enemy.hp;
     playCard(state, uidOf(state, 'wanren'), enemy.id);
-    expect(hp2 - enemy.hp).toBe(11);
+    expect(hp2 - enemy.hp).toBe(15);
   });
 
   it('春秋宝笺 draws for only two non-power exhausts per turn', () => {

@@ -328,7 +328,7 @@
     {
       "t": "damage",
       "targetId": "huaxiong-0",
-      "amount": 25,
+      "amount": 31,
       "blocked": 0,
       "lethal": false
     },

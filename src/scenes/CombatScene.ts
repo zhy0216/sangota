@@ -61,6 +61,7 @@ import {
   type SavedCombat,
 } from '../state/save';
 import { getSettings, type KeyAction } from '../state/settings';
+import { prepareTestBattle, type TestBattleConfig } from '../state/testBattle';
 import { recordSeenEnemies } from '../state/unlocks';
 import { isCardGridOpen, openCardGrid, type CardGridEntry } from '../ui/CardGrid';
 import { CARD_H, CARD_W, CardView, cardTipPanel, placeCardTipPanel, type CardTipPanel } from '../ui/CardView';
@@ -123,6 +124,8 @@ interface CombatSceneData {
   nodeId?: string;
   /** 存档 (todos/08): resume this fight rather than opening a new one. */
   resume?: SavedCombat;
+  /** A standalone test returns to its selector instead of awarding campaign spoils. */
+  testBattle?: TestBattleConfig;
 }
 
 const BASELINE_Y = 420;
@@ -224,6 +227,7 @@ export class CombatScene extends Phaser.Scene {
    * gives and the state it builds is not wanted until `create`.
    */
   private resumeFrom: SavedCombat | null = null;
+  private testBattle: TestBattleConfig | null = null;
 
   private cardViews = new Map<string, CardView>();
   /**
@@ -368,6 +372,7 @@ export class CombatScene extends Phaser.Scene {
    * here: `create` reassigns it before anything can register.)
    */
   init(data: CombatSceneData): void {
+    this.testBattle = data?.testBattle ?? null;
     this.nodeType = data?.nodeType ?? 'monster';
     this.bonusRelic = data?.bonusRelic ?? null;
     // A fight the map opened is ledgered on the map node the player is standing
@@ -589,6 +594,7 @@ export class CombatScene extends Phaser.Scene {
    * by not making them.
    */
   private saveFight(): void {
+    if (this.testBattle) return;
     writeSave(
       this.run,
       snapshotCombat(this.state, {
@@ -870,7 +876,8 @@ export class CombatScene extends Phaser.Scene {
 
     // 自定义局常驻章 (todos/23 u5)：与地图 HUD 同一句话，回合行下一行。
     if (this.run.custom) {
-      fixed(this.add.text(30, 74, '自定义 · 不计分', bodyStyle(12, C.gold)).setLetterSpacing(2));
+      const label = this.testBattle ? '测试战场 · 不计分' : '自定义 · 不计分';
+      fixed(this.add.text(this.testBattle ? 164 : 30, this.testBattle ? 84 : 74, label, bodyStyle(12, C.gold)).setLetterSpacing(2));
     }
 
     // Energy orb. Wrapped in a container so it can be scale-popped on spend —
@@ -974,6 +981,16 @@ export class CombatScene extends Phaser.Scene {
         onClick: () => openSettings(this),
       }),
     );
+
+    if (this.testBattle) {
+      fixed(inkButton(this, GAME_WIDTH - 160, 40, '重选关卡', {
+        width: 176, height: 40, fontSize: 19,
+        onClick: () => {
+          if (this.busy || this.finished || isCardGridOpen(this)) return;
+          this.leaveTestBattle(false);
+        },
+      }));
+    }
 
     this.endTurnBtn = inkButton(this, 1148, 556, '结束回合', {
       width: 186,
@@ -3481,6 +3498,10 @@ export class CombatScene extends Phaser.Scene {
    * 贪念 would collect a second time off a body already paid for.
    */
   private showVictory(resumed = false): void {
+    if (this.testBattle) {
+      this.showTestBattleResult(true);
+      return;
+    }
     if (!resumed) {
       applyCombatResult(this.run, this.state.player.hp);
       // 贪念 collects here — before the gold roll, so a curse can never eat the
@@ -3930,6 +3951,11 @@ export class CombatScene extends Phaser.Scene {
    * `SummaryScene` 接手，死因取本场最后行动的敌人名。
    */
   private showDefeat(): void {
+    if (this.testBattle) {
+      this.audio.play('player-death');
+      this.showTestBattleResult(false);
+      return;
+    }
     // 玩家死没有 death 事件（引擎只对敌人发，phase 直接落 'lost'），
     // player-death 只能在这儿接 (todos/20 b5)。
     this.audio.play('player-death');
@@ -3944,6 +3970,39 @@ export class CombatScene extends Phaser.Scene {
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
       this.scene.start('Summary', { victory: false, killedBy }),
     );
+  }
+
+  private showTestBattleResult(victory: boolean): void {
+    this.cancelAutoEnd();
+    this.dismissEndTurnConfirm();
+    const layer = this.add.container(0, 0).setDepth(DEPTH.overlay);
+    layer.add(this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, C.inkDeep, 0.82).setInteractive());
+    layer.add(inkPanel(this, 310, 206, 660, 310, { alpha: 0.96 }));
+    layer.add(this.add.text(640, 260, victory ? '测试胜利' : '测试兵败', brushStyle(42, victory ? C.goldBright : C.cinnabarBright)).setOrigin(0.5));
+    layer.add(this.add.text(640, 320, `${this.run.hero.name} · ${this.encounter.name}`, brushStyle(24, C.paper)).setOrigin(0.5));
+    layer.add(this.add.text(640, 363, `第 ${this.state.turn} 回合 · 剩余体力 ${this.state.player.hp}/${this.state.player.maxHp}`, bodyStyle(17, C.paperDim)).setOrigin(0.5));
+    layer.add(inkButton(this, 504, 442, '再试一次', {
+      width: 220, height: 54, fontSize: 25,
+      onClick: () => this.leaveTestBattle(true),
+    }));
+    layer.add(inkButton(this, 776, 442, '重选关卡', {
+      width: 220, height: 54, fontSize: 25,
+      onClick: () => this.leaveTestBattle(false),
+    }));
+  }
+
+  private leaveTestBattle(retry: boolean): void {
+    if (!this.testBattle || this.claimed) return;
+    this.claimed = true;
+    this.cancelAutoEnd();
+    this.cancelDrag();
+    const config = { ...this.testBattle };
+    if (retry) {
+      const prepared = prepareTestBattle(config);
+      this.scene.restart({ resume: prepared.combat, testBattle: config });
+    } else {
+      this.scene.start('TestBattle', { config });
+    }
   }
 
   /**

@@ -107,6 +107,22 @@ export class CustomScene extends Phaser.Scene {
     this.modsPanel = this.add.container(0, 0);
     this.paintModifiers();
 
+    inkButton(this, 1002, 528, '测试战场 · 指定关卡', {
+      width: 344,
+      height: 48,
+      fontSize: 22,
+      accent: C.jade,
+      onClick: () => {
+        if (this.leaving) return;
+        this.leaving = true;
+        this.scene.start('TestBattle', {
+          config: { seed: normaliseSeed(this.seed) ?? 'test-battle', ascension: this.ascension },
+        });
+      },
+    });
+    this.add.text(64, 514, '想直接试诸葛亮？测试战场可自由选将和关卡。', bodyStyle(16, C.gold));
+    this.add.text(64, 543, '可选初始牌组、锦囊、南征与传世构筑。', bodyStyle(13, C.paperDim));
+
     // --- 出征 ---------------------------------------------------------------
     inkButton(this, GAME_WIDTH / 2, 620, '出 征', {
       width: 236,

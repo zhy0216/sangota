@@ -38,7 +38,7 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       { kind: 'status', status: 'vulnerable', amount: 2, to: 'target' },
     ],
   },
-  wanren: { effects: [{ kind: 'damageAll', amount: 15 }] },
+  wanren: { effects: [{ kind: 'damageAll', amount: 19 }] },
   quedi: {
     effects: [
       { kind: 'block', amount: 11 },
@@ -368,7 +368,7 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   },
   xueranzhengpao: {
     effects: [
-      { kind: 'loseHp', amount: 3 },
+      { kind: 'loseHp', amount: 1 },
       { kind: 'damage', amount: 14 },
     ],
   },
@@ -446,8 +446,8 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       {
         kind: 'conditional',
         when: { c: 'attacksAtLeast', n: 2 },
-        then: [{ kind: 'damageAll', amount: 13 }],
-        otherwise: [{ kind: 'damageAll', amount: 8 }],
+        then: [{ kind: 'damageAll', amount: 16 }],
+        otherwise: [{ kind: 'damageAll', amount: 12 }],
       },
     ],
   },

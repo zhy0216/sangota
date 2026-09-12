@@ -10,6 +10,7 @@ import { InterludeScene } from './scenes/InterludeScene';
 import { SummaryScene } from './scenes/SummaryScene';
 import { CompendiumScene } from './scenes/CompendiumScene';
 import { CustomScene } from './scenes/CustomScene';
+import { TestBattleScene } from './scenes/TestBattleScene';
 import { initializeDesktop } from './platform/desktop';
 
 initializeDesktop();
@@ -51,6 +52,7 @@ const config: Phaser.Types.Core.GameConfig = {
     CompendiumScene,
     // 自定义 (todos/23 u5) 同上:标题页进出的备战屏,入口由 u6 接线。
     CustomScene,
+    TestBattleScene,
   ],
 };
 

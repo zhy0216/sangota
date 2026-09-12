@@ -125,14 +125,14 @@
     {
       "t": "damage",
       "targetId": "yellowturban-0",
-      "amount": 10,
+      "amount": 13,
       "blocked": 0,
       "lethal": false
     },
     {
       "t": "damage",
       "targetId": "yellowturban-1",
-      "amount": 10,
+      "amount": 13,
       "blocked": 0,
       "lethal": false
     },
@@ -222,13 +222,6 @@
       "targetId": "yellowturban-0",
       "amount": 3,
       "blocked": 6,
-      "lethal": false
-    },
-    {
-      "t": "damage",
-      "targetId": "yellowturban-0",
-      "amount": 9,
-      "blocked": 0,
       "lethal": false
     },
     {

@@ -11,7 +11,7 @@ import type { CombatEvent, CombatState } from '../src/combat/types';
 import { modsFor } from '../src/data/ascension';
 import type { HeroDef } from '../src/data/heroes';
 import type { DeckCard } from '../src/state/run';
-import type { Policy } from './policy';
+import type { Policy, SimAction } from './policy';
 
 /**
  * Headless combat driver. Runs the same `engine.ts` entry points the scene
@@ -69,6 +69,9 @@ export interface SimOptions {
    */
   ascension?: number;
   maxTurns?: number;
+  /** Optional read-only instrumentation; absent on all legacy/golden paths. */
+  onDecision?: (state: CombatState, action: SimAction | null) => void;
+  onPlayed?: (state: CombatState, action: SimAction) => void;
 }
 
 export interface SimResult {
@@ -78,7 +81,7 @@ export interface SimResult {
   hpMax: number;
   /** The complete event stream, which is what the golden snapshots freeze. */
   events: CombatEvent[];
-  /** Non-null means a protective bail-out fired, i.e. there is a bug. */
+  /** Protective exit: unfinished data, never a normal loss or a balance verdict. */
   aborted: 'turnLimit' | 'noProgress' | null;
 }
 
@@ -140,11 +143,13 @@ export function simulateCombat(opts: SimOptions): SimResult {
       answerChoices(state, opts.policy);
     } else {
       const action = opts.policy.chooseAction(state);
+      opts.onDecision?.(state, action);
       if (action) {
         // A rejected action is a policy bug. Deliberately not papered over by
         // ending the turn — let the no-progress detector surface it instead.
-        playCard(state, action.uid, action.targetId);
+        const played = playCard(state, action.uid, action.targetId);
         answerChoices(state, opts.policy);
+        if (played) opts.onPlayed?.(state, action);
       } else {
         endPlayerTurn(state);
         runEnemyTurn(state);

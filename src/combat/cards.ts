@@ -119,9 +119,8 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     },
   },
   /**
-   * 2026-08 新手武将调参（见 pool expansion 段的说明）：8 → 11。原 8 点对单体
-   * 是半张劈砍的效率，逐卡扫描量出 Δ胜率 −32——整个池最深的陷阱签。11 仍低于
-   * 两张劈砍的 12，单体依旧亏，群战才回本，AoE 的身份没动。
+   * 稳定单段群攻。首攻时与水淹七军的两段总伤害打平；水淹更吃神力，
+   * 此牌更少触发暴怒，并保留新账号的群攻入口。
    */
   wanren: {
     id: 'wanren',
@@ -132,8 +131,8 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
     target: 'all',
     art: 'card-wanren',
     text: '对所有敌人造成 {D} 点伤害。',
-    effects: [{ kind: 'damageAll', amount: 11 }],
-    upgrade: { effects: [{ kind: 'damageAll', amount: 15 }] },
+    effects: [{ kind: 'damageAll', amount: 15 }],
+    upgrade: { effects: [{ kind: 'damageAll', amount: 19 }] },
   },
   quedi: {
     id: 'quedi',
@@ -342,7 +341,7 @@ export const GUANYU_CARDS: Record<string, CardDef> = tagHero('guanyu', {
   },
 
   /**
-   * 12 per enemy against 万人敌's 11 for the same 气, but split in two: each hit
+   * Two smaller hits against 万人敌's single swing: each hit
    * takes 神力 separately, and each floors 怯战/破绽 on its own, so the printed
    * total is lower than 万人敌 the moment either side is scaled down.
    * （2026-08 新手武将调参：5×2 → 6×2，与万人敌同一轮抬底。）

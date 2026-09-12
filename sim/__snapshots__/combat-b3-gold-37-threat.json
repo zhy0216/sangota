@@ -38,7 +38,7 @@
     {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 14,
+      "amount": 18,
       "blocked": 0,
       "lethal": false
     },
@@ -412,15 +412,8 @@
     {
       "t": "damage",
       "targetId": "zhangbao-0",
-      "amount": 17,
+      "amount": 23,
       "blocked": 4,
-      "lethal": false
-    },
-    {
-      "t": "damage",
-      "targetId": "zhangbao-0",
-      "amount": 9,
-      "blocked": 0,
       "lethal": false
     },
     {
@@ -435,6 +428,13 @@
         "zhangbaofenshen-1",
         "zhangbaofenshen-2"
       ]
+    },
+    {
+      "t": "damage",
+      "targetId": "zhangbaofenshen-1",
+      "amount": 6,
+      "blocked": 0,
+      "lethal": false
     },
     {
       "t": "discard",

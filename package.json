@@ -21,6 +21,7 @@
     "test:watch": "vitest",
     "sim": "vitest run --config vitest.sim.config.ts --reporter=verbose",
     "eval": "vitest run --config vitest.eval.config.ts --reporter=verbose",
+    "eval:cards": "vitest run --config vitest.audit.config.ts --reporter=verbose",
     "check": "bun run typecheck && bun run test && bun run desktop:test:unit",
     "deploy": "bun run build && wrangler deploy"
   },

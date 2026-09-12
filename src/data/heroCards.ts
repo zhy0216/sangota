@@ -261,10 +261,8 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
   },
 
   /**
-   * The one unconditional big hit in the pool, and it costs 体力 rather than
-   * set-up — the escape hatch for a hand that has no combo in it. Priced off a
-   * 74 体力 pool, i.e. tighter than 关羽's 82: three 血染征袍 in a fight is a
-   * ninth of the bar.
+   * An unconditional hit bought with HP. The smaller toll keeps it usable
+   * across fights; self-damage still consumes 天佑 and can kill before the hit.
    */
   xueranzhengpao: {
     id: 'xueranzhengpao',
@@ -274,14 +272,14 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
     cost: 1,
     target: 'enemy',
     art: 'card-xueranzhengpao',
-    text: '失去 3 点体力。\n造成 {D} 点伤害。',
+    text: '失去 1 点体力。\n造成 {D} 点伤害。',
     effects: [
-      { kind: 'loseHp', amount: 3 },
+      { kind: 'loseHp', amount: 1 },
       { kind: 'damage', amount: 10 },
     ],
     upgrade: {
       effects: [
-        { kind: 'loseHp', amount: 3 },
+        { kind: 'loseHp', amount: 1 },
         { kind: 'damage', amount: 14 },
       ],
     },
@@ -563,10 +561,8 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
   },
 
   /**
-   * The pool's one AoE, and it reads the counter like everything else: 6 to the
-   * room is under 万人敌's 8 for the same 气, 10 is over — the gap is the two
-   * 攻 the turn already spent. One damage instance per enemy either way, so the
-   * face prints an honest {D}.
+   * Two-qi combo AoE: a usable cold hit, then a payoff for two earlier attacks.
+   * 拒马 retains its cheaper armour route; 常山赵子龙 has the better cold hit.
    */
   hengsaoqianjun: {
     id: 'hengsaoqianjun',
@@ -576,23 +572,23 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
     cost: 2,
     target: 'all',
     art: 'card-hengsaoqianjun',
-    text: '对所有敌人造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，改为 10 点。',
+    text: '对所有敌人造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，改为 12 点。',
     effects: [
       {
         kind: 'conditional',
         when: { c: 'attacksAtLeast', n: 2 },
-        then: [{ kind: 'damageAll', amount: 10 }],
-        otherwise: [{ kind: 'damageAll', amount: 6 }],
+        then: [{ kind: 'damageAll', amount: 12 }],
+        otherwise: [{ kind: 'damageAll', amount: 9 }],
       },
     ],
     upgrade: {
-      text: '对所有敌人造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，改为 13 点。',
+      text: '对所有敌人造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，改为 16 点。',
       effects: [
         {
           kind: 'conditional',
           when: { c: 'attacksAtLeast', n: 2 },
-          then: [{ kind: 'damageAll', amount: 13 }],
-          otherwise: [{ kind: 'damageAll', amount: 8 }],
+          then: [{ kind: 'damageAll', amount: 16 }],
+          otherwise: [{ kind: 'damageAll', amount: 12 }],
         },
       ],
     },
@@ -1720,9 +1716,8 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
   },
 
   /**
-   * 全池缺的那记单点重锤，用赵云的语法印：偃月斩 3 费 18 无条件，这张冷面
-   * 只有 15、热面 30——10/气的溢价全部由「3 攻 + 3 费同回合凑齐」支付，
-   * 实际上要一个满手回合才挥得出来。单实例、神力只吃一次、{D} 印实话。
+   * 三攻之后的单段收尾。2 气让零费 / 回气铺垫后的杀招能兑现；力斩五将
+   * 仍保留无条件多段与神力成长优势。单实例、神力只吃一次、{D} 印实话。
    * 典出穰山：高览方斩后卫，云一枪刺于马下——之前七缠八斗都是铺垫，杀招
    * 只有一下。
    */
@@ -1731,7 +1726,7 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
     name: '枪挑高览',
     type: 'attack',
     rarity: 'rare',
-    cost: 3,
+    cost: 2,
     target: 'enemy',
     art: 'card-qiangtiaogaolan',
     text: '造成 {D} 点伤害。\n若本回合已打出 3 张【攻】牌，改为 30 点。',

@@ -346,7 +346,7 @@ describe('赵云 · 连击', () => {
   it('pays 血染征袍 out of the bar', () => {
     const state = bench(['xueranzhengpao']);
     expect(hit(state, 'xueranzhengpao')).toBe(10);
-    expect(state.player.hp).toBe(77); // 80 − 3, and 护甲 does not stop it
+    expect(state.player.hp).toBe(79); // 80 − 1, and 护甲 does not stop it
   });
 
   it('only lets 单骑救主 off the leash below half 体力', () => {
