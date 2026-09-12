@@ -25,6 +25,27 @@ bun run preview
 
 执行后打开终端中显示的本地地址即可。
 
+## 桌面版（Electron）
+
+开发环境需要 Bun 和 Node.js 22.12+；玩家运行打包版无需安装这些工具。
+
+```bash
+# 桌面开发模式，支持 Vite 热更新；F12 打开开发工具
+bun run desktop:dev
+
+# 构建并运行本地离线桌面版
+bun run desktop
+
+# 打包 Windows x64，输出 release/win-unpacked/Sangota.exe
+bun run desktop:pack:win
+
+# 打包当前操作系统
+bun run desktop:pack
+```
+
+`F11` 或 `Alt+Enter` 切换全屏，游戏内「设置」也可以切换。分发时需要整个打包目录。
+存档位置、自动验证、Linux 环境说明和 Steam 上传准备见 [桌面版开发与打包](docs/desktop.md)。
+
 诸葛亮在累计通关两次后解锁，已达门槛的旧进度会自动补发。角色玩法、美术记录与专属试玩场景见 [诸葛亮 · 卧龙定计](docs/zhugeliang.md)。
 
 ## 这个项目是怎么开发的

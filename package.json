@@ -3,10 +3,17 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "main": "electron/main.cjs",
   "description": "三国杀戮尖塔 — a Three Kingdoms themed roguelike deckbuilder",
   "scripts": {
     "dev": "vite",
     "dev:scene": "bun run scripts/dev-scene.ts",
+    "desktop": "bun run build && electron .",
+    "desktop:dev": "node scripts/dev-desktop.mjs",
+    "desktop:pack": "bun run build && electron-builder --dir --publish never",
+    "desktop:pack:win": "bun run build && electron-builder --win zip --x64 --publish never",
+    "desktop:test": "bun run build && node scripts/smoke-desktop.mjs",
+    "desktop:test:unit": "node --test electron/protocol.test.cjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
@@ -14,7 +21,7 @@
     "test:watch": "vitest",
     "sim": "vitest run --config vitest.sim.config.ts --reporter=verbose",
     "eval": "vitest run --config vitest.eval.config.ts --reporter=verbose",
-    "check": "bun run typecheck && bun run test",
+    "check": "bun run typecheck && bun run test && bun run desktop:test:unit",
     "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {
@@ -22,6 +29,8 @@
   },
   "devDependencies": {
     "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "playwright": "^1.63.0",
     "typescript": "^5.7.3",
     "vite": "^6.0.11",
     "vitest": "^4.1.10",

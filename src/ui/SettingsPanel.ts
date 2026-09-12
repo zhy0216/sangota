@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C, GAME_HEIGHT, GAME_WIDTH, css } from '../config';
 import { clearSave } from '../state/save';
 import { getSettings, updateSettings, type Settings } from '../state/settings';
+import { setDesktopFullscreen } from '../platform/desktop';
 import { pinToCamera, toDesign } from './designSpace';
 import { openHistory } from './HistoryPanel';
 import { overlayDepth, pushOverlay } from './overlayStack';
@@ -77,6 +78,7 @@ function closeMark(
  * 不抛错，账照写——下次进面板开关仍如实反映账上的意愿。
  */
 function applyFullscreen(scene: Phaser.Scene, on: boolean): void {
+  if (setDesktopFullscreen(on)) return;
   if (on) {
     if (!scene.scale.isFullscreen) scene.scale.startFullscreen();
   } else if (scene.scale.isFullscreen) {
@@ -470,6 +472,10 @@ export function openSettings(scene: Phaser.Scene): void {
   scene.input.on('pointerup', onPointerUp);
   scene.input.on('pointerdown', onPointerDown);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, teardown);
+  // Native shortcuts can change fullscreen while this panel remains open.
+  const stopDesktopFullscreen = window.sangotaDesktop?.onFullscreenChange(() => {
+    if (!closed && active === 'display') showTab('display');
+  });
 
   function teardown(): void {
     if (closed) return;
@@ -479,6 +485,7 @@ export function openSettings(scene: Phaser.Scene): void {
     scene.input.off('pointerup', onPointerUp);
     scene.input.off('pointerdown', onPointerDown);
     scene.events.off(Phaser.Scenes.Events.SHUTDOWN, teardown);
+    stopDesktopFullscreen?.();
     root.destroy(true);
   }
 

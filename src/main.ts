@@ -10,6 +10,9 @@ import { InterludeScene } from './scenes/InterludeScene';
 import { SummaryScene } from './scenes/SummaryScene';
 import { CompendiumScene } from './scenes/CompendiumScene';
 import { CustomScene } from './scenes/CustomScene';
+import { initializeDesktop } from './platform/desktop';
+
+initializeDesktop();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,

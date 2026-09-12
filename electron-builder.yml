@@ -1,0 +1,27 @@
+appId: io.github.zhy0216.sangota
+productName: Sangota
+executableName: Sangota
+artifactName: '${productName}-${version}-${os}-${arch}.${ext}'
+directories:
+  output: release
+files:
+  - electron/*.cjs
+  - '!electron/*.test.cjs'
+  - package.json
+  - '!node_modules/**/*'
+# Keep individual game assets outside ASAR so Steam can patch them separately.
+extraResources:
+  - from: dist
+    to: game
+    filter:
+      - '**/*'
+asar: true
+npmRebuild: false
+win:
+  target: zip
+  signExecutable: false
+linux:
+  target: dir
+  category: Game
+mac:
+  category: public.app-category.card-games
