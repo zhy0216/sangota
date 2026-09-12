@@ -1,0 +1,435 @@
+{
+  "revision": "f6f4c01",
+  "overrides": {
+    "wanren": {
+      "id": "wanren",
+      "name": "万人敌",
+      "type": "attack",
+      "rarity": "uncommon",
+      "cost": 2,
+      "target": "all",
+      "art": "card-wanren",
+      "text": "对所有敌人造成 {D} 点伤害。",
+      "effects": [
+        {
+          "kind": "damageAll",
+          "amount": 11
+        }
+      ],
+      "upgrade": {
+        "effects": [
+          {
+            "kind": "damageAll",
+            "amount": 15
+          }
+        ]
+      },
+      "hero": "guanyu"
+    },
+    "hengsaoqianjun": {
+      "id": "hengsaoqianjun",
+      "name": "横扫千军",
+      "type": "attack",
+      "rarity": "uncommon",
+      "cost": 2,
+      "target": "all",
+      "art": "card-hengsaoqianjun",
+      "text": "对所有敌人造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，改为 10 点。",
+      "effects": [
+        {
+          "kind": "conditional",
+          "when": {
+            "c": "attacksAtLeast",
+            "n": 2
+          },
+          "then": [
+            {
+              "kind": "damageAll",
+              "amount": 10
+            }
+          ],
+          "otherwise": [
+            {
+              "kind": "damageAll",
+              "amount": 6
+            }
+          ]
+        }
+      ],
+      "upgrade": {
+        "text": "对所有敌人造成 {D} 点伤害。\n若本回合已打出 2 张【攻】牌，改为 13 点。",
+        "effects": [
+          {
+            "kind": "conditional",
+            "when": {
+              "c": "attacksAtLeast",
+              "n": 2
+            },
+            "then": [
+              {
+                "kind": "damageAll",
+                "amount": 13
+              }
+            ],
+            "otherwise": [
+              {
+                "kind": "damageAll",
+                "amount": 8
+              }
+            ]
+          }
+        ]
+      },
+      "hero": "zhaoyun"
+    },
+    "qiangtiaogaolan": {
+      "id": "qiangtiaogaolan",
+      "name": "枪挑高览",
+      "type": "attack",
+      "rarity": "rare",
+      "cost": 3,
+      "target": "enemy",
+      "art": "card-qiangtiaogaolan",
+      "text": "造成 {D} 点伤害。\n若本回合已打出 3 张【攻】牌，改为 30 点。",
+      "effects": [
+        {
+          "kind": "conditional",
+          "when": {
+            "c": "attacksAtLeast",
+            "n": 3
+          },
+          "then": [
+            {
+              "kind": "damage",
+              "amount": 30
+            }
+          ],
+          "otherwise": [
+            {
+              "kind": "damage",
+              "amount": 15
+            }
+          ]
+        }
+      ],
+      "upgrade": {
+        "text": "造成 {D} 点伤害。\n若本回合已打出 3 张【攻】牌，改为 36 点。",
+        "effects": [
+          {
+            "kind": "conditional",
+            "when": {
+              "c": "attacksAtLeast",
+              "n": 3
+            },
+            "then": [
+              {
+                "kind": "damage",
+                "amount": 36
+              }
+            ],
+            "otherwise": [
+              {
+                "kind": "damage",
+                "amount": 18
+              }
+            ]
+          }
+        ]
+      },
+      "hero": "zhaoyun"
+    },
+    "xueranzhengpao": {
+      "id": "xueranzhengpao",
+      "name": "血染征袍",
+      "type": "attack",
+      "rarity": "uncommon",
+      "cost": 1,
+      "target": "enemy",
+      "art": "card-xueranzhengpao",
+      "text": "失去 3 点体力。\n造成 {D} 点伤害。",
+      "effects": [
+        {
+          "kind": "loseHp",
+          "amount": 3
+        },
+        {
+          "kind": "damage",
+          "amount": 10
+        }
+      ],
+      "upgrade": {
+        "effects": [
+          {
+            "kind": "loseHp",
+            "amount": 3
+          },
+          {
+            "kind": "damage",
+            "amount": 14
+          }
+        ]
+      },
+      "hero": "zhaoyun"
+    },
+    "fubing": {
+      "id": "fubing",
+      "name": "伏兵",
+      "type": "skill",
+      "rarity": "common",
+      "cost": 1,
+      "target": "self",
+      "art": "card-fubing",
+      "text": "获得 {B} 点护甲。\n若消耗堆中已有 3 张牌，改为 9 点。",
+      "effects": [
+        {
+          "kind": "conditional",
+          "when": {
+            "c": "exhaustedAtLeast",
+            "n": 3
+          },
+          "then": [
+            {
+              "kind": "block",
+              "amount": 9
+            }
+          ],
+          "otherwise": [
+            {
+              "kind": "block",
+              "amount": 5
+            }
+          ]
+        }
+      ],
+      "upgrade": {
+        "text": "获得 {B} 点护甲。\n若消耗堆中已有 3 张牌，改为 12 点。",
+        "effects": [
+          {
+            "kind": "conditional",
+            "when": {
+              "c": "exhaustedAtLeast",
+              "n": 3
+            },
+            "then": [
+              {
+                "kind": "block",
+                "amount": 12
+              }
+            ],
+            "otherwise": [
+              {
+                "kind": "block",
+                "amount": 7
+              }
+            ]
+          }
+        ]
+      },
+      "hero": "zhugeliang"
+    },
+    "guanxing": {
+      "id": "guanxing",
+      "name": "观星",
+      "type": "skill",
+      "rarity": "uncommon",
+      "cost": -1,
+      "target": "self",
+      "art": "card-guanxing",
+      "text": "消耗全部气。\n每 1 点气抽 1 张牌。",
+      "effects": [
+        {
+          "kind": "scaleWithEnergy",
+          "per": [
+            {
+              "kind": "draw",
+              "amount": 1
+            }
+          ]
+        }
+      ],
+      "upgrade": {
+        "text": "消耗全部气。\n每 1 点气抽 1 张牌并获得 2 点护甲。",
+        "effects": [
+          {
+            "kind": "scaleWithEnergy",
+            "per": [
+              {
+                "kind": "draw",
+                "amount": 1
+              },
+              {
+                "kind": "block",
+                "amount": 2
+              }
+            ]
+          }
+        ]
+      },
+      "hero": "zhugeliang"
+    },
+    "jueying": {
+      "id": "jueying",
+      "name": "绝营",
+      "type": "skill",
+      "rarity": "uncommon",
+      "cost": 1,
+      "target": "all",
+      "art": "card-jueying",
+      "text": "对所有敌人施加 2 层【力竭】。",
+      "effects": [
+        {
+          "kind": "status",
+          "status": "frail",
+          "amount": 2,
+          "to": "allEnemies"
+        }
+      ],
+      "upgrade": {
+        "text": "对所有敌人施加 3 层【力竭】。",
+        "effects": [
+          {
+            "kind": "status",
+            "status": "frail",
+            "amount": 3,
+            "to": "allEnemies"
+          }
+        ]
+      },
+      "hero": "zhugeliang"
+    },
+    "wolongchushan": {
+      "id": "wolongchushan",
+      "name": "卧龙出山",
+      "type": "power",
+      "rarity": "rare",
+      "cost": 2,
+      "target": "self",
+      "art": "card-wolongchushan",
+      "text": "获得 2 层【神力】。\n将 2 张「锦囊」置入手牌。",
+      "effects": [
+        {
+          "kind": "status",
+          "status": "strength",
+          "amount": 2,
+          "to": "self"
+        },
+        {
+          "kind": "addCard",
+          "defId": "jinnang",
+          "count": 2,
+          "to": "hand"
+        }
+      ],
+      "keywords": [
+        "exhaust"
+      ],
+      "upgrade": {
+        "text": "获得 3 层【神力】。\n将 2 张「锦囊」置入手牌。",
+        "effects": [
+          {
+            "kind": "status",
+            "status": "strength",
+            "amount": 3,
+            "to": "self"
+          },
+          {
+            "kind": "addCard",
+            "defId": "jinnang",
+            "count": 2,
+            "to": "hand"
+          }
+        ]
+      },
+      "hero": "zhugeliang"
+    },
+    "qiaoshe": {
+      "id": "qiaoshe",
+      "name": "巧舌",
+      "type": "skill",
+      "rarity": "uncommon",
+      "cost": 1,
+      "target": "all",
+      "art": "card-qiaoshe",
+      "text": "对所有敌人施加 2 层【破绽】。",
+      "effects": [
+        {
+          "kind": "status",
+          "status": "vulnerable",
+          "amount": 2,
+          "to": "allEnemies"
+        }
+      ],
+      "upgrade": {
+        "text": "对所有敌人施加 3 层【破绽】。",
+        "effects": [
+          {
+            "kind": "status",
+            "status": "vulnerable",
+            "amount": 3,
+            "to": "allEnemies"
+          }
+        ]
+      },
+      "hero": "zhugeliang"
+    },
+    "huoshaotengjia": {
+      "id": "huoshaotengjia",
+      "name": "火烧藤甲",
+      "type": "attack",
+      "rarity": "rare",
+      "cost": 2,
+      "target": "enemy",
+      "art": "card-huoshaotengjia",
+      "text": "造成 {D} 点伤害。\n若消耗堆中已有 5 张牌，改为 24 点。",
+      "effects": [
+        {
+          "kind": "conditional",
+          "when": {
+            "c": "exhaustedAtLeast",
+            "n": 5
+          },
+          "then": [
+            {
+              "kind": "damage",
+              "amount": 24
+            }
+          ],
+          "otherwise": [
+            {
+              "kind": "damage",
+              "amount": 12
+            }
+          ]
+        }
+      ],
+      "keywords": [
+        "exhaust"
+      ],
+      "upgrade": {
+        "text": "造成 {D} 点伤害。\n若消耗堆中已有 5 张牌，改为 28 点。",
+        "effects": [
+          {
+            "kind": "conditional",
+            "when": {
+              "c": "exhaustedAtLeast",
+              "n": 5
+            },
+            "then": [
+              {
+                "kind": "damage",
+                "amount": 28
+              }
+            ],
+            "otherwise": [
+              {
+                "kind": "damage",
+                "amount": 14
+              }
+            ]
+          }
+        ]
+      },
+      "hero": "zhugeliang"
+    }
+  }
+}
