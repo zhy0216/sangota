@@ -78,6 +78,11 @@ const CARD_KEYS = [
   'guanxing', 'huoshaobowang', 'jianbingzengzao', 'shenjimiaosuan', 'anjupingwulu',
   'huoshaotengjia',
   'qimenbazhen', 'dongfengjitian', 'qixingxuming',
+  // 诸葛亮 · 完整牌池美术
+  'huoshi', 'duandao', 'zhangqi', 'tuntian', 'caolu', 'jimu',
+  'wuxilu', 'jueying', 'fenju', 'tuizhen', 'qiaoshe', 'liaoyuan',
+  'jiefeng', 'yangsheng', 'jingtianfa', 'huoshaoxinye', 'shangfanggu',
+  'bawangzhen', 'liufulong',
   // 诅咒与状态牌
   'tannian', 'jiushang', 'yixin', 'shemi', 'fanshi',
   'suming', 'fenying', 'chuangshang', 'xuanyun', 'nining',
@@ -108,6 +113,9 @@ const RELIC_KEYS = [
   // 2026-08 赵云宝物扩充
   'hongying', 'yamenqi', 'suzhengpao', 'changshanjunqi', 'baiying',
   'yijunyin', 'jili', 'adouqiangbao', 'deshenggu', 'longdanqiangpu',
+  // 诸葛亮 · 专属宝物美术
+  'bagualu', 'qingnangyaojuan', 'sanguzhili', 'chibitufu',
+  'jiangyuantu', 'wuhouci', 'tianwenpan',
 ] as const;
 const POTION_KEYS = [
   'huoyouguan', 'tiejiasan', 'zhuangxingjiu', 'junqingmibao', 'jiejiasan',
@@ -176,7 +184,7 @@ export class BootScene extends Phaser.Scene {
     this.makeGlowTexture();
     makeStatusIcons(this);
     // After the loader has settled, so a card with a real plate keeps it and
-    // only the ones with none — curses, status cards — get a drawn stand-in.
+    // only future cards without a shipped painting get a drawn stand-in.
     makeCardArt(this);
     if (DEV_SCENE_NAME) {
       showDevSceneBrowser(this, DEV_SCENE_NAME === DEV_SCENE_MENU ? null : DEV_SCENE_NAME);

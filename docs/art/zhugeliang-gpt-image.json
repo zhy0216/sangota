@@ -1,0 +1,274 @@
+{
+  "generator": "GPT Image via built-in image_gen",
+  "reference_policy": "Existing Zhuge Liang full figure anchors identity; existing card and relic paintings anchor style.",
+  "postprocessing": "Resize only: cards to 480x320 JPEG (quality 90), relics to 256x256 PNG.",
+  "assets": [
+    {
+      "id": "huoshi",
+      "name": "火矢",
+      "path": "public/assets/cards/huoshi.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: A single large Han-era flaming crossbow bolt streaks diagonally across a smoky night battlefield toward a distant timber palisade; sharp arrowhead, red-gold flame ribbon, sparks and bold black smoke curling behind it.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/huoji.jpg"
+      ]
+    },
+    {
+      "id": "duandao",
+      "name": "断道",
+      "path": "public/assets/cards/duandao.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: A narrow rocky mountain supply pass deliberately barricaded with felled timber and broken cart wheels; a severed rope bridge above, a small distant column of Han soldiers halted beyond the obstruction; emphasize the tactical chokepoint, no protagonist.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg"
+      ]
+    },
+    {
+      "id": "zhangqi",
+      "name": "瘴气",
+      "path": "public/assets/cards/zhangqi.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: Poisonous mist pooling through a dense southern bamboo forest; dark bent trunks, muted jade-olive haze snaking low around roots, silhouettes of Han soldiers retreating in the distance. Ominous but not graphic.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg"
+      ]
+    },
+    {
+      "id": "tuntian",
+      "name": "屯田",
+      "path": "public/assets/cards/tuntian.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: Han soldier-farmers cultivating orderly fields beside a fortified frontier camp; one ox-drawn wooden plough in the foreground, standing grain, earthen ramparts, calm morning light; sweeping ink-brush clouds tie the composition together.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg"
+      ]
+    },
+    {
+      "id": "caolu",
+      "name": "草庐",
+      "path": "public/assets/cards/caolu.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. CHARACTER ANCHOR if Zhuge Liang is present: Chinese male strategist around 40, long angular face, narrow calm dark eyes, straight brows, black moustache and long pointed black beard, tied black hair, pale silver-grey folded scholar headdress with trailing ribbons, loose pale blue-grey Han robes with muted antique-gold edging, white feather fan with brown handle, slender upright composed posture. Preserve the identity in the supplied existing hero reference. SHOT VARIABLE: Zhuge Liang at his secluded thatched cottage among bamboo, his feather fan resting beside a low table with two silk strategy pouches and a bamboo scroll; open doorway, warm lamplight, quiet thoughtful composition, three-quarter figure.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg",
+        "public/assets/heroes/zhugeliang-full.png"
+      ]
+    },
+    {
+      "id": "jimu",
+      "name": "疑冢",
+      "path": "public/assets/cards/jimu.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: A moonlit misty hillside containing several decoy earthen burial mounds and simple weathered uninscribed stone markers, fluttering pale funeral streamers, a cautious distant army fooled by the misleading paths; an atmosphere of tactical deception, no corpses.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg"
+      ]
+    },
+    {
+      "id": "wuxilu",
+      "name": "五溪",
+      "path": "public/assets/cards/wuxilu.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: An overhead-oblique southern mountain landscape with exactly five winding stream branches converging through steep wooded ravines; dark bamboo, muted jade poisonous mist gathering above the water, a small expedition lost among the banks; bold flowing ink rhythms.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg"
+      ]
+    },
+    {
+      "id": "jueying",
+      "name": "绝营",
+      "path": "public/assets/cards/jueying.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: An abandoned Han army encampment cut off from its supply road; breached timber palisade, overturned grain carts, cut banner ropes, a tattered dark banner blowing sideways in cold wind; emphasize stripped defenses and an exposed entrance.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg"
+      ]
+    },
+    {
+      "id": "fenju",
+      "name": "焚聚",
+      "path": "public/assets/cards/fenju.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: A tightly packed enemy supply depot of wooden grain carts, tied bundles and stacked barrels caught in a focused whirl of fire; black circular smoke frames a single brilliant cinnabar blaze, distant soldiers reduced to tiny fleeing silhouettes, no gore.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/huoji.jpg"
+      ]
+    },
+    {
+      "id": "tuizhen",
+      "name": "推演",
+      "path": "public/assets/cards/tuizhen.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. CHARACTER ANCHOR if Zhuge Liang is present: Chinese male strategist around 40, long angular face, narrow calm dark eyes, straight brows, black moustache and long pointed black beard, tied black hair, pale silver-grey folded scholar headdress with trailing ribbons, loose pale blue-grey Han robes with muted antique-gold edging, white feather fan with brown handle, slender upright composed posture. Preserve the identity in the supplied existing hero reference. SHOT VARIABLE: Zhuge Liang leaning over a low strategy table inside a lamplit military tent, moving one wooden marker on an unlettered parchment terrain map; two silk strategy pouches beside his white feather fan, sweeping translucent ink routes rising behind the map. Calm thoughtful face.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg",
+        "public/assets/heroes/zhugeliang-full.png"
+      ]
+    },
+    {
+      "id": "qiaoshe",
+      "name": "巧舌",
+      "path": "public/assets/cards/qiaoshe.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. CHARACTER ANCHOR if Zhuge Liang is present: Chinese male strategist around 40, long angular face, narrow calm dark eyes, straight brows, black moustache and long pointed black beard, tied black hair, pale silver-grey folded scholar headdress with trailing ribbons, loose pale blue-grey Han robes with muted antique-gold edging, white feather fan with brown handle, slender upright composed posture. Preserve the identity in the supplied existing hero reference. SHOT VARIABLE: Zhuge Liang in a three-quarter waist-up view calmly addressing an opposing military council, white fan held at chest height and one open hand making a measured argument; shadowy attentive Han commanders in the background, a sharp arc of cinnabar ink suggesting tactical persuasion.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg",
+        "public/assets/heroes/zhugeliang-full.png"
+      ]
+    },
+    {
+      "id": "liaoyuan",
+      "name": "燎原",
+      "path": "public/assets/cards/liaoyuan.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: An expansive dry grass battlefield burning in a broad sweeping fire front; flame arcs stretch across rolling hills, tiny retreating Han army silhouettes create scale, turbulent black smoke and cinnabar-gold embers form a panoramic wave.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/huoji.jpg"
+      ]
+    },
+    {
+      "id": "jiefeng",
+      "name": "借风",
+      "path": "public/assets/cards/jiefeng.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. CHARACTER ANCHOR if Zhuge Liang is present: Chinese male strategist around 40, long angular face, narrow calm dark eyes, straight brows, black moustache and long pointed black beard, tied black hair, pale silver-grey folded scholar headdress with trailing ribbons, loose pale blue-grey Han robes with muted antique-gold edging, white feather fan with brown handle, slender upright composed posture. Preserve the identity in the supplied existing hero reference. SHOT VARIABLE: Zhuge Liang standing on a rocky ridge with his feather fan lifted slightly, sleeves and headdress ribbons pulled by a powerful east wind; a sweeping spiral of black ink carries red embers from left to right toward a distant enemy camp; one full or three-quarter figure.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg",
+        "public/assets/heroes/zhugeliang-full.png"
+      ]
+    },
+    {
+      "id": "yangsheng",
+      "name": "养生",
+      "path": "public/assets/cards/yangsheng.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. CHARACTER ANCHOR if Zhuge Liang is present: Chinese male strategist around 40, long angular face, narrow calm dark eyes, straight brows, black moustache and long pointed black beard, tied black hair, pale silver-grey folded scholar headdress with trailing ribbons, loose pale blue-grey Han robes with muted antique-gold edging, white feather fan with brown handle, slender upright composed posture. Preserve the identity in the supplied existing hero reference. SHOT VARIABLE: Zhuge Liang resting upright inside a quiet pavilion, calmly brewing a small ceramic bowl of herbal tea beside a bronze lamp and folded bamboo medical scroll; fan and pale robes visible, soft warm light and sparse bamboo leaves, a protective sweeping ink wash around him.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg",
+        "public/assets/heroes/zhugeliang-full.png"
+      ]
+    },
+    {
+      "id": "jingtianfa",
+      "name": "井田法",
+      "path": "public/assets/cards/jingtianfa.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: An elevated view of a Han-era agricultural settlement with nine square field plots arranged in a clear three-by-three pattern, earth embankments and irrigation channels, soldiers stacking harvested grain safely inside a timber storehouse in the foreground; warm ochre harvest and black ink contours.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg"
+      ]
+    },
+    {
+      "id": "huoshaoxinye",
+      "name": "火烧新野",
+      "path": "public/assets/cards/huoshaoxinye.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: A fortified ancient Han town seen from outside an open city gate as a prepared fire trap ignites the EMPTY streets and timber military storehouses within; sweeping cinnabar flames, tiled roofs, swirling smoke, soldiers withdrawing outside; no civilians, no gore.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/huoji.jpg"
+      ]
+    },
+    {
+      "id": "shangfanggu",
+      "name": "上方谷",
+      "path": "public/assets/cards/shangfanggu.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. CHARACTER ANCHOR if Zhuge Liang is present: Chinese male strategist around 40, long angular face, narrow calm dark eyes, straight brows, black moustache and long pointed black beard, tied black hair, pale silver-grey folded scholar headdress with trailing ribbons, loose pale blue-grey Han robes with muted antique-gold edging, white feather fan with brown handle, slender upright composed posture. Preserve the identity in the supplied existing hero reference. SHOT VARIABLE: A steep mountain ravine transformed into a carefully prepared fire trap; towering ink-black rock walls frame enemy army banners below, timber fuel piles flare in the valley floor, a tiny Zhuge Liang with pale robe and white fan watches from a safe high ridge; vast red-gold fire and smoke.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg",
+        "public/assets/heroes/zhugeliang-full.png"
+      ]
+    },
+    {
+      "id": "bawangzhen",
+      "name": "八望阵",
+      "path": "public/assets/cards/bawangzhen.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. SHOT VARIABLE: A dramatic overhead-oblique battlefield formation with eight stone-and-banner guard positions encircling a central command point, curving paths misdirecting tiny enemy soldiers; mountain mist, black ink spiral, eight clear antique-gold highlights, restrained cinnabar signal banners. No text or magical lettering.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg"
+      ]
+    },
+    {
+      "id": "liufulong",
+      "name": "六出祁山",
+      "path": "public/assets/cards/liufulong.jpg",
+      "prompt": "Use case: style-transfer. Asset type: landscape 3:2 card illustration for the Three Kingdoms roguelike Sangota; one finished illustration, no card frame. Match the supplied existing game paintings exactly: confident black brush ink outlines, dramatic curved ink-wash strokes, warm ivory rice-paper grain, restrained ochre/gold and cinnabar red accents, painterly woodblock/comic shading, readable large silhouettes. Strong 2D hand-painted composition; no photography, 3D, glossy surfaces, anime, modern objects, text, lettering, numbers, UI, watermark, or border. Keep the principal action within the middle 80% so it remains readable at 480x320. CHARACTER ANCHOR if Zhuge Liang is present: Chinese male strategist around 40, long angular face, narrow calm dark eyes, straight brows, black moustache and long pointed black beard, tied black hair, pale silver-grey folded scholar headdress with trailing ribbons, loose pale blue-grey Han robes with muted antique-gold edging, white feather fan with brown handle, slender upright composed posture. Preserve the identity in the supplied existing hero reference. SHOT VARIABLE: Zhuge Liang commanding a northern expedition from a mountain overlook, holding his feather fan over a broad unlettered campaign map; six distant ridgelines recede beyond orderly Shu banners and marching columns, several silk strategy pouches foreground, solemn resolute posture, sweeping ink clouds.",
+      "reference_images": [
+        "public/assets/cards/longzhongdui.jpg",
+        "public/assets/cards/guanxing.jpg",
+        "public/assets/heroes/zhugeliang-full.png"
+      ]
+    },
+    {
+      "id": "bagualu",
+      "name": "八卦炉",
+      "path": "public/assets/relics/bagualu.png",
+      "prompt": "Use case: style-transfer. Asset type: square 1:1 inventory relic icon for Sangota. Match the supplied existing game relic icons precisely: a single large centered ancient Chinese object on warm ivory rice-paper grain, bold hand-drawn black ink outline and brush splatters, restrained antique gold, cinnabar red and desaturated jade accents, tactile painted shading. Object fills 70-80 percent of square with generous breathing room; clean readable silhouette at 256x256. Hand-painted 2D woodblock/comic ink style, no photorealism, 3D, modern objects, characters, text, numbers, labels, frame or watermark. Primary request: A small ancient Chinese bronze tripod furnace, bulbous dark patinated body, pierced domed lid, simple trigram-like geometric engravings, a warm cinnabar glow in its belly and one curling ink plume of smoke.",
+      "reference_images": [
+        "public/assets/relics/qimendunjia.png",
+        "public/assets/relics/guanjin.png"
+      ]
+    },
+    {
+      "id": "qingnangyaojuan",
+      "name": "青囊药卷",
+      "path": "public/assets/relics/qingnangyaojuan.png",
+      "prompt": "Use case: style-transfer. Asset type: square 1:1 inventory relic icon for Sangota. Match the supplied existing game relic icons precisely: a single large centered ancient Chinese object on warm ivory rice-paper grain, bold hand-drawn black ink outline and brush splatters, restrained antique gold, cinnabar red and desaturated jade accents, tactile painted shading. Object fills 70-80 percent of square with generous breathing room; clean readable silhouette at 256x256. Hand-painted 2D woodblock/comic ink style, no photorealism, 3D, modern objects, characters, text, numbers, labels, frame or watermark. Primary request: A partially opened bamboo medical scroll tied to a jade-green cloth medicine pouch, a small dried herb sprig tucked into the knot; unlettered scroll surface with only abstract plant sketches, black ink and muted jade.",
+      "reference_images": [
+        "public/assets/relics/qimendunjia.png",
+        "public/assets/relics/guanjin.png"
+      ]
+    },
+    {
+      "id": "sanguzhili",
+      "name": "三顾之礼",
+      "path": "public/assets/relics/sanguzhili.png",
+      "prompt": "Use case: style-transfer. Asset type: square 1:1 inventory relic icon for Sangota. Match the supplied existing game relic icons precisely: a single large centered ancient Chinese object on warm ivory rice-paper grain, bold hand-drawn black ink outline and brush splatters, restrained antique gold, cinnabar red and desaturated jade accents, tactile painted shading. Object fills 70-80 percent of square with generous breathing room; clean readable silhouette at 256x256. Hand-painted 2D woodblock/comic ink style, no photorealism, 3D, modern objects, characters, text, numbers, labels, frame or watermark. Primary request: An elegant bundle of exactly three rolled pale silk scrolls bound together with a single cinnabar ribbon and a small plain antique-gold clasp; three scroll ends clearly visible, modest respectful gift.",
+      "reference_images": [
+        "public/assets/relics/qimendunjia.png",
+        "public/assets/relics/guanjin.png"
+      ]
+    },
+    {
+      "id": "chibitufu",
+      "name": "赤壁图符",
+      "path": "public/assets/relics/chibitufu.png",
+      "prompt": "Use case: style-transfer. Asset type: square 1:1 inventory relic icon for Sangota. Match the supplied existing game relic icons precisely: a single large centered ancient Chinese object on warm ivory rice-paper grain, bold hand-drawn black ink outline and brush splatters, restrained antique gold, cinnabar red and desaturated jade accents, tactile painted shading. Object fills 70-80 percent of square with generous breathing room; clean readable silhouette at 256x256. Hand-painted 2D woodblock/comic ink style, no photorealism, 3D, modern objects, characters, text, numbers, labels, frame or watermark. Primary request: A small square bronze military talisman leaning against a curled unlettered parchment map showing a red winding river and tiny black wooden ship symbols; warm cinnabar fire flourish behind the bronze plaque.",
+      "reference_images": [
+        "public/assets/relics/qimendunjia.png",
+        "public/assets/relics/guanjin.png"
+      ]
+    },
+    {
+      "id": "jiangyuantu",
+      "name": "江源图",
+      "path": "public/assets/relics/jiangyuantu.png",
+      "prompt": "Use case: style-transfer. Asset type: square 1:1 inventory relic icon for Sangota. Match the supplied existing game relic icons precisely: a single large centered ancient Chinese object on warm ivory rice-paper grain, bold hand-drawn black ink outline and brush splatters, restrained antique gold, cinnabar red and desaturated jade accents, tactile painted shading. Object fills 70-80 percent of square with generous breathing room; clean readable silhouette at 256x256. Hand-painted 2D woodblock/comic ink style, no photorealism, 3D, modern objects, characters, text, numbers, labels, frame or watermark. Primary request: A partly unrolled antique parchment river map, one bold winding blue-green river branching from dark ink mountain peaks, dark wooden scroll rollers at both ends and a short red tie; no letters or labels.",
+      "reference_images": [
+        "public/assets/relics/qimendunjia.png",
+        "public/assets/relics/guanjin.png"
+      ]
+    },
+    {
+      "id": "wuhouci",
+      "name": "武侯祠",
+      "path": "public/assets/relics/wuhouci.png",
+      "prompt": "Use case: style-transfer. Asset type: square 1:1 inventory relic icon for Sangota. Match the supplied existing game relic icons precisely: a single large centered ancient Chinese object on warm ivory rice-paper grain, bold hand-drawn black ink outline and brush splatters, restrained antique gold, cinnabar red and desaturated jade accents, tactile painted shading. Object fills 70-80 percent of square with generous breathing room; clean readable silhouette at 256x256. Hand-painted 2D woodblock/comic ink style, no photorealism, 3D, modern objects, characters, text, numbers, labels, frame or watermark. Primary request: A miniature ancestral shrine with layered dark curved Han-style roof tiles, warm bronze-gold timber columns, a short stone stair and a single cinnabar incense bowl at the entrance; compact strong silhouette, no signboards or inscriptions.",
+      "reference_images": [
+        "public/assets/relics/qimendunjia.png",
+        "public/assets/relics/guanjin.png"
+      ]
+    },
+    {
+      "id": "tianwenpan",
+      "name": "天文盘",
+      "path": "public/assets/relics/tianwenpan.png",
+      "prompt": "Use case: style-transfer. Asset type: square 1:1 inventory relic icon for Sangota. Match the supplied existing game relic icons precisely: a single large centered ancient Chinese object on warm ivory rice-paper grain, bold hand-drawn black ink outline and brush splatters, restrained antique gold, cinnabar red and desaturated jade accents, tactile painted shading. Object fills 70-80 percent of square with generous breathing room; clean readable silhouette at 256x256. Hand-painted 2D woodblock/comic ink style, no photorealism, 3D, modern objects, characters, text, numbers, labels, frame or watermark. Primary request: A tilted bronze astronomical observation disk on a short ornate three-foot stand, nested concentric rings and a delicate pointer marking tiny gold star dots, black lacquer center, jade patina and a restrained cinnabar ribbon; no numerals or writing.",
+      "reference_images": [
+        "public/assets/relics/qimendunjia.png",
+        "public/assets/relics/guanjin.png"
+      ]
+    }
+  ]
+}

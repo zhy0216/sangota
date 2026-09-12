@@ -563,7 +563,7 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   muniuliuma: { cost: 0 },
   wolongchushan: {
     effects: [
-      { kind: 'status', status: 'strength', amount: 3, to: 'self' },
+      { kind: 'status', status: 'strength', amount: 4, to: 'self' },
       { kind: 'addCard', defId: 'jinnang', count: 2, to: 'hand' },
     ],
   },
@@ -624,13 +624,8 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
   },
   guanxing: {
     effects: [
-      {
-        kind: 'scaleWithEnergy',
-        per: [
-          { kind: 'draw', amount: 1 },
-          { kind: 'block', amount: 2 },
-        ],
-      },
+      { kind: 'draw', amount: 3 },
+      { kind: 'block', amount: 5 },
     ],
   },
   huoshaobowang: {
@@ -662,7 +657,7 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
       {
         kind: 'conditional',
         when: { c: 'exhaustedAtLeast', n: 5 },
-        then: [{ kind: 'damage', amount: 28 }],
+        then: [{ kind: 'damage', amount: 38 }],
         otherwise: [{ kind: 'damage', amount: 14 }],
       },
     ],
@@ -730,7 +725,10 @@ const UPGRADE_TABLE: Record<string, { cost?: number; effects?: Effect[] }> = {
     ],
   },
   wuxilu: { effects: [{ kind: 'status', status: 'poison', amount: 5, to: 'allEnemies' }] },
-  jueying: { effects: [{ kind: 'status', status: 'frail', amount: 3, to: 'allEnemies' }] },
+  jueying: { effects: [
+    { kind: 'status', status: 'frail', amount: 3, to: 'allEnemies' },
+    { kind: 'draw', amount: 1 },
+  ] },
   fenju: {
     effects: [
       {

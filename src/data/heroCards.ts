@@ -1760,7 +1760,7 @@ export const ZHAOYUN_CARDS: Record<string, CardDef> = {
 // -------------------------------------------------------------- 诸葛亮 · 锦囊
 
 /**
- * 诸葛亮 draws **one card fewer** every turn and has **one more 气** (羽扇), so
+ * 诸葛亮 draws **one card fewer** every turn and has **one more 气** (纶巾), so
  * his hand is short and his 气 is long — the exact inverse of 赵云. The pool
  * closes that gap by *minting* cards: 「锦囊」 is a 0 气 token that replaces
  * itself, so a hand of four with two 锦囊 in it plays like a hand of six.
@@ -2024,9 +2024,8 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
   // --- rare ----------------------------------------------------------------
 
   /**
-   * The only 神力 in the pool, and it arrives with the two cards needed to
-   * spend it — 元戎弩 and 火计 both want a flat bonus more than 关羽's swings do,
-   * because they hit twice or hit conditionally.
+   * More lasting 神力 than 六出祁山, fewer immediate 锦囊. 元戎弩's two hits
+   * make this the offensive investment; 六出 keeps the larger hand refill.
    */
   wolongchushan: {
     id: 'wolongchushan',
@@ -2036,16 +2035,16 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
     cost: 2,
     target: 'self',
     art: 'card-wolongchushan',
-    text: '获得 2 层【神力】。\n将 2 张「锦囊」置入手牌。',
+    text: '获得 3 层【神力】。\n将 2 张「锦囊」置入手牌。',
     effects: [
-      { kind: 'status', status: 'strength', amount: 2, to: 'self' },
+      { kind: 'status', status: 'strength', amount: 3, to: 'self' },
       { kind: 'addCard', defId: 'jinnang', count: 2, to: 'hand' },
     ],
     keywords: ['exhaust'],
     upgrade: {
-      text: '获得 3 层【神力】。\n将 2 张「锦囊」置入手牌。',
+      text: '获得 4 层【神力】。\n将 2 张「锦囊」置入手牌。',
       effects: [
-        { kind: 'status', status: 'strength', amount: 3, to: 'self' },
+        { kind: 'status', status: 'strength', amount: 4, to: 'self' },
         { kind: 'addCard', defId: 'jinnang', count: 2, to: 'hand' },
       ],
     },
@@ -2217,9 +2216,8 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
   },
 
   /**
-   * 火计's gate on the defensive side: 铁壁's 5 before three cards have burned,
-   * nearly double after. The common that makes the 消耗堆 a defensive stat —
-   * and the reason a 诸葛亮 deck plays its 锦囊 even on the quiet turns.
+   * A defensive reserve: weaker armour than 屯田, but retain lets the player
+   * wait for the dangerous turn or the third exhausted card.
    */
   fubing: {
     id: 'fubing',
@@ -2229,6 +2227,7 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
     cost: 1,
     target: 'self',
     art: 'card-fubing',
+    keywords: ['retain'],
     text: '获得 {B} 点护甲。\n若消耗堆中已有 3 张牌，改为 9 点。',
     effects: [
       {
@@ -2280,42 +2279,31 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
   },
 
   /**
-   * 虎牢关's shape for the hero whose 气 is long and hand is short: X 费, one
-   * card per 气. Dead on a 0 气 board and card-negative at 1, which is the
-   * cost of the flexibility — 羽扇's fourth 气 is what makes it his rather
-   * than anyone's. The upgrade adds 2 甲 per 气 rather than a card, so it
-   * never draws the hand past what the turn can spend.
+   * Fixed-cost defensive draw leaves qi to use the new hand. 木牛流马 keeps
+   * its exhaust-gated extra draw and free upgrade; 观星 buys immediate armour.
    */
   guanxing: {
     id: 'guanxing',
     name: '观星',
     type: 'skill',
     rarity: 'uncommon',
-    // X_COST. `playCard` drains 气 and `scaleWithEnergy` reads back what it spent.
-    cost: -1,
+    cost: 1,
     target: 'self',
     art: 'card-guanxing',
-    text: '消耗全部气。\n每 1 点气抽 1 张牌。',
-    effects: [{ kind: 'scaleWithEnergy', per: [{ kind: 'draw', amount: 1 }] }],
+    text: '抽 2 张牌。\n获得 {B} 点护甲。',
+    effects: [{ kind: 'draw', amount: 2 }, { kind: 'block', amount: 3 }],
     upgrade: {
-      text: '消耗全部气。\n每 1 点气抽 1 张牌并获得 2 点护甲。',
+      text: '抽 3 张牌。\n获得 {B} 点护甲。',
       effects: [
-        {
-          kind: 'scaleWithEnergy',
-          per: [
-            { kind: 'draw', amount: 1 },
-            { kind: 'block', amount: 2 },
-          ],
-        },
+        { kind: 'draw', amount: 3 },
+        { kind: 'block', amount: 5 },
       ],
     },
   },
 
   /**
-   * The pool's one repeatable AoE: 7 to the room is under 万人敌's 8 for the
-   * same 气, 11 is over — the gap is the three cards the fight has already
-   * burned. One damage instance per enemy either way, so the face prints an
-   * honest {D}.
+   * Repeatable AoE that rewards three exhausted cards. One damage instance
+   * per enemy either way, so the face prints an honest {D}.
    */
   huoshaobowang: {
     id: 'huoshaobowang',
@@ -2428,10 +2416,8 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
   },
 
   /**
-   * The 消耗 deck's finisher, and it burns like everything it counts: 12 for
-   * 2 气 is exactly rate, 24 is 火计's doubling at rare scale — five burned
-   * cards is a fight spent minting and spending 锦囊, and this is that fight's
-   * payoff. 消耗 keeps it one strike per battle: the 藤甲 only burns once.
+   * One-shot exhaust payoff. Its hot burst exceeds repeatable 焚聚; spending
+   * it before five cards burn still gives only the modest cold hit.
    */
   huoshaotengjia: {
     id: 'huoshaotengjia',
@@ -2441,23 +2427,23 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
     cost: 2,
     target: 'enemy',
     art: 'card-huoshaotengjia',
-    text: '造成 {D} 点伤害。\n若消耗堆中已有 5 张牌，改为 24 点。',
+    text: '造成 {D} 点伤害。\n若消耗堆中已有 5 张牌，改为 30 点。',
     effects: [
       {
         kind: 'conditional',
         when: { c: 'exhaustedAtLeast', n: 5 },
-        then: [{ kind: 'damage', amount: 24 }],
+        then: [{ kind: 'damage', amount: 30 }],
         otherwise: [{ kind: 'damage', amount: 12 }],
       },
     ],
     keywords: ['exhaust'],
     upgrade: {
-      text: '造成 {D} 点伤害。\n若消耗堆中已有 5 张牌，改为 28 点。',
+      text: '造成 {D} 点伤害。\n若消耗堆中已有 5 张牌，改为 38 点。',
       effects: [
         {
           kind: 'conditional',
           when: { c: 'exhaustedAtLeast', n: 5 },
-          then: [{ kind: 'damage', amount: 28 }],
+          then: [{ kind: 'damage', amount: 38 }],
           otherwise: [{ kind: 'damage', amount: 14 }],
         },
       ],
@@ -2546,7 +2532,7 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
   },
 
   // ======================================================================
-  // 2026-08 扩池 23 → 41 draftable
+  // 2026-08 扩池 23 → 42 draftable
   //
   // Appended in one block rather than filed into the rarity sections above,
   // because `HERO_CARD_POOLS` is built from this table **in declaration
@@ -2743,7 +2729,7 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
     },
   },
 
-  /** 力竭 in the round shape, for the rooms that field three shields. */
+  /** Group frail for active shield intents, with draw to offset its narrow use. */
   jueying: {
     id: 'jueying',
     name: '绝营',
@@ -2752,11 +2738,17 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
     cost: 1,
     target: 'all',
     art: 'card-jueying',
-    text: '对所有敌人施加 2 层【力竭】。',
-    effects: [{ kind: 'status', status: 'frail', amount: 2, to: 'allEnemies' }],
+    text: '对所有敌人施加 2 层【力竭】。\n抽 1 张牌。',
+    effects: [
+      { kind: 'status', status: 'frail', amount: 2, to: 'allEnemies' },
+      { kind: 'draw', amount: 1 },
+    ],
     upgrade: {
-      text: '对所有敌人施加 3 层【力竭】。',
-      effects: [{ kind: 'status', status: 'frail', amount: 3, to: 'allEnemies' }],
+      text: '对所有敌人施加 3 层【力竭】。\n抽 1 张牌。',
+      effects: [
+        { kind: 'status', status: 'frail', amount: 3, to: 'allEnemies' },
+        { kind: 'draw', amount: 1 },
+      ],
     },
   },
 
@@ -2814,15 +2806,16 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
     },
   },
 
-  /** A second 破绽 opener, priced for the turn it sets up rather than its own. */
+  /** Free one-shot opener; 离间计 keeps repeatable 破绽 + 怯战 for one qi. */
   qiaoshe: {
     id: 'qiaoshe',
     name: '巧舌',
     type: 'skill',
     rarity: 'uncommon',
-    cost: 1,
+    cost: 0,
     target: 'all',
     art: 'card-qiaoshe',
+    keywords: ['exhaust'],
     text: '对所有敌人施加 2 层【破绽】。',
     effects: [{ kind: 'status', status: 'vulnerable', amount: 2, to: 'allEnemies' }],
     upgrade: {
@@ -2904,11 +2897,11 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
     cost: 1,
     target: 'self',
     art: 'card-jingtianfa',
-    text: '每消耗一张非【势】牌，获得等量护甲。',
+    text: '每消耗一张非【势】牌，获得 2 点护甲。',
     effects: [{ kind: 'status', status: 'armory', amount: 2, to: 'self' }],
     keywords: ['exhaust'],
     upgrade: {
-      text: '每消耗一张非【势】牌，获得等量护甲。',
+      text: '每消耗一张非【势】牌，获得 3 点护甲。',
       effects: [{ kind: 'status', status: 'armory', amount: 3, to: 'self' }],
     },
   },
@@ -2999,7 +2992,7 @@ export const ZHUGELIANG_CARDS: Record<string, CardDef> = {
     },
   },
 
-  /** 势 that makes the 中毒 line a build rather than a pair of cards. */
+  /** 大量锦囊补手，少量神力助攻；与卧龙出山的持续输出投资分工。 */
   liufulong: {
     id: 'liufulong',
     name: '六出祁山',

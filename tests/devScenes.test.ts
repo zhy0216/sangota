@@ -12,6 +12,9 @@ import zhaoyunJushou from '../src/devScenes/scenes/zhaoyun-jushou';
 import zhaoyunLegendary from '../src/devScenes/scenes/zhaoyun-legendary';
 import zhaoyunQitan from '../src/devScenes/scenes/zhaoyun-qitan';
 import zhaoyunRelics from '../src/devScenes/scenes/zhaoyun-relics';
+import zhugeliangJinnang from '../src/devScenes/scenes/zhugeliang-jinnang';
+import zhugeliangNanzheng from '../src/devScenes/scenes/zhugeliang-nanzheng';
+import zhugeliangLegendary from '../src/devScenes/scenes/zhugeliang-legendary';
 
 describe('dev combat scenes', () => {
   it('lists the comprehensive scene first, followed by focused hero scenes', () => {
@@ -27,6 +30,9 @@ describe('dev combat scenes', () => {
       'zhaoyun-relics',
       'zhaoyun-jiuzhu',
       'spoils-double-drop',
+      'zhugeliang-jinnang',
+      'zhugeliang-nanzheng',
+      'zhugeliang-legendary',
     ]);
   });
 
@@ -88,6 +94,9 @@ describe('dev combat scenes', () => {
     ['zhaoyun-jushou', zhaoyunJushou, 'zhaoyun', 2],
     ['zhaoyun-relics', zhaoyunRelics, 'zhaoyun', 1],
     ['zhaoyun-jiuzhu', zhaoyunJiuzhu, 'zhaoyun', 1],
+    ['zhugeliang-jinnang', zhugeliangJinnang, 'zhugeliang', 1],
+    ['zhugeliang-nanzheng', zhugeliangNanzheng, 'zhugeliang', 1],
+    ['zhugeliang-legendary', zhugeliangLegendary, 'zhugeliang', 1],
   ] as const)('prepares focused scene %s', (key, definition, hero, enemyCount) => {
     const { run, combat } = prepareDevScene(key, definition);
     const state = restoreCombat(combat, run.mods);

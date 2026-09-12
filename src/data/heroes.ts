@@ -120,8 +120,6 @@ export const HEROES: Record<string, HeroDef> = {
     name: '诸葛亮',
     title: '卧龙 · 孔明',
     faction: '蜀',
-    // 锦囊那套还没调完——牌池上架前先关着门，见 `HeroDef.wip`。
-    wip: true,
     // The thinnest bar in the game, and the price of the extra 气. He is the
     // only hero who cannot pay 体力 for anything.
     maxHp: 68,
@@ -136,9 +134,9 @@ export const HEROES: Record<string, HeroDef> = {
     },
     mechanic: {
       name: '锦囊',
-      desc: '手牌少一张，气多一点。自造 0 气的【锦囊】补手，再让「火计」「出师表」按消耗堆发难。',
+      desc: '造零气「锦囊」过牌护身，积累消耗堆；以火计收阵，以瘴气破甲。',
     },
-    blurb: '躬耕南阳，三顾而出。羽扇纶巾，谈笑间樯橹灰飞。\n未出茅庐，已定三分天下。',
+    blurb: '躬耕南阳，三顾而出。羽扇轻摇，锦囊定计。\n六出祁山，愿以一身续汉家山河。',
     startingDeck: [
       'yuanrongnu', 'yuanrongnu', 'yuanrongnu', 'yuanrongnu', 'yuanrongnu',
       'jushou', 'jushou', 'jushou', 'jushou',

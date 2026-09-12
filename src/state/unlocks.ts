@@ -96,7 +96,11 @@ export function getUnlocks(): UnlockState {
   const stored = parsed as Partial<UnlockState> | null;
   if (stored?.version !== UNLOCKS_VERSION) return emptyUnlocks();
   // 逐字段落回白卷的默认值：老账少一个数组不至于让下面的每个 push 炸掉。
-  return { ...emptyUnlocks(), ...stored };
+  const state = { ...emptyUnlocks(), ...stored };
+  // 已达门槛的老玩家在武将上架后立即拿到他，不必再打一局触发结算。
+  // 只补武将：分数、卡牌三选一和其他进度保持原样。
+  if (grantAvailableHeroes(state).length > 0) writeUnlocks(state);
+  return state;
 }
 
 /** 写回。配额爆了或存储拒写——同 `recordRun`，不值得为此打断结算界面。 */
@@ -108,6 +112,19 @@ function writeUnlocks(state: UnlockState): void {
   } catch {
     // 空转，见上。
   }
+}
+
+/** 对账只授予已完成、且通关门槛已达到的武将；重复读取不会重复发放。 */
+function grantAvailableHeroes(state: UnlockState): string[] {
+  const added: string[] = [];
+  for (const gate of HERO_UNLOCKS) {
+    const hero = HEROES[gate.heroId];
+    if (!hero || hero.wip || state.victories < gate.victories) continue;
+    if (state.heroes.includes(gate.heroId)) continue;
+    state.heroes.push(gate.heroId);
+    added.push(gate.heroId);
+  }
+  return added;
 }
 
 // ------------------------------------------------------------------- 门牌
@@ -210,7 +227,6 @@ export function applyRunUnlocks(rec: RunRecord): RunUnlockReport {
   const state = getUnlocks();
   const newCards: string[] = [];
   const newRelics: string[] = [];
-  const newHeroes: string[] = [];
   const unlockCard = (id: string): void => {
     if (state.cards.includes(id)) return;
     state.cards.push(id);
@@ -257,16 +273,7 @@ export function applyRunUnlocks(rec: RunRecord): RunUnlockReport {
   }
 
   // ----- 武将门：按累计通关次数，全轨道逐行对账 ----------------------------
-  for (const gate of HERO_UNLOCKS) {
-    if (!(gate.heroId in HEROES)) continue; // 周瑜还没进武将表——跳过，见 unlockTracks.ts。
-    // 制作中的同样不发：结算界面许出去的人，选将界面必须点得开。跳过时账上
-    // 没记，通关数还在——旗一摘，下一次入账当场补发。
-    if (HEROES[gate.heroId].wip) continue;
-    if (state.victories < gate.victories) continue;
-    if (state.heroes.includes(gate.heroId)) continue;
-    state.heroes.push(gate.heroId);
-    newHeroes.push(gate.heroId);
-  }
+  const newHeroes = grantAvailableHeroes(state);
 
   writeUnlocks(state);
   return {

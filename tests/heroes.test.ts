@@ -38,10 +38,10 @@ describe('武将名册', () => {
     for (const [key, hero] of Object.entries(HEROES)) expect(hero.id, key).toBe(key);
   });
 
-  it('ships 关羽 and 赵云, holds 诸葛亮 back as 制作中', () => {
+  it('ships all three completed heroes', () => {
     expect(HEROES.guanyu.wip).toBeUndefined();
     expect(HEROES.zhaoyun.wip).toBeUndefined();
-    expect(HEROES.zhugeliang.wip).toBe(true);
+    expect(HEROES.zhugeliang.wip).toBeUndefined();
     // 默认武将永远选得上——他是标题页开屏就站着的那个。
     expect(DEFAULT_HERO.wip).toBeUndefined();
     // 至少留一个能选，否则选将界面无门可开。
@@ -480,7 +480,7 @@ describe('诸葛亮 · 锦囊', () => {
     expect(playCard(state, uidOf(state, 'jianbingzengzao'))).toBe(true);
     expect(resolveChoice(state, [uidOf(state, 'jushou')])).toBe(true);
     expect(state.exhaustPile).toHaveLength(5); // 隆中对、两张锦囊、激将法、据守
-    expect(hit(state, 'huoshaotengjia')).toBe(24);
+    expect(hit(state, 'huoshaotengjia')).toBe(30);
   });
 });
 

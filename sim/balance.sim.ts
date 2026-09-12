@@ -576,6 +576,7 @@ test(`per-hero balance: ${HERO_N} fights per row, every 武将`, () => {
     const band = bandFor(tier);
     const cells = heroes.map((name) => {
       const r = rows.find((x) => x.tier === tier && x.hero === name)!;
+      if (r.aborted) return `无效（${r.aborted} 次保护退出）`;
       const value = band ? metricOf(r, band.metric) : r.winRate;
       const flag = band && (value < band.lo || value > band.hi) ? ' ⚠' : '';
       return `${pct(value)}${flag}`;
@@ -589,26 +590,25 @@ test(`per-hero balance: ${HERO_N} fights per row, every 武将`, () => {
   console.log(`\n### 三将逐场 — ${HERO_N} fights per row, greedy, act-appropriate kit\n`);
   console.log(
     '每格是该 tier 的 band 指标（首领看胜率，精英看体力消耗）。⚠ = 落在带外。\n' +
-      '关羽 48 张、赵云 2026-08 扩到 48 张（枪胆防反批）；诸葛亮 2026-08-06 由 20 张\n' +
-      '扩到 39 张可抽（rare 4→8、攻 7→15），「补齐之前不对他那列调参」的封条到此\n' +
-      '解除——他现在有收尾牌了，长期存在的 诸葛亮/boss 张宝 turnLimit 中止随之消失。\n',
+      '按当前武将牌池分别评测；三名武将均已开放。\n' +
+      '保护退出不是正常败局：对应格子标为无效，不进入目标带比较。\n',
   );
   console.log(out.join('\n') + '\n');
 
   const outOfBand = rows.filter((r) => {
+    if (r.aborted) return false;
     const band = bandFor(r.tier);
     if (!band) return false;
     const value = metricOf(r, band.metric);
     return value < band.lo || value > band.hi;
   });
   const byHero = heroes.map(
-    (name) => `${name} ${outOfBand.filter((r) => r.hero === name).length}/${rows.length / heroes.length}`,
+    (name) => `${name} ${outOfBand.filter((r) => r.hero === name).length}/${rows.filter((r) => r.hero === name && !r.aborted).length}`,
   );
   console.log(`**Outside band** (per hero): ${byHero.join('　·　')}\n`);
 
-  // 关羽是本轮标定对象，所有 16 行必须完整收束。另两将池子尚未扩充，现有
-  // 诸葛亮有一个固定 seed 会与张宝形成超过 60 回合的防守僵局；把它记作
-  // loss 并保留在表里，不为一条未标定支线无限抬高全局 turnLimit。
+  // Keep the existing protective-exit gate. Long defensive fights can outlast
+  // 60 turns; their rows above are invalid, not counted as ordinary losses.
   for (const r of rows.filter((row) => row.hero === DEFAULT_HERO.name)) {
     expect(r.aborted, `${r.hero}/${r.tier}`).toBe(0);
   }
